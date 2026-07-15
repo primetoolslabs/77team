@@ -1,0 +1,172 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function profileExists() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function profile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function activeUser() {
+      return profileExists()
+        && profile().active == true
+        && profile().get('status', 'approved') == 'approved';
+    }
+
+    function owner() {
+      return activeUser() && profile().role == 'owner';
+    }
+
+    function staff() {
+      return activeUser() && profile().role == 'staff';
+    }
+
+    function editor() {
+      return owner() || staff();
+    }
+
+    function ownerRecordExists() {
+      return exists(/databases/$(database)/documents/system/owner);
+    }
+
+    function ownerRecord() {
+      return get(/databases/$(database)/documents/system/owner).data;
+    }
+
+    function registeredOwner(uid) {
+      return signedIn()
+        && request.auth.uid == uid
+        && request.auth.token.email == 'pimentelsolution1@gmail.com'
+        && ownerRecordExists()
+        && ownerRecord().uid == request.auth.uid
+        && ownerRecord().email == 'pimentelsolution1@gmail.com';
+    }
+
+    match /system/owner {
+      // O site pode verificar se o primeiro proprietário já foi configurado.
+      allow get: if true;
+      allow list: if false;
+
+      allow create: if signedIn()
+        && request.auth.token.email == 'pimentelsolution1@gmail.com'
+        && request.resource.data.uid == request.auth.uid
+        && !exists(/databases/$(database)/documents/system/owner);
+
+      allow update, delete: if owner();
+    }
+
+    match /system/{documentId} {
+      allow read: if activeUser();
+      allow write: if owner();
+    }
+
+    match /users/{uid} {
+      // Cada usuário lê o próprio perfil. Proprietário e Staff leem solicitações.
+      allow get: if signedIn()
+        && (request.auth.uid == uid || editor());
+
+      allow list: if editor();
+
+      allow create: if signedIn() && (
+        // Primeiro acesso ou recuperação do proprietário.
+        (
+          registeredOwner(uid)
+          && request.resource.data.role == 'owner'
+          && request.resource.data.active == true
+          && request.resource.data.status == 'approved'
+        )
+        ||
+        (
+          request.auth.uid == uid
+          && request.auth.token.email == 'pimentelsolution1@gmail.com'
+          && request.resource.data.role == 'owner'
+          && request.resource.data.active == true
+          && request.resource.data.status == 'approved'
+        )
+        ||
+        // Cadastro público: sempre entra pendente e sem permissão de edição.
+        (
+          request.auth.uid == uid
+          && request.resource.data.role == 'member'
+          && request.resource.data.active == false
+          && request.resource.data.status == 'pending'
+        )
+        ||
+        // Somente o proprietário cria Staff.
+        (
+          owner()
+          && request.resource.data.role == 'staff'
+          && request.resource.data.active == true
+          && request.resource.data.status == 'approved'
+        )
+      );
+
+      allow update: if owner()
+        ||
+        (
+          registeredOwner(uid)
+          && request.resource.data.role == 'owner'
+          && request.resource.data.active == true
+          && request.resource.data.status == 'approved'
+        )
+        ||
+        (
+          staff()
+          && resource.data.role == 'member'
+          && request.resource.data.role == 'member'
+          && (
+            (
+              resource.data.status == 'pending'
+              && request.resource.data.status == 'approved'
+              && request.resource.data.active == true
+              && request.resource.data.clan is string
+              && request.resource.data.memberRole in [
+                'Membros',
+                'PT TIME',
+                'PT BOOST',
+                'PT CORE'
+              ]
+            )
+            ||
+            (
+              resource.data.status == 'pending'
+              && request.resource.data.status == 'rejected'
+              && request.resource.data.active == false
+            )
+          )
+        );
+
+      // Proprietário pode remover perfis de terceiros, nunca o próprio.
+      allow delete: if owner() && uid != request.auth.uid;
+    }
+
+    // Visitantes e membros podem consultar membros, presença e ranking.
+    match /members/{memberId} {
+      allow read: if true;
+      allow create, update, delete: if editor();
+    }
+
+    match /attendance/{attendanceId} {
+      allow read: if true;
+      allow create, update, delete: if editor();
+    }
+
+    match /audit/{auditId} {
+      allow read: if owner();
+
+      allow create: if editor()
+        && request.resource.data.userId == request.auth.uid;
+
+      allow update, delete: if false;
+    }
+  }
+}

@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#070a10">
+  <meta name="color-scheme" content="dark">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="format-detection" content="telephone=no">
+  <title>77 TEAM Oficial</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="css/style.css?v=firebase-novo-1">
+</head>
+<body data-build="77-team-firebase-team-f78cd-20260715">
+
+<div id="loading" class="loading">
+  <img class="loader-brand-logo" src="assets/logo-77-team.webp" alt="Logo 77 TEAM">
+  <p>Carregando o sistema…</p>
+</div>
+
+<section id="authScreen" class="auth-screen hidden" aria-label="Acesso ao sistema">
+  <div class="auth-card">
+    <img class="auth-brand-logo" src="assets/logo-77-team.webp" alt="Logo 77 TEAM">
+    <h1>77 TEAM OFICIAL</h1>
+    <p>Gestão online de presença</p>
+
+    <form id="loginForm" class="stack">
+      <label>E-mail
+        <input id="loginEmail" type="email" autocomplete="username" required>
+      </label>
+      <label>Senha
+        <input id="loginPassword" type="password" autocomplete="current-password" minlength="6" required>
+      </label>
+      <button class="btn primary" type="submit">Entrar</button>
+    </form>
+
+    <div class="auth-actions">
+      <button id="forgotButton" class="link-button" type="button">Esqueci minha senha</button>
+    </div>
+
+    <div class="auth-divider"><span>ou</span></div>
+
+    <button id="guestButton" class="btn full" type="button">Entrar somente para visualizar</button>
+    <button id="showSignup" class="btn full" type="button">Criar conta de membro</button>
+
+    <div id="signupBox" class="auth-subbox hidden">
+      <h3>Cadastro de membro</h3>
+      <p class="small">Informe nickname, e-mail e senha. A Staff escolherá seu clã e cargo quando aprovar.</p>
+      <form id="signupForm" class="stack">
+        <label>Nickname
+          <input id="signupName" required maxlength="50">
+        </label>
+        <label>E-mail
+          <input id="signupEmail" type="email" autocomplete="email" required>
+        </label>
+        <label>Senha
+          <input id="signupPassword" type="password" minlength="6" required>
+        </label>
+        <button class="btn primary" type="submit">Enviar cadastro</button>
+      </form>
+    </div>
+
+    <div id="bootstrapBox" class="auth-subbox hidden">
+      <h3>Primeiro acesso do proprietário</h3>
+      <p class="small">Use somente se a conta do proprietário ainda não foi criada.</p>
+      <form id="bootstrapForm" class="stack">
+        <label>E-mail
+          <input id="bootstrapEmail" type="email" value="pimentelsolution1@gmail.com" readonly>
+        </label>
+        <label>Nova senha
+          <input id="bootstrapPassword" type="password" minlength="6" required>
+        </label>
+        <label>Confirmar senha
+          <input id="bootstrapConfirm" type="password" minlength="6" required>
+        </label>
+        <button class="btn primary" type="submit">Criar proprietário</button>
+      </form>
+    </div>
+
+    <button id="showBootstrap" class="link-button" type="button">Primeiro acesso</button>
+    <p class="small">A senha precisa ter no mínimo 6 caracteres.</p>
+  </div>
+</section>
+
+<div id="app" class="app hidden">
+  <div class="theme-lightning" aria-hidden="true"></div>
+  <div class="theme-watermark" aria-hidden="true"></div>
+  <div id="backdrop" class="backdrop" aria-hidden="true"></div>
+
+  <aside id="sidebar" class="sidebar">
+    <button id="closeMenu" class="close-menu" type="button" aria-label="Fechar menu">×</button>
+    <div class="brand">
+      <img class="sidebar-brand-logo" src="assets/logo-77-team.webp" alt="Logo 77 TEAM">
+      <div><b>77 TEAM</b><small>GESTÃO OFICIAL</small></div>
+    </div>
+
+    <nav id="nav" aria-label="Menu principal">
+      <button type="button" data-page="dashboard" class="active">Visão geral</button>
+      <button type="button" data-page="worldboss">Presença WorldBoss</button>
+      <button type="button" data-page="purgatorio">Presença Purgatório</button>
+      <button type="button" data-page="eventos">Presença Eventos</button>
+      <button type="button" data-page="historico">Histórico de Presença</button>
+      <button type="button" data-page="ranking">Ranking</button>
+      <button type="button" data-page="membros">Membros</button>
+      <button type="button" data-page="solicitacoes" class="editor-only">Solicitações</button>
+      <button type="button" data-page="staff" class="owner-only">Usuários Staff</button>
+      <button type="button" data-page="usuarios" class="owner-only">Administrar usuários</button>
+      <button type="button" data-page="auditoria" class="owner-only">Auditoria</button>
+    </nav>
+
+    <div class="sidebar-foot">
+      <span id="networkState">Verificando conexão…</span><br>
+      Dados sincronizados pelo Firebase.
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div class="title-row">
+        <button id="openMenu" class="btn mobile-menu" type="button" aria-label="Abrir menu">☰</button>
+        <div>
+          <h2 id="pageTitle">Visão geral</h2>
+          <p id="today"></p>
+        </div>
+      </div>
+      <div class="user-actions">
+        <span id="userBadge" class="badge">Visitante</span>
+        <button id="installButton" class="btn hidden" type="button">Instalar</button>
+        <button id="exportPdfButton" class="btn" type="button">Exportar PDF</button>
+        <button id="loginHeaderButton" class="btn hidden" type="button">Entrar</button>
+        <button id="logoutButton" class="btn danger" type="button">Sair</button>
+      </div>
+    </header>
+
+    <section id="dashboard" class="page active pro-dashboard">
+      <div class="cards dashboard-kpis">
+        <article class="card kpi"><small>Membros</small><strong id="kMembers">0</strong><em>cadastrados</em></article>
+        <article class="card kpi"><small>Presenças</small><strong id="kPresence">0</strong><em>marcações positivas</em></article>
+        <article class="card kpi"><small>Taxa geral</small><strong id="kRate">0%</strong><em>participação</em></article>
+        <article class="card kpi"><small>Destaque</small><strong id="kBest">—</strong><em id="kBestSub">sem dados</em></article>
+      </div>
+      <div id="clanCards" class="cards clan-cards"></div>
+      <div class="grid2">
+        <article class="panel">
+          <div class="panel-head"><h3>Resumo por atividade</h3></div>
+          <div id="activitySummary" class="panel-body"></div>
+        </article>
+        <article class="panel">
+          <div class="panel-head"><h3>Top participação</h3></div>
+          <div id="topRanking" class="panel-body"></div>
+        </article>
+      </div>
+    </section>
+
+    <section id="worldboss" class="page">
+      <div class="notice">Horários: 10H, 12H, 20H, 22H e 00H. Clique para alternar entre presente, ausente e não marcado.</div>
+      <div class="panel">
+        <div class="panel-head responsive-head">
+          <h3>Presença WorldBoss</h3>
+          <div class="filters">
+            <button class="btn" type="button" data-week-change="-1" data-kind="worldboss">‹</button>
+            <span id="worldbossWeekLabel" class="week-label"></span>
+            <button class="btn" type="button" data-week-change="1" data-kind="worldboss">›</button>
+            <input id="worldbossSearch" placeholder="Pesquisar jogador ou clã">
+            <select id="worldbossClan"></select>
+          </div>
+        </div>
+        <div class="panel-body table-scroll"><table id="worldbossTable"></table></div>
+      </div>
+    </section>
+
+    <section id="purgatorio" class="page">
+      <div class="notice">Horários: 06H, 12H, 18H e 00H. Clique para alternar entre presente, ausente e não marcado.</div>
+      <div class="panel">
+        <div class="panel-head responsive-head">
+          <h3>Presença Purgatório</h3>
+          <div class="filters">
+            <button class="btn" type="button" data-week-change="-1" data-kind="purgatorio">‹</button>
+            <span id="purgatorioWeekLabel" class="week-label"></span>
+            <button class="btn" type="button" data-week-change="1" data-kind="purgatorio">›</button>
+            <input id="purgatorioSearch" placeholder="Pesquisar jogador ou clã">
+            <select id="purgatorioClan"></select>
+          </div>
+        </div>
+        <div class="panel-body table-scroll"><table id="purgatorioTable"></table></div>
+      </div>
+    </section>
+
+    <section id="eventos" class="page">
+      <div class="notice">Quarta: Guerra de Vale. Quinta: Defesa de Crista e Evento de Vale. Sexta: Saque de Castelo.</div>
+      <div class="panel">
+        <div class="panel-head responsive-head">
+          <h3>Presença Eventos</h3>
+          <div class="filters">
+            <button class="btn" type="button" data-week-change="-1" data-kind="eventos">‹</button>
+            <span id="eventosWeekLabel" class="week-label"></span>
+            <button class="btn" type="button" data-week-change="1" data-kind="eventos">›</button>
+            <input id="eventosSearch" placeholder="Pesquisar jogador ou clã">
+            <select id="eventosClan"></select>
+          </div>
+        </div>
+        <div class="panel-body table-scroll"><table id="eventosTable"></table></div>
+      </div>
+    </section>
+
+    <section id="historico" class="page">
+      <div class="panel">
+        <div class="panel-head responsive-head">
+          <h3>Histórico de Presença</h3>
+          <div class="filters wide">
+            <input id="historySearch" placeholder="Pesquisar jogador, evento ou clã">
+            <select id="historyType">
+              <option value="">Todos os tipos</option>
+              <option value="WorldBoss">WorldBoss</option>
+              <option value="Purgatório">Purgatório</option>
+              <option value="Evento">Evento</option>
+            </select>
+            <select id="historyClan"></select>
+          </div>
+        </div>
+        <div class="panel-body table-scroll">
+          <table>
+            <thead><tr><th>Data</th><th>Tipo</th><th>Evento/Horário</th><th>Jogador</th><th>Clã</th><th>Cargo</th><th>Status</th><th>Alterado por</th></tr></thead>
+            <tbody id="historyRows"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="ranking" class="page">
+      <div class="panel">
+        <div class="panel-head responsive-head">
+          <h3>Ranking geral</h3>
+          <div class="filters wide">
+            <input id="rankingSearch" placeholder="Pesquisar jogador ou clã">
+            <select id="rankingClan"></select>
+          </div>
+        </div>
+        <div class="panel-body table-scroll">
+          <table>
+            <thead><tr><th>#</th><th>Jogador</th><th>Clã</th><th>Cargo</th><th>Presenças</th><th>Faltas</th><th>Taxa</th></tr></thead>
+            <tbody id="rankingRows"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="membros" class="page">
+      <div class="panel">
+        <div class="panel-head responsive-head">
+          <h3>Membros</h3>
+          <div class="filters wide">
+            <input id="memberSearch" placeholder="Pesquisar membro ou clã">
+            <select id="memberClanFilter"></select>
+          </div>
+        </div>
+        <div class="panel-body">
+          <form id="memberForm" class="form-grid editor-only">
+            <input id="memberName" placeholder="Nickname" required maxlength="50">
+            <select id="memberRole"></select>
+            <select id="memberClan"></select>
+            <button class="btn primary" type="submit">Adicionar membro</button>
+          </form>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>#</th><th>Nickname</th><th>Cargo</th><th>Clã</th><th>Ações</th></tr></thead>
+              <tbody id="memberRows"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="solicitacoes" class="page editor-only">
+      <div class="panel">
+        <div class="panel-head"><h3>Solicitações de cadastro</h3></div>
+        <div class="panel-body table-scroll">
+          <table>
+            <thead><tr><th>Nickname</th><th>E-mail</th><th>Clã</th><th>Cargo</th><th>Status</th><th>Ações</th></tr></thead>
+            <tbody id="requestRows"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="staff" class="page owner-only">
+      <div class="panel">
+        <div class="panel-head"><h3>Usuários Staff</h3></div>
+        <div class="panel-body">
+          <form id="staffForm" class="form-grid">
+            <input id="staffName" placeholder="Nome" required>
+            <input id="staffEmail" type="email" placeholder="E-mail" required>
+            <input id="staffPassword" type="password" minlength="6" placeholder="Senha inicial" required>
+            <button class="btn primary" type="submit">Criar Staff</button>
+          </form>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Status</th><th>Ação</th></tr></thead>
+              <tbody id="staffRows"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <section id="usuarios" class="page owner-only">
+      <div class="notice">
+        Aqui você pode bloquear, desbloquear, redefinir o cadastro, remover o perfil do Firestore
+        e enviar recuperação de senha. A exclusão definitiva de outra conta do Firebase Authentication
+        exige Firebase Admin SDK ou exclusão manual no Console.
+      </div>
+      <div class="panel">
+        <div class="panel-head responsive-head">
+          <h3>Administração de usuários</h3>
+          <div class="filters wide">
+            <input id="userAdminSearch" placeholder="Pesquisar nome ou e-mail">
+            <select id="userAdminStatus">
+              <option value="">Todos os status</option>
+              <option value="approved">Aprovado</option>
+              <option value="pending">Pendente</option>
+              <option value="rejected">Rejeitado</option>
+              <option value="blocked">Bloqueado</option>
+            </select>
+          </div>
+        </div>
+        <div class="panel-body table-scroll">
+          <table>
+            <thead>
+              <tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Status</th><th>Clã</th><th>Ações</th></tr>
+            </thead>
+            <tbody id="userAdminRows"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="auditoria" class="page owner-only">
+      <div class="panel">
+        <div class="panel-head"><h3>Auditoria</h3></div>
+        <div class="panel-body table-scroll">
+          <table>
+            <thead><tr><th>Data</th><th>Usuário</th><th>Ação</th><th>Detalhes</th></tr></thead>
+            <tbody id="auditRows"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<!-- Navegação funciona mesmo se o Firebase estiver indisponível -->
+
+<script>
+window.addEventListener("DOMContentLoaded", function () {
+  window.setTimeout(function () {
+    var loading = document.getElementById("loading");
+    var auth = document.getElementById("authScreen");
+    if (loading && !loading.classList.contains("hidden")) {
+      loading.innerHTML =
+        '<div style="max-width:620px;padding:24px;text-align:center">' +
+        '<h2>Não foi possível carregar o sistema</h2>' +
+        '<p>Atualize com Ctrl+Shift+R. Se continuar, verifique a conexão e os arquivos js no GitHub.</p>' +
+        '<button onclick="location.reload()" style="padding:10px 14px">Tentar novamente</button>' +
+        '</div>';
+    }
+  }, 8000);
+});
+</script>
+
+<script src="js/ui.js?v=firebase-novo-1"></script>
+<script type="module" src="js/app.js?v=firebase-novo-1"></script>
+</body>
+</html>
