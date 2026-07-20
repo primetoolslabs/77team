@@ -1,7 +1,20 @@
-# 77 TEAM Manager V20.9 🟢 Stable
+# 77 TEAM Manager — V21.0 🟢 Stable
+
+## Novidades da V21.0
+
+- Navegação principal simplificada em HOME, STAFF, ADMINISTRAÇÃO e AVANÇADO.
+- Menu interno persistente em todas as categorias, seguindo o padrão de Configurações.
+- Menu principal permanece visível durante a navegação.
+- Breadcrumb automático para indicar a categoria e a página atual.
+- Sobre permanece fixo acima do botão Sair.
+- Permissões e funcionalidades da V20.9 foram preservadas.
+
+---
+
+# 77 TEAM Manager V21.0 🟢 Stable
 
 
-## Novidades da V20.9
+## Novidades da V21.0
 
 - A antiga categoria **GESTÃO** foi substituída por **STAFF**.
 - Presenças e Consultar Registros foram movidos para o Hub STAFF.

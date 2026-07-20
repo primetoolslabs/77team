@@ -66,53 +66,11 @@
 <span>PAINEL DE CONTROLE</span>
 </div>
 </div>
-<nav aria-label="Menu principal" class="sidebar-nav-v13" id="nav">
-<div class="nav-group nav-group-open" data-nav-group="home">
-<button aria-expanded="true" class="nav-group-toggle" type="button">
-<span class="category-icon">🏠</span><span class="nav-group-title">HOME</span><span class="category-arrow">⌄</span>
-</button>
-<div class="nav-group-items">
-<button class="active" data-page="dashboard"><span class="menu-icon">⌂</span><span class="menu-label">Visão Geral</span></button>
-<button data-page="meu-perfil"><span class="menu-icon">◉</span><span class="menu-label">Meu Perfil</span></button>
-<button data-page="membros"><span class="menu-icon">♟</span><span class="menu-label">Membros</span><span class="nav-badge" id="sidebarMembersBadge">0</span></button>
-<button data-page="historico"><span class="menu-icon">◷</span><span class="menu-label">Histórico</span></button>
-<button data-page="ranking"><span class="menu-icon">♜</span><span class="menu-label">Ranking</span></button>
-<button data-page="calendario"><span class="menu-icon">▦</span><span class="menu-label">Calendário</span></button>
-<button data-page="estatisticas"><span class="menu-icon">▥</span><span class="menu-label">Estatísticas</span></button>
-</div>
-</div>
-<div class="nav-group editor-only nav-hub-group" data-nav-group="staff-hub">
-<button class="nav-hub-link editor-only" data-page="staff-hub" type="button">
-<span class="category-icon">👥</span><span class="nav-group-title">STAFF</span><span class="category-arrow">›</span>
-</button>
-</div>
-<div class="nav-group owner-only" data-nav-group="administracao">
-<button aria-expanded="false" class="nav-group-toggle" type="button">
-<span class="category-icon">🛡️</span><span class="nav-group-title">ADMINISTRAÇÃO</span><span class="category-arrow">›</span>
-</button>
-<div class="nav-group-items">
-<button class="owner-only" data-page="staff"><span class="menu-icon">✦</span><span class="menu-label">Staff</span></button>
-<button class="owner-only" data-page="configuracoes"><span class="menu-icon">⚙</span><span class="menu-label">Configurações</span></button>
-<button class="owner-only" data-page="auditoria"><span class="menu-icon">▤</span><span class="menu-label">Auditoria</span></button>
-</div>
-</div>
-<div class="nav-group owner-only" data-nav-group="avancado">
-<button aria-expanded="false" class="nav-group-toggle" type="button">
-<span class="category-icon">🚀</span><span class="nav-group-title">AVANÇADO</span><span class="category-arrow">›</span>
-</button>
-<div class="nav-group-items">
-<button class="owner-only" data-page="atualizacoes"><span class="menu-icon">🚀</span><span class="menu-label">Atualizações</span></button>
-<button class="owner-only" data-page="backup"><span class="menu-icon">💾</span><span class="menu-label">Backup e restauração</span></button>
-<button class="owner-only" data-page="logs-sistema"><span class="menu-icon">📋</span><span class="menu-label">Logs do sistema</span></button>
-<button class="owner-only" data-page="status-firebase"><span class="menu-icon">📊</span><span class="menu-label">Status do Firebase</span></button>
-<button class="owner-only" data-page="status-github"><span class="menu-icon">🌐</span><span class="menu-label">Status do GitHub</span></button>
-<button class="owner-only" data-page="sessoes"><span class="menu-icon">👥</span><span class="menu-label">Sessões conectadas</span></button>
-<button class="owner-only" data-page="manutencao"><span class="menu-icon">⚙️</span><span class="menu-label">Modo manutenção</span></button>
-<button class="owner-only" data-page="status-servicos"><span class="menu-icon">🟢</span><span class="menu-label">Status dos serviços</span></button>
-<button class="owner-only" data-page="limpeza-cache"><span class="menu-icon">🧹</span><span class="menu-label">Limpeza de cache</span></button>
-<button class="owner-only" data-page="estatisticas-sistema"><span class="menu-icon">📈</span><span class="menu-label">Estatísticas do sistema</span></button>
-</div>
-</div>
+<nav aria-label="Menu principal" class="sidebar-nav-v13 main-category-nav" id="nav">
+<button class="main-category-link active" data-page="dashboard" data-category="home" type="button"><span class="category-icon">🏠</span><span class="nav-group-title">HOME</span><span class="category-arrow">›</span></button>
+<button class="main-category-link editor-only" data-page="presencas" data-category="staff" type="button"><span class="category-icon">👥</span><span class="nav-group-title">STAFF</span><span class="category-arrow">›</span></button>
+<button class="main-category-link owner-only" data-page="staff" data-category="administracao" type="button"><span class="category-icon">🛡️</span><span class="nav-group-title">ADMINISTRAÇÃO</span><span class="category-arrow">›</span></button>
+<button class="main-category-link owner-only" data-page="atualizacoes" data-category="avancado" type="button"><span class="category-icon">🚀</span><span class="nav-group-title">AVANÇADO</span><span class="category-arrow">›</span></button>
 </nav>
 <div class="sidebar-v13-footer">
 <button class="sidebar-about-v152" data-page-jump="sobre" type="button"><span class="menu-icon">ℹ️</span><span class="menu-label">Sobre</span></button>
@@ -125,7 +83,7 @@
 <button aria-label="Abrir menu" class="menu-toggle" id="menuButton" type="button">☰</button>
 <div>
 <h2>Bem-vindo, <span id="welcomeName">Visitante</span>!</h2>
-<p>Gestão completa da 77 TEAM <span class="manager-version-badge">Manager</span><span class="stable-badge" id="systemVersion">v20.9</span></p>
+<p>Gestão completa da 77 TEAM <span class="manager-version-badge">Manager</span><span class="stable-badge" id="systemVersion">v21.0</span></p>
 </div>
 </div>
 <div class="topbar-center">
@@ -150,6 +108,14 @@
 <button class="hidden" id="logoutButton" type="button">Sair</button>
 </div>
 </header>
+<aside class="module-navigation" id="moduleNavigation" aria-label="Menu da categoria">
+  <div class="module-navigation-head">
+    <span id="moduleCategoryIcon">🏠</span>
+    <div><strong id="moduleCategoryTitle">HOME</strong><small>Navegação da categoria</small></div>
+  </div>
+  <nav class="module-navigation-list" id="moduleNavigationList"></nav>
+</aside>
+<div class="module-breadcrumb" id="moduleBreadcrumb">HOME &gt; Visão Geral</div>
 <section class="page active dashboard-enterprise" id="dashboard">
 <div class="enterprise-kpis">
 <article class="enterprise-kpi kpi-blue">

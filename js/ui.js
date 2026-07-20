@@ -36,6 +36,10 @@
     const sidebar=$("#sidebar");
     if(sidebar)sidebar.classList.remove("open");
 
+    if(typeof window.syncModuleNavigation==="function"){
+      window.syncModuleNavigation(page);
+    }
+
     if(page==="configuracoes"){
       requestAnimationFrame(()=>activateSettingsTab(
         $("#settingsNav [data-settings-tab].active")?.dataset.settingsTab || "general"
@@ -156,6 +160,61 @@
     filterSettings
   };
 })();
+
+/* V21.0 — menu interno persistente para todas as categorias */
+(function installUnifiedModuleNavigation(){
+  const categories={
+    home:{title:"HOME",icon:"🏠",defaultPage:"dashboard",items:[
+      ["dashboard","📊","Visão Geral"],["meu-perfil","👤","Meu Perfil"],["membros","👥","Membros"],["historico","📜","Histórico"],["ranking","📈","Ranking"],["calendario","📅","Calendário"],["estatisticas","📊","Estatísticas"]
+    ]},
+    staff:{title:"STAFF",icon:"👥",defaultPage:"presencas",role:"editor",items:[
+      ["presencas","📅","Presenças"],["personagens","⚔️","Personagens"],["solicitacoes","📥","Solicitações"],["notificacoes","🔔","Notificações"],["atendimento","🎧","Atendimento"],["chat","💬","Chat Privado"],["registros","📁","Consultar Registros"],["metas","🎯","Metas"]
+    ]},
+    administracao:{title:"ADMINISTRAÇÃO",icon:"🛡️",defaultPage:"staff",role:"owner",items:[
+      ["staff","👥","Staff"],["configuracoes","⚙️","Configurações"],["auditoria","📜","Auditoria"]
+    ]},
+    avancado:{title:"AVANÇADO",icon:"🚀",defaultPage:"atualizacoes",role:"owner",items:[
+      ["atualizacoes","🚀","Atualizações"],["backup","💾","Backup e restauração"],["logs-sistema","📋","Logs do sistema"],["status-firebase","🔥","Status do Firebase"],["status-github","🌐","Status do GitHub"],["sessoes","👥","Sessões conectadas"],["manutencao","⚙️","Modo manutenção"],["status-servicos","🟢","Status dos serviços"],["limpeza-cache","🧹","Limpeza de cache"],["estatisticas-sistema","📈","Estatísticas do sistema"]
+    ]},
+    sobre:{title:"SOBRE",icon:"ℹ️",defaultPage:"sobre",items:[["sobre","ℹ️","Sobre"]]}
+  };
+  const pageCategory={};
+  Object.entries(categories).forEach(([key,category])=>category.items.forEach(item=>pageCategory[item[0]]=key));
+
+  function allowedCategory(key){
+    const category=categories[key];
+    if(category.role==="owner" && typeof owner==="function")return owner();
+    if(category.role==="editor" && typeof editor==="function")return editor();
+    return true;
+  }
+
+  function sync(page){
+    const key=pageCategory[page]||"home";
+    const category=categories[key];
+    if(!category)return;
+    const title=document.getElementById("moduleCategoryTitle");
+    const icon=document.getElementById("moduleCategoryIcon");
+    const list=document.getElementById("moduleNavigationList");
+    const breadcrumb=document.getElementById("moduleBreadcrumb");
+    if(title)title.textContent=category.title;
+    if(icon)icon.textContent=category.icon;
+    if(list){
+      list.innerHTML=category.items.map(([id,itemIcon,label])=>`<button type="button" data-page-jump="${id}" class="${id===page?'active':''}"><span>${itemIcon}</span><span>${label}</span></button>`).join("");
+    }
+    const current=category.items.find(item=>item[0]===page);
+    if(breadcrumb)breadcrumb.textContent=`${category.title} > ${current?.[2]||category.title}`;
+    document.querySelectorAll("#nav [data-category]").forEach(button=>{
+      const active=button.dataset.category===key;
+      button.classList.toggle("active",active);
+      button.setAttribute("aria-current",active?"page":"false");
+    });
+    const moduleNav=document.getElementById("moduleNavigation");
+    if(moduleNav)moduleNav.classList.toggle("hidden",!allowedCategory(key));
+  }
+  window.syncModuleNavigation=sync;
+  document.addEventListener("DOMContentLoaded",()=>sync(document.querySelector(".page.active")?.id||"dashboard"));
+})();
+
 (function installSidebarV13(){
   if(window.__sidebarV13Installed)return;window.__sidebarV13Installed=true;
   const sidebar=document.getElementById("sidebar"),collapseButton=document.getElementById("collapseSidebarButton");
