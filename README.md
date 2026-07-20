@@ -1,4 +1,4 @@
-## V21.0.1 — Ajuste global de layout
+## V21.1 — Ajuste global de layout
 
 - Removido o contorno externo do menu interno em todas as páginas.
 - Eliminada a barra de rolagem horizontal causada pelo deslocamento lateral.
@@ -6,9 +6,9 @@
 - Tabelas largas continuam com rolagem apenas dentro do próprio componente.
 - Mantida a navegação responsiva em desktop, tablet e celular.
 
-# 77 TEAM Manager — V21.0.1 🟢 Stable
+# 77 TEAM Manager — V21.1 🟢 Stable
 
-## Novidades da V21.0.1
+## Novidades da V21.1
 
 - Navegação principal simplificada em HOME, STAFF, ADMINISTRAÇÃO e AVANÇADO.
 - Menu interno persistente em todas as categorias, seguindo o padrão de Configurações.
@@ -19,10 +19,10 @@
 
 ---
 
-# 77 TEAM Manager V21.0.1 🟢 Stable
+# 77 TEAM Manager V21.1 🟢 Stable
 
 
-## Novidades da V21.0.1
+## Novidades da V21.1
 
 - A antiga categoria **GESTÃO** foi substituída por **STAFF**.
 - Presenças e Consultar Registros foram movidos para o Hub STAFF.
@@ -921,3 +921,13 @@ Publique `firestore.rules` e `storage.rules` desta versão para habilitar as men
 - Somente essa aba permite registrar ou atualizar presenças.
 - O RT Presença foi removido do menu lateral e continua sendo atualizado internamente.
 - Histórico, Ranking, Estatísticas e Auditoria continuam recebendo os dados automaticamente.
+
+
+## V21.1 — Modo manutenção global
+
+- Nova tela em **Avançado > Modo manutenção** exclusiva do DEV.
+- Botão para bloquear o acesso de Membros, Staff e Liderança.
+- Somente contas com cargo **DEV** conseguem acessar durante a manutenção.
+- Mensagem personalizada exibida diretamente na tela de login.
+- Entrada como visitante e criação de conta ficam ocultas enquanto a manutenção estiver ativa.
+- Usuários comuns com sessão aberta são desconectados quando a configuração é sincronizada.

@@ -4646,3 +4646,15 @@ body.sidebar-collapsed .main > .page{
     margin-left:0!important;
   }
 }
+
+/* V21.1 — Modo manutenção global */
+.maintenance-login-alert{width:100%;box-sizing:border-box;margin:14px 0;padding:14px 16px;border:1px solid rgba(255,184,77,.42);border-radius:12px;background:rgba(255,153,0,.09);text-align:left}
+.maintenance-login-alert strong{display:block;color:#ffc266;font-size:1rem;margin-bottom:5px}
+.maintenance-login-alert p{margin:0;color:#ddd5e7;line-height:1.45}
+body.maintenance-active #guestButton,body.maintenance-active #toggleSignup,body.maintenance-active #signupBox{display:none!important}
+.maintenance-status-card{display:flex;align-items:center;gap:12px;padding:14px 16px;margin-bottom:18px;border:1px solid var(--line,#2b2438);border-radius:12px;background:rgba(255,255,255,.025)}
+.maintenance-status-card small{display:block;margin-top:3px;color:var(--muted,#9f96ad)}
+.maintenance-status-dot{width:12px;height:12px;border-radius:50%;background:#49d17d;box-shadow:0 0 12px rgba(73,209,125,.45);flex:none}
+.maintenance-status-dot.active{background:#ff9f43;box-shadow:0 0 12px rgba(255,159,67,.55)}
+.maintenance-preview{margin:14px 0 18px;padding:14px 16px;border-left:3px solid #ff9f43;background:rgba(255,159,67,.07);border-radius:0 10px 10px 0}
+.maintenance-preview p{margin:6px 0 0;color:var(--muted,#b0a6bc)}
