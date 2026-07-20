@@ -4551,3 +4551,125 @@ body[data-screen="loading"] > :not(#loading):not(#toast){
 body.sidebar-collapsed .main>.page{margin-left:265px}
 @media(max-width:980px){.module-navigation{position:relative;top:auto;bottom:auto;left:auto!important;width:auto;margin:0 0 14px;padding:10px}.module-navigation-head{padding:5px 5px 10px}.module-navigation-list{display:flex;overflow-x:auto;padding-bottom:3px}.module-navigation-list button{min-width:max-content}.module-breadcrumb,.main>.page,body.sidebar-collapsed .main>.page{margin-left:0}}
 @media(max-width:620px){.module-navigation-head small{display:none}.module-navigation-list button{padding:9px 10px}.module-breadcrumb{font-size:.7rem}}
+
+/* ============================================================
+   V21.0.1 — CORREÇÃO GLOBAL DE BORDAS E OVERFLOW
+   Remove o contorno externo dos menus internos, elimina a barra
+   horizontal e ajusta todas as páginas à largura útil da janela.
+   ============================================================ */
+html,
+body{
+  width:100%;
+  max-width:100%;
+  overflow-x:hidden!important;
+}
+
+#app.app{
+  width:100%!important;
+  max-width:100%!important;
+  overflow-x:hidden!important;
+}
+
+#app > main.main{
+  min-width:0!important;
+  max-width:100%!important;
+  min-height:100dvh!important;
+  overflow-x:hidden!important;
+}
+
+/* Menu interno integrado ao fundo, sem moldura arredondada externa. */
+.module-navigation{
+  top:86px!important;
+  bottom:0!important;
+  padding:14px 14px 24px!important;
+  border:0!important;
+  border-right:1px solid rgba(255,255,255,.07)!important;
+  border-radius:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  scrollbar-width:thin;
+}
+
+/* O deslocamento lateral agora desconta a largura do menu interno. */
+.module-breadcrumb,
+.main > .page,
+body.sidebar-collapsed .main > .page{
+  width:calc(100% - 265px)!important;
+  max-width:calc(100% - 265px)!important;
+  box-sizing:border-box!important;
+}
+
+.module-breadcrumb{
+  margin-left:265px!important;
+}
+
+.main > .page{
+  margin-left:265px!important;
+  overflow-x:clip;
+}
+
+/* Painéis e tabelas respeitam a área disponível sem aumentar a página. */
+.main > .page > *,
+.panel,
+.card,
+.table-wrap,
+.presence-grid,
+.settings-shell,
+.staff-hub-shell{
+  max-width:100%;
+  min-width:0;
+}
+
+.table-wrap,
+.presence-grid{
+  overflow-x:auto;
+  overscroll-behavior-x:contain;
+}
+
+.app-footer{
+  max-width:100%;
+  overflow:hidden;
+}
+
+@media(max-width:980px){
+  .module-navigation{
+    border-right:0!important;
+    border-bottom:1px solid rgba(255,255,255,.07)!important;
+    padding:10px!important;
+  }
+
+  .module-breadcrumb,
+  .main > .page,
+  body.sidebar-collapsed .main > .page{
+    width:100%!important;
+    max-width:100%!important;
+    margin-left:0!important;
+  }
+}
+
+/* V21.1 — Modo manutenção global */
+.maintenance-login-alert{width:100%;box-sizing:border-box;margin:14px 0;padding:14px 16px;border:1px solid rgba(255,184,77,.42);border-radius:12px;background:rgba(255,153,0,.09);text-align:left}
+.maintenance-login-alert strong{display:block;color:#ffc266;font-size:1rem;margin-bottom:5px}
+.maintenance-login-alert p{margin:0;color:#ddd5e7;line-height:1.45}
+body.maintenance-active #guestButton,body.maintenance-active #toggleSignup,body.maintenance-active #signupBox{display:none!important}
+.maintenance-status-card{display:flex;align-items:center;gap:12px;padding:14px 16px;margin-bottom:18px;border:1px solid var(--line,#2b2438);border-radius:12px;background:rgba(255,255,255,.025)}
+.maintenance-status-card small{display:block;margin-top:3px;color:var(--muted,#9f96ad)}
+.maintenance-status-dot{width:12px;height:12px;border-radius:50%;background:#49d17d;box-shadow:0 0 12px rgba(73,209,125,.45);flex:none}
+.maintenance-status-dot.active{background:#ff9f43;box-shadow:0 0 12px rgba(255,159,67,.55)}
+.maintenance-preview{margin:14px 0 18px;padding:14px 16px;border-left:3px solid #ff9f43;background:rgba(255,159,67,.07);border-radius:0 10px 10px 0}
+.maintenance-preview p{margin:6px 0 0;color:var(--muted,#b0a6bc)}
+
+/* V21.3 - retorno e robustez do login */
+#loginButton:disabled{opacity:.68;cursor:wait;filter:saturate(.65)}
+.login-feedback{display:block;min-height:18px;margin-top:-4px;color:#bdb2c8;text-align:center;font-size:12px}
+.login-feedback.error{color:#ff9da8}
+
+/* V22.0 — diagnóstico e estabilidade do login */
+.diagnostic-summary{grid-template-columns:repeat(4,minmax(0,1fr));margin-bottom:18px}
+.diagnostic-summary .card{min-height:112px;display:flex;flex-direction:column;justify-content:center;gap:10px}
+.diagnostic-summary .card span{color:var(--muted,#9aa0b4);font-size:.82rem;text-transform:uppercase;letter-spacing:.05em}
+.diagnostic-summary .card strong{font-size:1rem;line-height:1.4;overflow-wrap:anywhere}
+#loginFeedback.error{color:#ff8d96}
+#loginButton:disabled{cursor:wait;opacity:.75}
+@media(max-width:900px){.diagnostic-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.diagnostic-summary{grid-template-columns:1fr}}
