@@ -186,7 +186,33 @@ $("#setupForm").onsubmit=async e=>{
   }catch(e){toast(errMsg(e))}
 };
 
-$("#loginForm").onsubmit=async e=>{e.preventDefault();try{await signInWithEmailAndPassword(auth,$("#loginEmail").value.trim(),$("#loginPassword").value)}catch(e2){toast(errMsg(e2))}};
+function setLoginFeedback(message="",isError=false){
+  const feedback=byId("loginFeedback");
+  if(feedback){feedback.textContent=message;feedback.classList.toggle("error",!!isError)}
+}
+function setLoginBusy(busy){
+  const button=byId("loginButton");
+  if(button){button.disabled=busy;button.textContent=busy?"Entrando...":"Entrar"}
+}
+async function handleLoginSubmit(event){
+  event?.preventDefault();
+  const email=String(byId("loginEmail")?.value||"").trim().toLowerCase();
+  const password=String(byId("loginPassword")?.value||"");
+  if(!email||!password){setLoginFeedback("Informe o e-mail e a senha.",true);return}
+  setLoginBusy(true);
+  setLoginFeedback("Verificando acesso...");
+  try{
+    await signInWithEmailAndPassword(auth,email,password);
+    setLoginFeedback("Login validado. Carregando painel...");
+  }catch(error){
+    console.error("Falha no login:",error);
+    const message=errMsg(error);
+    setLoginFeedback(message,true);
+    toast(message);
+    setLoginBusy(false);
+  }
+}
+on("loginForm","submit",handleLoginSubmit);
 $("#toggleSignup").onclick=()=>$("#signupBox").classList.toggle("hidden");
 $("#guestButton").onclick=()=>{state.guest=true;state.profile={role:"guest",name:"Visitante"};showOnly("app");applyPermissions();subscribePublic()};
 
@@ -206,15 +232,59 @@ $("#signupForm").onsubmit=async e=>{
 $("#sidebarLogout").onclick=()=>$("#logoutButton").click();
 $("#logoutButton").onclick=async()=>{clearSubs();if(state.guest){state.guest=false;showOnly("authScreen")}else await signOut(auth)};
 
+function normalizedAccountStatus(profile={}){
+  const status=String(profile.status??"").trim().toLowerCase();
+  const activeValue=profile.active;
+  const explicitlyInactive=activeValue===false||String(activeValue).toLowerCase()==="false";
+  const pending=["pending","pendente","aguardando","waiting"].includes(status);
+  const rejected=["rejected","rejeitado","recusado","blocked","bloqueado","inactive","inativo"].includes(status);
+  const approved=["approved","aprovado","ativo","active"].includes(status);
+  return {explicitlyInactive,pending,rejected,approved,status};
+}
+async function ensureUserProfile(user){
+  const userRef=doc(db,"users",user.uid);
+  const snapshot=await getDoc(userRef);
+  if(snapshot.exists())return {id:user.uid,...snapshot.data()};
+  // Recuperação segura: cria somente um perfil pendente vinculado ao próprio UID.
+  const fallback={
+    name:user.displayName||String(user.email||"").split("@")[0]||"Usuário",
+    email:String(user.email||"").toLowerCase(),
+    role:"member",memberRole:"Membros",active:false,status:"pending",
+    firstLogin:true,profileCompleted:false,createdAt:serverTimestamp(),recoveredAt:serverTimestamp()
+  };
+  try{
+    await setDoc(userRef,fallback);
+    return {id:user.uid,...fallback,__recovered:true};
+  }catch(error){
+    console.error("Não foi possível recuperar o perfil ausente:",error);
+    return null;
+  }
+}
+
 onAuthStateChanged(auth,async user=>{
   if(state.guest)return;
   state.user=user;
   if(!user){if(await ownerExists())showOnly("authScreen");return}
   try{
-    const snap=await getDoc(doc(db,"users",user.uid));
-    if(!snap.exists()){await signOut(auth);return toast("Perfil não encontrado.");}
-    state.profile={id:user.uid,...snap.data()};
-    if(state.profile.active===false||state.profile.status==="pending"){await signOut(auth);return toast("Conta ainda não aprovada.");}
+    state.profile=await ensureUserProfile(user);
+    if(!state.profile){
+      await signOut(auth);
+      setLoginBusy(false);
+      setLoginFeedback("Conta autenticada, mas o perfil não pôde ser carregado. Solicite ao DEV a sincronização do usuário.",true);
+      return toast("Perfil do usuário não encontrado no Firestore.");
+    }
+    const accountStatus=normalizedAccountStatus(state.profile);
+    if(accountStatus.explicitlyInactive||accountStatus.pending||accountStatus.rejected||state.profile.__recovered){
+      await signOut(auth);
+      setLoginBusy(false);
+      const message=state.profile.__recovered
+        ?"A conta foi recuperada e enviada para aprovação do DEV."
+        :accountStatus.rejected
+          ?"Esta conta está bloqueada ou foi recusada."
+          :"Conta ainda não aprovada.";
+      setLoginFeedback(message,true);
+      return toast(message);
+    }
     if(!state.maintenanceChecked)await loadPublicMaintenance();
     if(maintenanceEnabled()&&!owner()){
       const message=maintenanceMessage();
@@ -226,6 +296,7 @@ onAuthStateChanged(auth,async user=>{
     }
     // Compatibilidade: contas antigas sem os campos de primeiro acesso continuam liberadas.
     state.onboardingRequired=state.profile.profileCompleted===false || state.profile.firstLogin===true;
+    setLoginBusy(false);setLoginFeedback("");
     showOnly("app");applyPermissions();subscribeAll();
     if(state.onboardingRequired){
       requestAnimationFrame(()=>{
@@ -235,7 +306,11 @@ onAuthStateChanged(auth,async user=>{
         toast("Complete seu perfil para liberar o sistema.");
       });
     }
-  }catch(e){toast(errMsg(e));showOnly("authScreen")}
+  }catch(e){
+    console.error("Erro ao concluir login:",e);
+    const message=errMsg(e);
+    setLoginBusy(false);setLoginFeedback(message,true);toast(message);showOnly("authScreen")
+  }
 });
 
 function applyPermissions(){

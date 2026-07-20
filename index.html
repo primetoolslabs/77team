@@ -5,10 +5,10 @@
 <meta charset="utf-8"/>
 <meta content="width=device-width,initial-scale=1,viewport-fit=cover" name="viewport"/>
 <meta content="#09070f" name="theme-color"/>
-<title>77 TEAM Manager 20.0</title>
+<title>77 TEAM Manager 21.3</title>
 <link href="manifest.json" rel="manifest"/>
 <link href="icons/icon-192.png" rel="icon"/>
-<link href="css/style.css?v=20.2" rel="stylesheet"/>
+<link href="css/style.css?v=21.3" rel="stylesheet"/>
 </head>
 <body>
 <div class="loading" id="loading">
@@ -37,7 +37,8 @@
 <form class="stack" id="loginForm">
 <label>E-mail<input id="loginEmail" required="" type="email"/></label>
 <label>Senha<input id="loginPassword" minlength="6" required="" type="password"/></label>
-<button class="btn primary" type="submit">Entrar</button>
+<button class="btn primary" id="loginButton" type="submit">Entrar</button>
+<small aria-live="polite" class="login-feedback" id="loginFeedback"></small>
 </form>
 <button class="btn full" id="guestButton" type="button">Entrar como visitante</button>
 <button class="btn full" id="toggleSignup" type="button">Criar conta de membro</button>
@@ -1285,7 +1286,7 @@
 </div>
 <div class="global-search-results hidden" id="globalSearchResults"></div>
 <div class="toast" id="toast"></div>
-<script src="js/ui.js?v=20.7"></script>
-<script src="js/main.js?v=20.7" type="module"></script>
+<script src="js/ui.js?v=21.3"></script>
+<script src="js/main.js?v=21.3" type="module"></script>
 </body>
 </html>

@@ -1,4 +1,17 @@
-# V21.2 — Correção do acesso DEV no modo manutenção
+# V21.3 🟢 Stable
+
+## Correções de login
+
+- Botão **Entrar** com manipulador de envio mais robusto, estado de carregamento e mensagem visível.
+- Normalização automática do e-mail antes da autenticação.
+- Compatibilidade com status antigos em português e inglês.
+- Recuperação segura de contas existentes no Firebase Authentication sem documento em `users`; o perfil é recriado como pendente para aprovação do DEV.
+- Mensagens específicas para conta pendente, bloqueada, perfil ausente e credenciais inválidas.
+- O botão é reativado automaticamente após qualquer falha.
+
+---
+
+# V21.3 — Correção do acesso DEV no modo manutenção
 
 - O cargo DEV agora é reconhecido independentemente de maiúsculas, minúsculas e nomes legados como `owner`, `developer` e `proprietário`.
 - O DEV permanece conectado ao ativar ou desativar o modo manutenção.

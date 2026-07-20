@@ -4658,3 +4658,8 @@ body.maintenance-active #guestButton,body.maintenance-active #toggleSignup,body.
 .maintenance-status-dot.active{background:#ff9f43;box-shadow:0 0 12px rgba(255,159,67,.55)}
 .maintenance-preview{margin:14px 0 18px;padding:14px 16px;border-left:3px solid #ff9f43;background:rgba(255,159,67,.07);border-radius:0 10px 10px 0}
 .maintenance-preview p{margin:6px 0 0;color:var(--muted,#b0a6bc)}
+
+/* V21.3 - retorno e robustez do login */
+#loginButton:disabled{opacity:.68;cursor:wait;filter:saturate(.65)}
+.login-feedback{display:block;min-height:18px;margin-top:-4px;color:#bdb2c8;text-align:center;font-size:12px}
+.login-feedback.error{color:#ff9da8}
