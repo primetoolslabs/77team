@@ -41,7 +41,9 @@ function toast(msg){const el=$("#toast");el.textContent=msg;el.classList.add("sh
 function errMsg(e){return ({'auth/invalid-credential':'E-mail ou senha incorretos.','auth/email-already-in-use':'Este e-mail já existe.','auth/weak-password':'A senha precisa ter pelo menos 6 caracteres.','permission-denied':'Permissão negada. Publique o firestore.rules novo.'})[e?.code]||`${e?.code||'erro'}: ${e?.message||'Falha inesperada'}`}
 function showOnly(id){document.body.dataset.screen=id;["loading","setupScreen","authScreen","app"].forEach(x=>$("#"+x).classList.toggle("hidden",x!==id))}
 
-function accessRoleFromMemberRole(memberRole){
+function accessRoleFromMemberRole(memberRole, explicitAccessRole=""){
+  const explicit=normalizeAccessRole(explicitAccessRole);
+  if(["dev","leadership","staff"].includes(explicit))return explicit;
   return memberRole==="Staff"?"staff":"member";
 }
 
@@ -1053,6 +1055,27 @@ Um registro será salvo em Gestão → RT Presença.`))return;
         updatedAt:serverTimestamp()
       },{merge:true});
       await batch.commit();
+
+      // Atualização otimista: aplica cor, etiqueta e permissões sem aguardar
+      // o próximo snapshot do Firestore.
+      Object.assign(user,{
+        role:nextAccess,
+        accessRole:nextAccess,
+        memberRole:nextMemberRole,
+        resolvedAccessRole:nextAccess
+      });
+      Object.assign(member,{
+        role:nextMemberRole,
+        accessRole:nextAccess,
+        userId:user.id
+      });
+      if(user.id===state.user?.uid){
+        Object.assign(state.profile,user);
+        state.profile.resolvedAccessRole=nextAccess;
+        applyAccessControl();
+      }
+      render();
+
       await audit("cargo de membro alterado",`${member.name} · ${currentLabel} → ${nextLabel}`);
       toast(`Cargo de ${member.name} alterado para ${nextLabel}.`);
     }catch(error){
@@ -3224,18 +3247,31 @@ async function syncLinkedAccountRoles(){
       const user=linkedUserForMember(member);
       if(!user||user.role==="owner")continue;
 
-      const desiredRole=accessRoleFromMemberRole(member.role);
-      const currentAccess=member.accessRole||user.role;
+      // O cargo de acesso salvo em users é a fonte oficial. O cargo do membro
+      // (Membros, PT TIME, PT BOOST, PT CORE) não pode rebaixar Liderança/DEV.
+      const userAccess=resolveAccessRole(user);
+      const memberAccess=normalizeAccessRole(member.accessRole);
+      const desiredRole=["dev","leadership","staff"].includes(userAccess)
+        ? userAccess
+        : accessRoleFromMemberRole(member.role,member.accessRole);
+      const desiredMemberRole=memberRoleFromAccessRole(desiredRole,member.role||user.memberRole||"Membros");
 
-      if(user.role===desiredRole&&currentAccess===desiredRole)continue;
+      if(
+        resolveAccessRole(user)===desiredRole &&
+        normalizeAccessRole(member.accessRole)===desiredRole &&
+        (user.memberRole||desiredMemberRole)===desiredMemberRole
+      )continue;
 
       const batch=writeBatch(db);
       batch.update(doc(db,"users",user.id),{
         role:desiredRole,
-        memberRole:member.role,
-        roleUpdatedAt:serverTimestamp()
+        accessRole:desiredRole,
+        memberRole:desiredMemberRole,
+        roleUpdatedAt:serverTimestamp(),
+        updatedAt:serverTimestamp()
       });
       batch.set(doc(db,"members",member.id),{
+        role:desiredMemberRole,
         userId:user.id,
         accessRole:desiredRole,
         updatedAt:serverTimestamp()

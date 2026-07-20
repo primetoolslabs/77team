@@ -1,12 +1,4 @@
-
-## Correção V21.2.1
-
-- Corrigida a leitura do cargo Liderança em contas antigas.
-- O sistema agora prioriza `accessRole`, `systemRole`, `permissionRole`, `userRole` e `cargo` antes de usar `role`.
-- Cores, menus e permissões são aplicados pelo cargo normalizado.
-- Alterações de cargo passam a salvar `role` e `accessRole` de forma sincronizada.
-- Compatibilidade mantida com `Liderança`, `lideranca`, `leadership`, `líder` e variações.
-# 77 TEAM Manager — V21.2.1 🟢 Stable
+# 77 TEAM Manager — V21.2 🟢 Stable
 
 - Modo manutenção informativo em **Avançado**.
 - Todos continuam com acesso normal.
@@ -940,7 +932,7 @@ Publique `firestore.rules` e `storage.rules` desta versão para habilitar as men
 - O RT Presença foi removido do menu lateral e continua sendo atualizado internamente.
 - Histórico, Ranking, Estatísticas e Auditoria continuam recebendo os dados automaticamente.
 
-## V21.2.1 🟢 Stable — Cargos, permissões e cores
+## V21.2 🟢 Stable — Cargos, permissões e cores
 
 - Cargos oficiais padronizados: **DEV**, **Liderança**, **Staff** e **Membro**.
 - Compatibilidade automática com nomes antigos de cargos (owner, proprietário, liderança e variações).
@@ -952,3 +944,13 @@ Publique `firestore.rules` e `storage.rules` desta versão para habilitar as men
 - Cores globais: DEV vermelho, Liderança roxo, Staff amarelo e Membro azul.
 - Nova tela **Avançado > Cargos e permissões**.
 - Regras do Firestore revisadas para permitir leitura da Auditoria pela Liderança sem conceder alteração.
+
+
+## V21.2.2 — Correção definitiva da alteração de cargos
+
+- Corrigido o sincronizador que rebaixava automaticamente o cargo Liderança para Membro.
+- O campo de acesso da conta em `users` passou a ser a fonte oficial das permissões.
+- `members.role` continua representando apenas o cargo de jogo/grupo do membro.
+- Alterações de cargo atualizam `role`, `accessRole` e `memberRole` de forma consistente.
+- Cor, etiqueta, menus e permissões são atualizados imediatamente após salvar.
+- Preservada a compatibilidade com contas antigas.
