@@ -69,15 +69,38 @@ const ROLE_CONFIG=Object.freeze({
 });
 
 function normalizeAccessRole(role){
-  const value=String(role||"member").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+  const value=String(role||"").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
   if(["dev","developer","desenvolvedor","owner","proprietario","administrador","admin"].includes(value))return "dev";
-  if(["leadership","lideranca","lider","leader"].includes(value))return "leadership";
+  if(["leadership","lideranca","lider","leader","lideranca staff","lideranca/staff"].includes(value))return "leadership";
   if(["staff","moderador","moderator"].includes(value))return "staff";
   if(["guest","visitante"].includes(value))return "guest";
   return "member";
 }
+function resolveAccessRole(profile){
+  if(!profile)return "member";
+  // Contas de versões antigas podem guardar o acesso em accessRole/cargo,
+  // enquanto role contém apenas o cargo do membro (Membros, PT TIME etc.).
+  const candidates=[
+    profile.accessRole,
+    profile.systemRole,
+    profile.permissionRole,
+    profile.userRole,
+    profile.cargo,
+    profile.role
+  ];
+  for(const candidate of candidates){
+    const raw=String(candidate||"").trim();
+    if(!raw)continue;
+    const normalized=normalizeAccessRole(raw);
+    const folded=raw.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+    if(normalized!=="member" || ["member","membro","membros","pt time","pt boost","pt core"].includes(folded)){
+      if(normalized!=="member")return normalized;
+    }
+  }
+  return "member";
+}
 function accessRoleLabel(role){return ROLE_CONFIG[normalizeAccessRole(role)]?.label||"Membro"}
-function currentAccessRole(){return state.guest?"guest":normalizeAccessRole(state.profile?.role)}
+function currentAccessRole(){return state.guest?"guest":resolveAccessRole(state.profile)}
 function owner(){return currentAccessRole()==="dev"}
 function leadership(){return currentAccessRole()==="leadership"}
 function staff(){return currentAccessRole()==="staff"}
@@ -87,7 +110,7 @@ function hasRoleLevel(level){return (ROLE_CONFIG[currentAccessRole()]?.level||0)
 function canManageAcceptedMember(member,user){
   if(!editor()||!member||!user||user.status!=="approved"||user.active===false)return false;
   if(user.id===state.user?.uid)return false;
-  const target=normalizeAccessRole(user.role);
+  const target=resolveAccessRole(user);
   if(owner())return true;
   if(leadership())return target==="staff"||target==="member";
   return staff()&&target==="member";
@@ -105,7 +128,7 @@ function allowedCargoOptions(member,user){
   return MEMBER_ROLES.map(value=>({value:`member:${value}`,label:value}));
 }
 function selectedCargoValue(member,user){
-  const role=normalizeAccessRole(user?.role);
+  const role=resolveAccessRole(user);
   return role==="member"?`member:${member?.role||user?.memberRole||"Membros"}`:role;
 }
 
@@ -217,6 +240,7 @@ onAuthStateChanged(auth,async user=>{
     const snap=await getDoc(doc(db,"users",user.uid));
     if(!snap.exists()){await signOut(auth);return toast("Perfil não encontrado.");}
     state.profile={id:user.uid,...snap.data()};
+    state.profile.resolvedAccessRole=resolveAccessRole(state.profile);
     if(state.profile.active===false||state.profile.status==="pending"){await signOut(auth);return toast("Conta ainda não aprovada.");}
     // Compatibilidade: contas antigas sem os campos de primeiro acesso continuam liberadas.
     state.onboardingRequired=state.profile.profileCompleted===false || state.profile.firstLogin===true;
@@ -237,6 +261,7 @@ function applyPermissions(){
   $$(".admin-only").forEach(el=>el.classList.toggle("hidden",!administrator()));
   $$(".editor-only").forEach(el=>el.classList.toggle("hidden",!editor()));
   document.body.dataset.accessRole=currentAccessRole();
+  document.body.dataset.rawAccessRole=String(state.profile?.accessRole||state.profile?.role||"");
   document.querySelectorAll("[data-save-settings]").forEach(button=>button.classList.toggle("hidden",!owner()));
   document.querySelectorAll("#configuracoes input,#configuracoes select,#configuracoes textarea").forEach(field=>field.disabled=!owner());
 
@@ -327,7 +352,7 @@ function subscribeAll(){
   if(editor()){
     state.unsubs.push(onSnapshot(collection(db,"rtPresence"),snapshot=>{state.rtPresence=snapshot.docs.map(d=>({id:d.id,...d.data()}));renderRtPresence();},error=>console.error("Falha ao carregar RT Presença:",error)));
   }else state.rtPresence=[];
-  if(editor())state.unsubs.push(onSnapshot(collection(db,"users"),s=>{state.users=s.docs.map(d=>({id:d.id,...d.data()}));render();scheduleAttendanceUserMigration();scheduleAccountRoleSync()}));
+  if(editor())state.unsubs.push(onSnapshot(collection(db,"users"),s=>{state.users=s.docs.map(d=>{const user={id:d.id,...d.data()};return {...user,resolvedAccessRole:resolveAccessRole(user)}});render();scheduleAttendanceUserMigration();scheduleAccountRoleSync()}));
   if(owner())state.unsubs.push(onSnapshot(collection(db,"audit"),s=>{state.audit=s.docs.map(d=>({id:d.id,...d.data()}));render()}));
   if(editor())state.unsubs.push(onSnapshot(collection(db,"xpLogs"),s=>{state.xpLogs=s.docs.map(d=>({id:d.id,...d.data()}));render()}));
   state.unsubs.push(onSnapshot(collection(db,"events"),s=>{state.events=s.docs.map(d=>({id:d.id,...d.data()}));render()}));
@@ -1002,7 +1027,7 @@ Um registro será salvo em Gestão → RT Presença.`))return;
     const allowed=allowedCargoOptions(member,user);
     if(!allowed.some(option=>option.value===chosen))return toast("Cargo inválido para o seu nível de acesso.");
 
-    const currentAccess=normalizeAccessRole(user.role);
+    const currentAccess=resolveAccessRole(user);
     const nextAccess=chosen.startsWith("member:")?"member":chosen;
     const nextMemberRole=chosen.startsWith("member:")?chosen.slice(7):memberRoleFromAccessRole(nextAccess,member.role);
     if(currentAccess===nextAccess && (nextAccess!=="member"||nextMemberRole===member.role))return toast("O membro já possui esse cargo.");
@@ -1015,6 +1040,7 @@ Um registro será salvo em Gestão → RT Presença.`))return;
       const batch=writeBatch(db);
       batch.update(doc(db,"users",user.id),{
         role:nextAccess,
+        accessRole:nextAccess,
         memberRole:nextMemberRole,
         roleUpdatedAt:serverTimestamp(),
         roleUpdatedBy:state.user.uid,
@@ -1053,7 +1079,7 @@ Um registro será salvo em Gestão → RT Presença.`))return;
     try{
       const batch=writeBatch(db);
       batch.update(doc(db,"users",u.id),{
-        role:accessRole,active:true,status:"approved",clan,memberRole,
+        role:accessRole,accessRole,active:true,status:"approved",clan,memberRole,
         approvedAt:serverTimestamp(),roleUpdatedAt:serverTimestamp(),
         roleUpdatedBy:state.user.uid,updatedAt:serverTimestamp()
       });
