@@ -1,0 +1,1291 @@
+<!DOCTYPE html>
+
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width,initial-scale=1,viewport-fit=cover" name="viewport"/>
+<meta content="#09070f" name="theme-color"/>
+<title>77 TEAM Manager 20.0</title>
+<link href="manifest.json" rel="manifest"/>
+<link href="icons/icon-192.png" rel="icon"/>
+<link href="css/style.css?v=20.2" rel="stylesheet"/>
+</head>
+<body>
+<div class="loading" id="loading">
+<img alt="77 TEAM" src="assets/logo-77-team-vertical.webp"/>
+<p>Inicializando sistema...</p>
+</div>
+<section class="screen center hidden" id="setupScreen">
+<div class="setup-card">
+<img alt="77 TEAM" class="setup-logo" src="assets/logo-77-team-vertical.webp"/>
+<h1>Configurar sistema</h1>
+<p>Como este Firebase ainda não possui um DEV, crie agora a conta principal.</p>
+<form class="stack" id="setupForm">
+<label>Nome do DEV<input id="setupName" required="" value="Prime Tools Labs"/></label>
+<label>E-mail<input id="setupEmail" required="" type="email" value="primetoolslabs@gmail.com"/></label>
+<label>Senha<input id="setupPassword" minlength="6" required="" type="password"/></label>
+<label>Confirmar senha<input id="setupConfirm" minlength="6" required="" type="password"/></label>
+<button class="btn primary" type="submit">Criar DEV</button>
+</form>
+</div>
+</section>
+<section class="screen center hidden" id="authScreen">
+<div class="auth-card">
+<img alt="77 TEAM" class="auth-logo" src="assets/logo-77-team-v14-3-2.webp?v=20.2"/>
+<h1>77 TEAM MANAGER</h1>
+<p>Gestão de presença</p>
+<form class="stack" id="loginForm">
+<label>E-mail<input id="loginEmail" required="" type="email"/></label>
+<label>Senha<input id="loginPassword" minlength="6" required="" type="password"/></label>
+<button class="btn primary" type="submit">Entrar</button>
+</form>
+<button class="btn full" id="guestButton" type="button">Entrar como visitante</button>
+<button class="btn full" id="toggleSignup" type="button">Criar conta de membro</button>
+<div class="subbox hidden" id="signupBox">
+<h3>Cadastro de membro</h3>
+<p>O clã e o cargo serão definidos pela Staff.</p>
+<form class="stack" id="signupForm">
+<label>Nickname<input id="signupName" required=""/></label>
+<label>E-mail<input id="signupEmail" required="" type="email"/></label>
+<label>Senha<input id="signupPassword" minlength="6" required="" type="password"/></label>
+<button class="btn primary" type="submit">Enviar cadastro</button>
+</form>
+</div>
+</div>
+</section>
+<div class="app hidden" id="app">
+<aside class="sidebar sidebar-v13" id="sidebar">
+<div class="sidebar-v13-top">
+<button aria-label="Abrir menu" class="sidebar-icon-button" id="sidebarMenuButton" type="button">☰</button>
+<button aria-label="Recolher menu" class="sidebar-icon-button collapse-button" id="collapseSidebarButton" type="button">≪</button>
+</div>
+<div class="sidebar-brand-v13 sidebar-brand-with-logo">
+<img alt="Logo 77 TEAM" class="sidebar-team-logo" src="assets/logo-77-team-v14-3-2.webp?v=20.2"/>
+<div class="sidebar-brand-copy">
+<strong>77 TEAM</strong>
+<span>PAINEL DE CONTROLE</span>
+</div>
+</div>
+<nav aria-label="Menu principal" class="sidebar-nav-v13 main-category-nav" id="nav">
+<button class="main-category-link active" data-page="dashboard" data-category="home" type="button"><span class="category-icon">🏠</span><span class="nav-group-title">HOME</span><span class="category-arrow">›</span></button>
+<button class="main-category-link editor-only" data-page="presencas" data-category="staff" type="button"><span class="category-icon">👥</span><span class="nav-group-title">STAFF</span><span class="category-arrow">›</span></button>
+<button class="main-category-link owner-only" data-page="staff" data-category="administracao" type="button"><span class="category-icon">🛡️</span><span class="nav-group-title">ADMINISTRAÇÃO</span><span class="category-arrow">›</span></button>
+<button class="main-category-link owner-only" data-page="atualizacoes" data-category="avancado" type="button"><span class="category-icon">🚀</span><span class="nav-group-title">AVANÇADO</span><span class="category-arrow">›</span></button>
+</nav>
+<div class="sidebar-v13-footer">
+<button class="sidebar-about-v152" data-page-jump="sobre" type="button"><span class="menu-icon">ℹ️</span><span class="menu-label">Sobre</span></button>
+<button class="sidebar-logout-v13" id="sidebarLogout" type="button"><span class="menu-icon">⇥</span><span class="menu-label">Sair</span></button>
+</div>
+</aside>
+<main class="main">
+<header class="topbar topbar-v31">
+<div class="topbar-left">
+<button aria-label="Abrir menu" class="menu-toggle" id="menuButton" type="button">☰</button>
+<div>
+<h2>Bem-vindo, <span id="welcomeName">Visitante</span>!</h2>
+<p>Gestão completa da 77 TEAM <span class="manager-version-badge">Manager</span><span class="stable-badge" id="systemVersion">v21.0</span></p>
+</div>
+</div>
+<div class="topbar-center">
+<div class="global-search-wrap">
+<span>⌕</span>
+<input id="globalSearch" placeholder="Pesquisar membros, clãs e cargos..." type="search"/>
+</div>
+<div class="live-clock" id="liveClock"></div>
+</div>
+<div class="topbar-tools">
+<button aria-label="Notificações" class="notification-button" id="notificationButton" type="button">🔔<span id="notificationCount">0</span></button>
+</div>
+<div class="topbar-profile">
+<div class="profile-logo-wrap">
+<img alt="77 TEAM" src="assets/logo-77-team-vertical.webp"/>
+</div>
+<div class="profile-copy">
+<strong id="topbarUserName">Visitante</strong>
+<span class="badge" id="userBadge">Visitante</span>
+</div>
+<button aria-label="Perfil" class="profile-chevron" type="button">⌄</button>
+<button class="hidden" id="logoutButton" type="button">Sair</button>
+</div>
+</header>
+<aside class="module-navigation" id="moduleNavigation" aria-label="Menu da categoria">
+  <div class="module-navigation-head">
+    <span id="moduleCategoryIcon">🏠</span>
+    <div><strong id="moduleCategoryTitle">HOME</strong><small>Navegação da categoria</small></div>
+  </div>
+  <nav class="module-navigation-list" id="moduleNavigationList"></nav>
+</aside>
+<div class="module-breadcrumb" id="moduleBreadcrumb">HOME &gt; Visão Geral</div>
+<section class="page active dashboard-enterprise" id="dashboard">
+<div class="enterprise-kpis">
+<article class="enterprise-kpi kpi-blue">
+<div class="kpi-symbol">♙</div>
+<div class="kpi-copy">
+<span>MEMBROS</span>
+<strong id="kMembers">0</strong>
+<small>Total de membros</small>
+</div>
+<div class="kpi-trend"><b id="dashboardMemberTrend">—</b><small>vs mês passado</small></div>
+</article>
+<article class="enterprise-kpi kpi-green">
+<div class="kpi-symbol">✓</div>
+<div class="kpi-copy">
+<span>PRESENÇAS HOJE</span>
+<strong id="kPresence">0</strong>
+<small>Registradas hoje</small>
+</div>
+<div class="kpi-trend"><b id="dashboardPresenceTrend">—</b><small>vs ontem</small></div>
+</article>
+<article class="enterprise-kpi kpi-orange">
+<div class="kpi-symbol">▣</div>
+<div class="kpi-copy">
+<span>EVENTOS ESTE MÊS</span>
+<strong id="kMonthEvents">0</strong>
+<small>Eventos registrados</small>
+</div>
+<div class="kpi-trend"><b id="dashboardEventTrend">—</b><small>vs mês passado</small></div>
+</article>
+<article class="enterprise-kpi kpi-gold">
+<div class="kpi-symbol">🏆</div>
+<div class="kpi-copy">
+<span>TOP 1 RANKING</span>
+<strong id="kBest">—</strong>
+<small id="kBestPoints">0 pontos</small>
+</div>
+<div class="winner-medal"><span>1</span></div>
+</article>
+</div>
+<div class="enterprise-dashboard-grid enterprise-row-main">
+<article class="panel enterprise-panel enterprise-presences">
+<div class="panel-head">
+<h3>◉ Presenças recentes</h3>
+<button class="dashboard-link" data-page-jump="historico" type="button">Ver todas</button>
+</div>
+<div class="panel-body table-wrap">
+<table>
+<thead><tr><th>Membro</th><th>Cargo</th><th>Data</th><th>Evento</th><th>Status</th></tr></thead>
+<tbody id="recentPresenceRows"></tbody>
+</table>
+</div>
+</article>
+<article class="panel enterprise-panel enterprise-ranking">
+<div class="panel-head">
+<h3>✦ Top 5 ranking</h3>
+<button class="dashboard-link" data-page-jump="ranking" type="button">Ver ranking completo</button>
+</div>
+<div class="panel-body table-wrap">
+<table>
+<thead><tr><th>Posição</th><th>Membro</th><th>Cargo</th><th>Pontos</th></tr></thead>
+<tbody id="topFiveRows"></tbody>
+</table>
+</div>
+</article>
+<article class="panel enterprise-panel dashboard-side-card">
+<div class="panel-head">
+<h3>▣ Eventos de hoje</h3>
+<button class="dashboard-link" data-page-jump="calendario" type="button">Ver calendário</button>
+</div>
+<div class="panel-body today-events-list" id="dashboardTodayEvents"></div>
+</article>
+</div>
+<div class="enterprise-dashboard-grid enterprise-row-analytics">
+<article class="panel enterprise-panel weekly-chart-panel">
+<div class="panel-head">
+<h3>⌁ Presenças da semana</h3>
+<span class="panel-period">Últimos 7 dias</span>
+</div>
+<div class="panel-body">
+<div class="weekly-chart" id="dashboardWeeklyChart"></div>
+</div>
+</article>
+<article class="panel enterprise-panel clan-points-panel">
+<div class="panel-head">
+<h3>▦ Top clãs por pontos</h3>
+<button class="dashboard-link" data-page-jump="ranking" type="button">Ver todos</button>
+</div>
+<div class="panel-body clan-points-list" id="dashboardClanPoints"></div>
+</article>
+<article class="panel enterprise-panel rate-panel">
+<div class="panel-head"><h3>♙ Taxa de presença geral</h3></div>
+<div class="panel-body rate-gauge-wrap">
+<div class="rate-gauge" id="dashboardRateGauge" style="--rate:0">
+<div><strong id="dashboardGeneralRate">0%</strong><span id="dashboardRateLabel">Sem dados</span></div>
+</div>
+<small id="dashboardActiveSummary">0 membros ativos</small>
+</div>
+</article>
+<article class="panel enterprise-panel recent-activity-panel">
+<div class="panel-head"><h3>♣ Atividade recente</h3></div>
+<div class="panel-body recent-activity-list" id="dashboardRecentActivity"></div>
+</article>
+</div>
+<article class="panel enterprise-panel dashboard-members enterprise-members-panel">
+<div class="panel-head dashboard-members-head">
+<h3>♟ Lista de membros</h3>
+<div class="dashboard-tools">
+<input id="dashboardMemberSearch" placeholder="Buscar membro..."/>
+<button class="btn primary editor-only" data-page-jump="membros" type="button">+ Novo membro</button>
+</div>
+</div>
+<div class="panel-body table-wrap">
+<table>
+<thead>
+<tr>
+<th>Nome</th><th>Cargo</th><th>Clã</th><th>Level</th>
+<th>XP</th><th>Presenças</th><th>Taxa</th><th>Status</th><th>Ações</th>
+</tr>
+</thead>
+<tbody id="dashboardMemberRows"></tbody>
+</table>
+</div>
+</article>
+<div class="enterprise-bottom-grid">
+<article class="panel enterprise-panel server-status-panel">
+<div class="panel-head"><h3>⚙ Status do sistema</h3></div>
+<div class="panel-body server-status-content">
+<div class="server-brand"><span>77</span><div><strong>Servidor 77 TEAM</strong><small>Firebase conectado</small></div></div>
+<div class="server-status-grid">
+<div><span>Status</span><strong class="status-online">Online</strong></div>
+<div><span>Usuários</span><strong id="dashboardServerUsers">0</strong></div>
+<div><span>Registros</span><strong id="dashboardServerRecords">0</strong></div>
+<div><span>Atualização</span><strong id="dashboardServerTime">—</strong></div>
+</div>
+<button class="btn full" data-page-jump="configuracoes" type="button">Ver detalhes do sistema</button>
+</div>
+</article>
+</div>
+</section>
+<section class="page page-animate editor-only" id="staff-hub">
+<div class="settings-shell staff-hub-shell">
+<aside class="settings-sidebar staff-hub-sidebar">
+<div class="staff-hub-brand"><span>👥</span><div><strong>STAFF</strong><small>Central da equipe</small></div></div>
+<nav class="staff-hub-nav">
+<button class="active" data-page-jump="presencas" type="button">📅 <span>Presenças</span></button>
+<button data-page-jump="personagens" type="button">⚔️ <span>Personagens</span></button>
+<button data-page-jump="solicitacoes" type="button">📥 <span>Solicitações</span><b id="staffHubRequestsBadge">0</b></button>
+<button data-page-jump="notificacoes" type="button">🔔 <span>Notificações</span></button>
+<button data-page-jump="atendimento" type="button">🎧 <span>Atendimento</span><b id="staffHubSupportBadge">0</b></button>
+<button data-page-jump="chat" type="button">💬 <span>Chat Privado</span></button>
+<button data-page-jump="registros" type="button">📁 <span>Consultar Registro</span></button>
+<button data-page-jump="metas" type="button">🎯 <span>Meta</span></button>
+</nav>
+</aside>
+<div class="settings-content staff-hub-content">
+<div class="settings-page-head staff-hub-head"><div><span>ÁREA OPERACIONAL</span><h2>👥 STAFF</h2><p>Ferramentas de gerenciamento da equipe reunidas em um único lugar.</p></div><span class="badge">DEV • Liderança • Staff</span></div>
+<div class="staff-hub-summary">
+<article><span>📅 Registros</span><strong id="staffHubAttendanceCount">0</strong><small>presenças cadastradas</small></article>
+<article><span>📥 Solicitações</span><strong id="staffHubRequestCount">0</strong><small>aguardando análise</small></article>
+<article><span>🎧 Atendimento</span><strong id="staffHubTicketCount">0</strong><small>chamados ativos</small></article>
+<article><span>🎯 Metas</span><strong id="staffHubGoalCount">0</strong><small>metas cadastradas</small></article>
+</div>
+<div class="settings-grid staff-hub-grid">
+<article class="settings-card staff-module-card" data-page-jump="presencas"><div class="staff-module-icon">📅</div><div><h3>Presenças</h3><p>Registrar, editar e finalizar as presenças da equipe.</p></div><span>Abrir módulo →</span></article>
+<article class="settings-card staff-module-card" data-page-jump="personagens"><div class="staff-module-icon">⚔️</div><div><h3>Personagens</h3><p>Consultar e atualizar os dados dos personagens.</p></div><span>Abrir módulo →</span></article>
+<article class="settings-card staff-module-card" data-page-jump="solicitacoes"><div class="staff-module-icon">📥</div><div><h3>Solicitações</h3><p>Aprovar ou rejeitar solicitações de novos membros.</p></div><span>Abrir módulo →</span></article>
+<article class="settings-card staff-module-card" data-page-jump="notificacoes"><div class="staff-module-icon">🔔</div><div><h3>Notificações</h3><p>Enviar comunicados gerais ou individuais.</p></div><span>Abrir módulo →</span></article>
+<article class="settings-card staff-module-card" data-page-jump="atendimento"><div class="staff-module-icon">🎧</div><div><h3>Atendimento</h3><p>Gerenciar chamados e solicitações de suporte.</p></div><span>Abrir módulo →</span></article>
+<article class="settings-card staff-module-card" data-page-jump="chat"><div class="staff-module-icon">💬</div><div><h3>Chat Privado</h3><p>Conversar de forma privada com os membros.</p></div><span>Abrir módulo →</span></article>
+<article class="settings-card staff-module-card" data-page-jump="registros"><div class="staff-module-icon">📁</div><div><h3>Consultar Registro</h3><p>Pesquisar registros gerais ou individuais e exportar relatórios.</p></div><span>Abrir módulo →</span></article>
+<article class="settings-card staff-module-card" data-page-jump="metas"><div class="staff-module-icon">🎯</div><div><h3>Meta</h3><p>Criar, acompanhar e atualizar metas da comunidade.</p></div><span>Abrir módulo →</span></article>
+</div>
+</div>
+</div>
+</section>
+<section class="page page-animate editor-only" id="presencas">
+<div class="panel"><div class="panel-head"><div><h3>📅 Presenças</h3><p>Única área para registrar presenças de WorldBoss, Purgatório e Eventos.</p></div></div><div class="panel-body" id="presencasContent"></div></div>
+</section>
+<section class="page page-animate editor-only" id="registros">
+<div class="page-title"><div><h2>📁 Registros</h2><p>Consulte e baixe registros gerais ou individuais de presença.</p></div><span class="badge" id="recordsResultCount">0 registros</span></div>
+<div class="records-tabs"><button class="btn primary" data-record-mode="general" type="button">Registro Geral</button><button class="btn" data-record-mode="individual" type="button">Registro Individual</button></div>
+<div class="cards records-summary-cards">
+<article class="card"><span>Total</span><strong id="recordsTotal">0</strong></article>
+<article class="card"><span>🟢 Presentes</span><strong id="recordsPresent">0</strong></article>
+<article class="card"><span>🟡 Justificados</span><strong id="recordsJustified">0</strong></article>
+<article class="card"><span>🔴 Ausentes</span><strong id="recordsAbsent">0</strong></article>
+</div>
+<article class="panel records-panel">
+<div class="panel-head records-panel-head"><div><h3 id="recordsPanelTitle">Consulta Geral</h3><p>Os arquivos respeitam todos os filtros aplicados.</p></div><div class="records-export-actions"><button class="btn" id="recordsPdf" type="button">📄 PDF</button><button class="btn" id="recordsExcel" type="button">📊 Excel</button><button class="btn" id="recordsCsv" type="button">📋 CSV</button><button class="btn" id="recordsPrint" type="button">🖨️ Imprimir</button></div></div>
+<div class="records-filter-grid">
+<input id="recordsSearch" type="search" placeholder="Buscar membro, clã ou responsável...">
+<select id="recordsMember"><option value="">Todos os membros</option></select>
+<input id="recordsDateFrom" type="date" title="Data inicial">
+<input id="recordsDateTo" type="date" title="Data final">
+<select id="recordsKind"><option value="">Todos os eventos</option><option value="worldboss">WorldBoss</option><option value="purgatorio">Purgatório</option><option value="eventos">Eventos</option></select>
+<select id="recordsSlot"><option value="">Todos os horários</option></select>
+<select id="recordsStatus"><option value="">Todos os status</option><option value="1">🟢 Presente</option><option value="3">🟡 Justificado</option><option value="-1">🔴 Ausente</option></select>
+<select id="recordsClan"><option value="">Todos os clãs</option></select>
+<button class="btn" id="recordsClear" type="button">Limpar filtros</button>
+</div>
+<div class="panel-body table-wrap"><table><thead><tr><th>Data</th><th>Membro</th><th>Clã</th><th>Evento</th><th>Horário/Atividade</th><th>Status</th><th>Observação</th><th>Responsável</th><th>Atualização</th></tr></thead><tbody id="recordsRows"></tbody></table></div>
+</article>
+</section>
+<section class="page page-animate" id="historico">
+<div class="cards history-overview-cards">
+<article class="card"><span>Total de registros</span><strong id="historyTotalRecords">0</strong><small>Todos os períodos</small></article>
+<article class="card"><span>Hoje</span><strong id="historyTodayRecords">0</strong><small>Registros de hoje</small></article>
+<article class="card"><span>Esta semana</span><strong id="historyWeekRecords">0</strong><small>Últimos 7 dias</small></article>
+<article class="card"><span>Este mês</span><strong id="historyMonthRecords">0</strong><small>Mês atual</small></article>
+</div>
+<article class="panel history-center-panel">
+<div class="panel-head history-center-head">
+<div>
+<h3>Central de Histórico</h3>
+<p>Consulte, filtre, analise e exporte todos os registros.</p>
+</div>
+<div class="history-actions">
+<button class="btn primary" id="historyTimelineView" type="button">Timeline</button>
+<button class="btn" id="historyTableView" type="button">Tabela</button>
+<button class="btn" id="downloadHistoryFilteredPdf" type="button">PDF filtrado</button>
+<button class="btn" id="downloadHistoryGeneralPdf" type="button">PDF geral</button>
+<button class="btn" id="downloadHistoryCsv" type="button">Excel/CSV</button>
+</div>
+</div>
+<div class="history-filter-grid">
+<input id="historySearch" placeholder="Buscar nickname..." type="search"/>
+<input id="historyDateFrom" type="date"/>
+<input id="historyDateTo" type="date"/>
+<select id="historyRoleFilter"><option value="">Todos os cargos</option></select>
+<select id="historyClanFilter"><option value="">Todos os clãs</option></select>
+<select id="historyKindFilter">
+<option value="">Todos os tipos</option>
+<option value="worldboss">WorldBoss</option>
+<option value="purgatorio">Purgatório</option>
+<option value="eventos">Eventos</option>
+</select>
+<select id="historyStatusFilter">
+<option value="">Todos os status</option>
+<option value="1">Presente</option>
+<option value="-1">Ausente</option>
+</select>
+<select id="historyMemberPdf">
+<option value="">PDF individual</option>
+</select>
+<button class="btn" id="downloadHistoryIndividualPdf" type="button">Gerar individual</button>
+</div>
+<div class="history-charts" id="historyCharts">
+<article>
+<h4>Participação por tipo</h4>
+<div class="history-bar-list" id="historyTypeBars"></div>
+</article>
+<article>
+<h4>Top membros ativos</h4>
+<div class="history-bar-list" id="historyTopMembers"></div>
+</article>
+</div>
+<div class="history-timeline-container" id="historyTimelineContainer">
+<div class="history-timeline-list" id="historyTimelineRows"></div>
+</div>
+<div class="panel-body table-wrap hidden" id="historyTableContainer">
+<table>
+<thead>
+<tr>
+<th>Data</th>
+<th>Jogador</th>
+<th>Cargo</th>
+<th>Clã</th>
+<th>Tipo</th>
+<th>Horário/Evento</th>
+<th>Status</th>
+<th>Ações</th>
+</tr>
+</thead>
+<tbody id="historyRows"></tbody>
+</table>
+</div>
+</article>
+</section>
+<section class="page page-animate" id="ranking">
+<div class="panel"><div class="panel-head"><h3>Ranking</h3></div>
+<div class="panel-body table-wrap"><table><thead><tr><th>#</th><th>Jogador</th><th>Clã</th><th>Cargo</th><th>Presenças</th><th>Taxa</th></tr></thead><tbody id="rankingRows"></tbody></table></div></div>
+</section>
+<section class="page page-animate" id="membros">
+<div class="panel">
+<div class="panel-head"><h3>Membros</h3></div>
+<div class="panel-body">
+<form class="form-grid editor-only" id="memberForm">
+<input id="memberName" placeholder="Nickname" required=""/>
+<select id="memberRole"></select>
+<select id="memberClan"></select>
+<button class="btn primary" type="submit">Adicionar membro</button>
+</form>
+<div class="table-wrap"><table><thead><tr><th>Nome</th><th>Cargo</th><th>Clã</th><th>Level</th><th>Título</th><th>XP</th><th>Ação</th></tr></thead><tbody id="memberRows"></tbody></table></div>
+</div>
+</div>
+</section>
+<section class="page editor-only" id="solicitacoes">
+<div class="panel"><div class="panel-head"><h3>Solicitações</h3></div>
+<div class="panel-body table-wrap"><table><thead><tr><th>Nome</th><th>E-mail</th><th>Clã</th><th>Cargo</th><th>Ações</th></tr></thead><tbody id="requestRows"></tbody></table></div></div>
+</section>
+<section class="page page-animate editor-only" id="personagens">
+<div class="cards character-overview-cards">
+<article class="card"><span>Personagens</span><strong id="characterTotal">0</strong><small>Cadastrados</small></article>
+<article class="card"><span>Maior Power</span><strong id="characterHighestPower">0</strong><small id="characterHighestPowerName">—</small></article>
+<article class="card"><span>Maior Level</span><strong id="characterHighestLevel">0</strong><small id="characterHighestLevelName">—</small></article>
+<article class="card"><span>Classe mais usada</span><strong id="characterTopClass">—</strong><small id="characterTopClassCount">0 personagem(ns)</small></article>
+</div>
+<article class="panel character-center-panel">
+<div class="panel-head character-center-head">
+<div>
+<h3>Central de Personagens</h3>
+<p>Consulte, filtre, compare e exporte os dados dos jogadores.</p>
+</div>
+<div class="character-center-actions">
+<button class="btn primary" id="charactersCardView" type="button">Cartões</button>
+<button class="btn" id="charactersTableView" type="button">Tabela</button>
+<button class="btn" id="downloadCharactersGeneralPdf" type="button">PDF geral</button>
+</div>
+</div>
+<div class="character-filter-bar">
+<input id="characterSearch" placeholder="Buscar nickname..." type="search"/>
+<select id="characterClassFilter"><option value="">Todas as classes</option></select>
+<select id="characterRoleFilter"><option value="">Todos os cargos</option></select>
+<select id="characterClanFilter"><option value="">Todos os clãs</option></select>
+<select id="characterSort">
+<option value="power-desc">Maior Power</option>
+<option value="level-desc">Maior Level</option>
+<option value="name-asc">Nickname A–Z</option>
+<option value="codex-desc">Maior Codex</option>
+</select>
+</div>
+<div class="characters-card-grid" id="charactersCardGrid"></div>
+<div class="panel-body table-wrap hidden" id="charactersTableContainer">
+<table class="characters-table">
+<thead>
+<tr>
+<th>Nickname</th>
+<th>Classe</th>
+<th>Cargo</th>
+<th>Clã</th>
+<th>Power</th>
+<th>Level</th>
+<th>Codex</th>
+<th>Mandalla</th>
+<th>Chi 1</th>
+<th>Chi 2</th>
+<th>Chi 3</th>
+<th>Postura do Sapo</th>
+<th>Constituição</th>
+<th>Treino Ermo</th>
+<th>Ações</th>
+</tr>
+</thead>
+<tbody id="charactersRows"></tbody>
+</table>
+</div>
+</article>
+</section>
+<section class="page page-animate" id="meu-perfil">
+<div class="profile-workspace-head">
+<div><span class="profile-eyebrow">CENTRAL DO USUÁRIO</span><h2>Meu Perfil</h2><p>Escolha no menu a informação que deseja consultar ou alterar.</p></div>
+</div>
+<div class="profile-workspace">
+<nav aria-label="Menu do perfil" class="profile-menu">
+<button class="active" data-profile-tab="overview" type="button"><span>🏠</span><div><strong>Resumo</strong><small>Visão geral da conta</small></div></button>
+<button data-profile-tab="character" type="button"><span>🎮</span><div><strong>Personagem</strong><small>Dados e evolução</small></div></button>
+<button data-profile-tab="account" type="button"><span>✏️</span><div><strong>Dados da conta</strong><small>Nickname e avatar</small></div></button>
+<button data-profile-tab="security" type="button"><span>🔒</span><div><strong>Segurança</strong><small>Alterar senha</small></div></button>
+<button data-profile-tab="history" type="button"><span>📜</span><div><strong>Histórico</strong><small>Atividades recentes</small></div></button>
+<button data-profile-tab="chat" type="button"><span>💬</span><div><strong>Conversas</strong><small>Chats privados</small></div></button>
+<button data-profile-tab="support" type="button"><span>🎧</span><div><strong>Atendimento</strong><small>Suporte e chamados</small></div></button>
+</nav>
+<div class="profile-workspace-content"><section class="first-access-panel hidden" id="firstAccessPanel">
+<div class="first-access-copy"><span class="profile-eyebrow">PRIMEIRO ACESSO</span><h3>Bem-vindo ao 77 TEAM Manager</h3><p>Complete seu nickname e os dados principais do personagem para liberar todas as áreas do sistema.</p></div>
+<div class="first-access-progress"><div><strong>Progresso do cadastro</strong><span id="firstAccessProgressText">0/5 etapas concluídas</span></div><div class="first-access-progress-bar"><i id="firstAccessProgressFill"></i></div></div>
+<ul class="first-access-checklist" id="firstAccessChecklist"></ul>
+<div class="first-access-actions"><button class="btn" id="firstAccessGoCharacter" type="button">Preencher personagem</button><button class="btn primary" disabled id="finishFirstAccessButton" type="button">Concluir primeiro acesso</button></div>
+</section><section class="profile-tab-panel active" data-profile-panel="overview"><div class="profile-tab-heading"><h3>Resumo do perfil</h3><p>Confira sua identidade, conquistas e desempenho.</p></div><article class="panel player-identity-card">
+<div class="player-identity-bg"></div>
+<div class="player-identity-content">
+<div class="player-avatar-area">
+<div class="player-avatar-frame">
+<img alt="Avatar" class="hidden" id="profileAvatarPreview"/>
+<span id="profileAvatarFallback">U</span>
+</div>
+<button class="avatar-overlay-button" id="quickAvatarButton" type="button">Trocar avatar</button>
+</div>
+<div class="player-main-info">
+<div class="player-name-row">
+<div>
+<span class="profile-eyebrow">IDENTIDADE DO JOGADOR</span>
+<h1 id="profileDisplayName">Usuário</h1>
+</div>
+<div id="profileRoleBadge"></div>
+</div>
+<div class="player-meta">
+<span id="profileEmail">—</span>
+<span id="profileCharacterClass">Classe não informada</span>
+<span id="profileCharacterClan">Sem clã</span>
+</div>
+<div class="player-power-row">
+<div class="power-chip"><small>POWER</small><strong id="heroPower">0</strong></div>
+<div class="power-chip"><small>LEVEL</small><strong id="heroCharacterLevel">0</strong></div>
+<div class="power-chip"><small>RANKING</small><strong id="heroRanking">—</strong></div>
+</div>
+<div class="profile-progress-block hero-progress">
+<div class="profile-progress-head">
+<strong id="profileLevel">Nível 1</strong>
+<span id="profileNextLevel">0/10 presenças</span>
+</div>
+<div class="profile-progress-bar"><i id="profileProgressFill"></i></div>
+</div>
+</div>
+<div class="hero-medals">
+<h3>Conquistas</h3>
+<div id="profileMedals">Nenhuma medalha ainda.</div>
+</div>
+</div>
+</article><div class="profile-dashboard-grid">
+<article class="panel profile-stat-panel">
+<div class="panel-head"><h3>Desempenho</h3></div>
+<div class="panel-body">
+<div class="profile-stat-cards">
+<div><span>Presenças</span><strong id="profilePresence">0</strong></div>
+<div><span>Ausências</span><strong id="profileAbsence">0</strong></div>
+<div><span>Taxa</span><strong id="profileRate">0%</strong></div>
+<div><span>Eventos</span><strong id="profileEventsCount">0</strong></div>
+<div><span>Pontos</span><strong id="profilePoints">0</strong></div>
+<div><span>Ranking</span><strong id="profileRanking">—</strong></div>
+</div>
+</div>
+</article>
+<article class="panel character-summary-panel">
+<div class="panel-head">
+<h3>Personagem</h3>
+<button class="btn" id="editCharacterButton" type="button">Editar dados</button>
+</div>
+<div class="panel-body">
+<div class="character-summary-grid">
+<div><span>Classe</span><strong id="summaryClass">—</strong></div>
+<div><span>Power</span><strong id="summaryPower">0</strong></div>
+<div><span>Level</span><strong id="summaryLevel">0</strong></div>
+<div><span>Codex</span><strong id="summaryCodex">0</strong></div>
+<div><span>Mandalla</span><strong id="summaryMandalla">0</strong></div>
+<div><span>Chi 1</span><strong id="summaryChi1">0</strong></div>
+<div><span>Chi 2</span><strong id="summaryChi2">0</strong></div>
+<div><span>Chi 3</span><strong id="summaryChi3">0</strong></div>
+<div><span>Postura do Sapo</span><strong id="summaryFrogPosture">0</strong></div>
+<div><span>Constituição</span><strong id="summaryConstitution">0</strong></div>
+<div><span>Treino Ermo</span><strong id="summaryWildernessTraining">0</strong></div>
+</div>
+</div>
+</article>
+</div></section><section class="profile-tab-panel" data-profile-panel="character"><div class="profile-tab-heading"><h3>Personagem</h3><p>Atualize as informações do seu personagem.</p></div><article class="panel character-form-panel" id="characterEditorPanel">
+<div class="panel-head"><h3>Editar informações do personagem</h3></div>
+<div class="panel-body">
+<form class="character-form-grid" id="characterForm">
+<label>Nickname<input id="characterNickname" readonly=""/></label>
+<label>Classe<input id="characterClass" maxlength="30" required=""/></label>
+<label>Power<input id="characterPower" min="0" required="" step="1" type="number"/></label>
+<label>Level<input id="characterLevel" min="0" required="" step="1" type="number"/></label>
+<label>Codex<input id="characterCodex" min="0" step="1" type="number"/></label>
+<label>Mandalla<input id="characterMandalla" min="0" step="1" type="number"/></label>
+<label>Chi 1<input id="characterChi1" min="0" step="1" type="number"/></label>
+<label>Chi 2<input id="characterChi2" min="0" step="1" type="number"/></label>
+<label>Chi 3<input id="characterChi3" min="0" step="1" type="number"/></label>
+<label>Postura do Sapo<input id="characterFrogPosture" min="0" step="1" type="number"/></label>
+<label>Constituição<input id="characterConstitution" min="0" step="1" type="number"/></label>
+<label>Treino Ermo<input id="characterWildernessTraining" min="0" step="1" type="number"/></label>
+<div class="character-form-actions">
+<button class="btn primary" type="submit">Salvar personagem</button>
+</div>
+</form>
+</div>
+</article></section><section class="profile-tab-panel" data-profile-panel="account"><div class="profile-tab-heading"><h3>Dados da conta</h3><p>Altere seu nickname e sua foto de perfil.</p></div><article class="panel account-settings-panel">
+<div class="panel-head"><h3>Conta</h3></div>
+<div class="panel-body account-tabs">
+
+
+
+<section>
+<h4>Nickname</h4>
+<form class="stack" id="profileNicknameForm">
+<input id="profileNicknameInput" maxlength="30" required=""/>
+<button class="btn primary" type="submit">Salvar nickname</button>
+</form>
+</section><section>
+<h4>Avatar</h4>
+<form class="stack" id="profileAvatarForm">
+<input accept="image/png,image/jpeg,image/webp" id="profileAvatarInput" type="file"/>
+<small class="avatar-help">A imagem será ajustada automaticamente para 256×256.</small>
+<button class="btn primary" type="submit">Salvar avatar</button>
+<button class="btn" id="removeProfileAvatar" type="button">Remover avatar</button>
+</form>
+</section></div>
+</article></section><section class="profile-tab-panel" data-profile-panel="security"><div class="profile-tab-heading"><h3>Segurança</h3><p>Proteja sua conta atualizando sua senha.</p></div><article class="panel account-settings-panel"><div class="panel-head"><h3>Segurança</h3></div><div class="panel-body account-tabs"><section>
+<h4>Segurança</h4>
+<form class="stack" id="profilePasswordForm">
+<input id="profileNewPassword" minlength="6" placeholder="Nova senha" required="" type="password"/>
+<input id="profileConfirmPassword" minlength="6" placeholder="Confirmar senha" required="" type="password"/>
+<button class="btn primary" type="submit">Atualizar senha</button>
+</form>
+</section></div></article></section><section class="profile-tab-panel" data-profile-panel="history"><div class="profile-tab-heading"><h3>Histórico</h3><p>Consulte suas atividades mais recentes.</p></div><article class="panel profile-history-panel">
+<div class="panel-head"><h3>Linha do tempo recente</h3></div>
+<div class="panel-body">
+<div class="profile-timeline" id="profileTimeline"></div>
+<div class="table-wrap hidden">
+<table>
+<thead><tr><th>Data</th><th>Atividade</th><th>Horário/Evento</th><th>Status</th></tr></thead>
+<tbody id="profileHistoryRows"></tbody>
+</table>
+</div>
+</div>
+</article></section><section class="profile-tab-panel" data-profile-panel="chat"><div class="profile-tab-heading"><h3>Conversas privadas</h3><p>Fale diretamente com os responsáveis.</p></div><article class="panel support-profile-card">
+<div class="panel-head"><div><h3>💬 Conversas privadas</h3><p>Converse diretamente com os responsáveis.</p></div><span class="badge" id="profileChatBadge">Sem mensagens</span></div>
+<div class="panel-body">
+<div class="support-chat" id="profileChatMessages"></div>
+<form class="support-compose stack" id="profileChatForm">
+<textarea id="profileChatText" maxlength="2000" placeholder="Digite sua mensagem no chat..."></textarea>
+<div class="support-fields"><label>Link opcional<input id="profileChatLink" placeholder="https://..." type="url"/></label><label>Imagem opcional<input accept="image/png,image/jpeg,image/webp" id="profileChatImage" type="file"/></label></div>
+<button class="btn primary" type="submit">Enviar mensagem</button>
+</form>
+</div>
+</article></section><section class="profile-tab-panel" data-profile-panel="support"><div class="profile-tab-heading"><h3>Atendimento</h3><p>Abra e acompanhe seus chamados de suporte.</p></div><article class="panel support-profile-card">
+<div class="panel-head"><div><h3>💬 Atendimento</h3><p>Converse de forma privada com DEV, Liderança e Staff.</p></div><span class="badge" id="profileSupportStatus">Sem mensagens</span></div>
+<div class="panel-body">
+<div class="support-chat" id="profileSupportMessages"></div>
+<form class="support-compose stack" id="profileSupportForm">
+<textarea id="profileSupportText" maxlength="2000" placeholder="Digite sua mensagem..." required=""></textarea>
+<div class="support-fields">
+<label>Link opcional<input id="profileSupportLink" placeholder="https://..." type="url"/></label>
+<label>Imagem opcional<input accept="image/png,image/jpeg,image/webp" id="profileSupportImage" type="file"/></label>
+</div>
+<small>Imagens PNG, JPG ou WEBP de até 5 MB.</small>
+<button class="btn primary" id="profileSupportSubmit" type="submit">Enviar mensagem</button>
+</form>
+</div>
+</article></section></div>
+</div>
+</section>
+<section class="page page-animate editor-only" id="metas">
+<div class="cards">
+<article class="card"><span>Metas ativas</span><strong id="goalsActiveCount">0</strong></article>
+<article class="card"><span>Concluídas</span><strong id="goalsCompletedCount">0</strong></article>
+<article class="card"><span>Progresso médio</span><strong id="goalsAverageProgress">0%</strong></article>
+<article class="card"><span>Participação mensal</span><strong id="goalsMonthlyRate">0%</strong></article>
+</div>
+<div class="dashboard-grid">
+<article class="panel">
+<div class="panel-head"><h3>Nova meta</h3></div>
+<div class="panel-body">
+<form class="stack" id="goalForm">
+<label>Título<input id="goalTitle" required=""/></label>
+<label>Tipo<select id="goalType"><option value="presence">Presenças</option><option value="members">Membros</option><option value="events">Eventos</option><option value="power">Power médio</option></select></label>
+<label>Valor desejado<input id="goalTarget" min="1" required="" type="number"/></label>
+<label>Prazo<input id="goalDeadline" type="date"/></label>
+<button class="btn primary" type="submit">Criar meta</button>
+</form>
+</div>
+</article>
+<article class="panel"><div class="panel-head"><h3>Metas da equipe</h3></div><div class="panel-body" id="goalsList"></div></article>
+</div>
+</section>
+<section class="page page-animate editor-only" id="atendimento">
+<div class="page-title"><div><h2>🎧 Atendimento</h2><p>Central privada de mensagens dos usuários.</p></div><span class="badge" id="supportOpenCount">0 abertos</span></div>
+<div class="support-admin-layout">
+<article class="panel">
+<div class="panel-head"><h3>Conversas</h3><input id="supportSearch" placeholder="Buscar usuário ou protocolo..."/></div>
+<div class="support-tabs" role="tablist"><button class="support-tab active" data-support-view="active" type="button">📥 Ativos</button><button class="support-tab" data-support-view="finished" type="button">📁 Finalizados</button></div>
+<div class="support-conversation-list" id="supportConversationList"></div>
+</article>
+<article class="panel">
+<div class="panel-head"><div><h3 id="supportSelectedTitle">Selecione uma conversa</h3><small id="supportSelectedMeta"></small></div><div class="support-head-actions"><button class="btn danger mini hidden" id="supportDeleteBtn" type="button">Excluir definitivamente</button><select id="supportStatusSelect"><option value="open">Aberta</option><option value="in_progress">Em atendimento</option><option value="waiting_user">Aguardando usuário</option><option value="resolved">Resolvida</option></select></div></div>
+<div class="panel-body">
+<div class="support-chat support-admin-chat" id="supportAdminMessages"></div>
+<form class="support-compose stack" id="supportAdminForm">
+<textarea id="supportAdminText" maxlength="2000" placeholder="Responder ao usuário..." required=""></textarea>
+<div class="support-fields"><label>Link opcional<input id="supportAdminLink" placeholder="https://..." type="url"/></label><label>Imagem opcional<input accept="image/png,image/jpeg,image/webp" id="supportAdminImage" type="file"/></label></div>
+<button class="btn primary" type="submit">Enviar resposta</button>
+</form>
+</div>
+</article>
+</div>
+</section>
+<section class="page page-animate editor-only" id="chat">
+<div class="page-title"><div><h2>💬 Chat privado</h2><p>Conversa individual e contínua entre responsáveis e usuários.</p></div></div>
+<div class="support-admin-layout">
+<article class="panel">
+<div class="panel-head"><h3>Conversas</h3><input id="chatSearch" placeholder="Buscar usuário..."/></div>
+<div class="support-tabs"><button class="support-tab active" data-chat-view="active" type="button">💬 Ativos</button><button class="support-tab" data-chat-view="finished" type="button">📁 Finalizados</button></div>
+<div class="support-conversation-list" id="chatUserList"></div>
+</article>
+<article class="panel">
+<div class="panel-head"><div><h3 id="chatSelectedTitle">Selecione um usuário</h3><small id="chatSelectedSubtitle">Selecione uma conversa</small></div><button class="btn danger hidden" id="chatFinishBtn" type="button">🔒 Finalizar chat</button></div>
+<div class="panel-body">
+<div class="support-chat support-admin-chat" id="chatAdminMessages"></div>
+<form class="support-compose stack hidden" id="chatAdminForm">
+<textarea id="chatAdminText" maxlength="2000" placeholder="Digite uma mensagem..."></textarea>
+<div class="support-fields"><label>Link opcional<input id="chatAdminLink" placeholder="https://..." type="url"/></label><label>Imagem opcional<input accept="image/png,image/jpeg,image/webp" id="chatAdminImage" type="file"/></label></div>
+<button class="btn primary" type="submit">Enviar mensagem</button>
+</form>
+</div>
+</article>
+</div>
+</section>
+
+<section class="page page-animate editor-only" id="rt-presenca">
+  <div class="page-title"><div><h2>📋 RT Presença</h2><p>Registro completo de cada presença finalizada, sem alterar o Histórico existente.</p></div><span class="badge" id="rtPresenceCount">0 registros</span></div>
+  <article class="panel">
+    <div class="panel-head"><h3>Presenças finalizadas</h3><div class="rt-filters"><input id="rtSearch" type="search" placeholder="Buscar RT, tipo ou responsável..."><select id="rtKindFilter"><option value="">Todos os tipos</option><option value="worldboss">WorldBoss</option><option value="purgatorio">Purgatório</option><option value="eventos">Eventos</option></select><input id="rtDateFilter" type="date"></div></div>
+    <div class="panel-body"><div id="rtPresenceList" class="rt-list"></div></div>
+  </article>
+</section>
+
+<section class="page page-animate" id="estatisticas">
+<div class="cards">
+<article class="card"><span>Presenças</span><strong id="statsPresenceTotal">0</strong></article>
+<article class="card"><span>Ausências</span><strong id="statsAbsenceTotal">0</strong></article>
+<article class="card"><span>Taxa geral</span><strong id="statsGeneralRate">0%</strong></article>
+<article class="card"><span>Membros ativos</span><strong id="statsActiveMembers">0</strong></article>
+</div>
+<div class="dashboard-grid">
+<article class="panel"><div class="panel-head"><h3>Participação por tipo</h3></div><div class="panel-body chart-list" id="typeStats"></div></article>
+<article class="panel"><div class="panel-head"><h3>Evolução mensal</h3></div><div class="panel-body chart-list" id="monthlyStats"></div></article>
+</div>
+<article class="panel"><div class="panel-head"><h3>Desempenho dos membros</h3></div><div class="panel-body table-wrap"><table><thead><tr><th>Membro</th><th>Nível</th><th>Medalhas</th><th>Presenças</th><th>Ausências</th><th>Taxa</th></tr></thead><tbody id="performanceRows"></tbody></table></div></article>
+</section>
+<section class="page page-animate" id="calendario">
+<article class="panel">
+<div class="panel-head"><h3>Calendário</h3><button class="btn primary editor-only" id="newCalendarEvent" type="button">Novo evento</button></div>
+<div class="panel-body"><div class="calendar-grid" id="calendarGrid"></div></div>
+</article>
+</section>
+<section class="page page-animate editor-only" id="notificacoes">
+<div class="page-head notification-page-head">
+<div><h2>Central de Notificações</h2><p>Envie avisos em tempo real para toda a equipe ou para um usuário específico.</p></div>
+</div>
+<div class="notification-admin-grid">
+<article class="panel">
+<div class="panel-head"><h3>Nova notificação</h3></div>
+<div class="panel-body">
+<form class="stack" id="notificationAdminForm">
+<label>Destinatário
+                  <select id="notificationTargetMode">
+<option value="all">Todos os usuários</option>
+<option value="user">Usuário específico</option>
+</select>
+</label>
+<label class="hidden" id="notificationTargetUserWrap">Selecionar usuário
+                  <select id="notificationTargetUser"><option value="">Selecione um usuário</option></select>
+</label>
+<label>Tipo
+                  <select id="notificationType">
+<option value="info">Informação</option>
+<option value="warning">Aviso</option>
+<option value="important">Importante</option>
+<option value="urgent">Urgente</option>
+</select>
+</label>
+<label>Título<input id="notificationTitle" maxlength="80" required=""/></label>
+<label>Mensagem<textarea id="notificationMessage" maxlength="500" required="" rows="5"></textarea></label>
+<label>Expira em (opcional)<input id="notificationExpiresAt" type="datetime-local"/></label>
+<button class="btn primary" type="submit">Enviar notificação</button>
+</form>
+</div>
+</article>
+<article class="panel">
+<div class="panel-head"><h3>Notificações enviadas</h3><span class="badge" id="notificationSentCount">0</span></div>
+<div class="panel-body notification-sent-list" id="notificationSentRows"></div>
+</article>
+</div>
+</section>
+<section class="page page-animate editor-only" id="staff">
+<div class="migration-notice editor-only" id="attendanceMigrationNotice">
+          A V11 vincula automaticamente os históricos antigos às contas dos membros.
+        </div>
+<div class="cards staff-command-overview">
+<article class="card"><span>Staff cadastrada</span><strong id="staffTotalCount">0</strong><small>Equipe administrativa</small></article>
+<article class="card"><span>Solicitações pendentes</span><strong id="staffPendingRequests">0</strong><small>Aguardando análise</small></article>
+<article class="card"><span>Eventos próximos</span><strong id="staffUpcomingEvents">0</strong><small>Próximos 30 dias</small></article>
+<article class="card"><span>Alertas</span><strong id="staffAlertsCount">0</strong><small>Itens que precisam de atenção</small></article>
+</div>
+<div class="staff-command-layout">
+<main class="staff-command-main">
+<article class="panel staff-team-panel">
+<div class="panel-head staff-panel-head">
+<div>
+<h3>Equipe Staff</h3>
+<p>Visão geral da equipe administrativa.</p>
+</div>
+<div class="staff-panel-actions">
+<button class="btn" id="downloadStaffPdf" type="button">PDF da Staff</button>
+<button class="btn" id="downloadStaffCsv" type="button">Excel/CSV</button>
+</div>
+</div>
+<div class="staff-cards-grid" id="staffCardsGrid"></div>
+</article>
+<div class="staff-command-columns">
+<article class="panel">
+<div class="panel-head"><h3>Central de Pendências</h3></div>
+<div class="panel-body staff-pending-list" id="staffPendingList"></div>
+</article>
+<article class="panel">
+<div class="panel-head"><h3>Agenda Administrativa</h3></div>
+<div class="panel-body staff-agenda-list" id="staffAgendaList"></div>
+</article>
+</div>
+<div class="staff-command-columns">
+<article class="panel">
+<div class="panel-head"><h3>Metas da Staff</h3></div>
+<div class="panel-body staff-goals-list" id="staffGoalsList"></div>
+</article>
+<article class="panel">
+<div class="panel-head"><h3>Atividade Administrativa</h3></div>
+<div class="panel-body staff-activity-bars" id="staffActivityBars"></div>
+</article>
+</div>
+<article class="panel">
+<div class="panel-head">
+<div>
+<h3>Gerenciar Level e XP</h3>
+<p>Conceda ou remova XP com registro obrigatório do motivo.</p>
+</div>
+</div>
+<div class="panel-body">
+<form class="xp-adjustment-form" id="xpAdjustmentForm">
+<label>Membro
+                    <select id="xpAdjustmentMember" required="">
+<option value="">Selecionar membro</option>
+</select>
+</label>
+<label>Ajuste de XP
+                    <input id="xpAdjustmentAmount" placeholder="Ex.: 300 ou -50" required="" step="1" type="number"/>
+</label>
+<label>Motivo
+                    <input id="xpAdjustmentReason" maxlength="120" placeholder="Motivo do ajuste" required=""/>
+</label>
+<button class="btn primary" type="submit">Aplicar ajuste</button>
+</form>
+<div class="xp-adjustment-history" id="xpAdjustmentHistory"></div>
+</div>
+</article>
+<article class="panel">
+<div class="panel-head staff-panel-head">
+<div>
+<h3>Diário Administrativo</h3>
+<p>Observações internas da equipe.</p>
+</div>
+</div>
+<div class="panel-body">
+<form class="staff-journal-form" id="staffJournalForm">
+<textarea id="staffJournalText" placeholder="Registrar observação administrativa..." required="" rows="3"></textarea>
+<select id="staffJournalCategory">
+<option value="observacao">Observação</option>
+<option value="promocao">Promoção</option>
+<option value="rebaixamento">Rebaixamento</option>
+<option value="advertencia">Advertência</option>
+<option value="evento">Evento</option>
+</select>
+<button class="btn primary" type="submit">Registrar</button>
+</form>
+<div class="staff-journal-list" id="staffJournalList"></div>
+</div>
+</article>
+</main>
+<aside class="staff-command-sidebar">
+<article class="panel">
+<div class="panel-head"><h3>Ferramentas rápidas</h3></div>
+<div class="panel-body quick-tools-grid">
+<button data-page-jump="solicitacoes" type="button">Aprovar membros</button>
+<button data-page-jump="eventos" type="button">Criar evento</button>
+<button data-page-jump="worldboss" type="button">Registrar presença</button>
+<button data-page-jump="historico" type="button">Abrir histórico</button>
+<button data-page-jump="personagens" type="button">Personagens</button>
+<button data-page-jump="configuracoes" type="button">Configurações</button>
+<button id="staffQuickBackup" type="button">Gerar backup</button>
+</div>
+</article>
+<article class="panel">
+<div class="panel-head"><h3>Central de Avisos</h3></div>
+<div class="panel-body">
+<form class="stack" id="staffNoticeForm">
+<label>Destinatários
+                    <select id="staffNoticeAudience">
+<option value="all">Toda a equipe</option>
+<option value="staff">Somente Staff</option>
+<option value="member">Somente membros</option>
+</select>
+</label>
+<label>Título<input id="staffNoticeTitle" maxlength="60" required=""/></label>
+<label>Mensagem<textarea id="staffNoticeMessage" required="" rows="4"></textarea></label>
+<button class="btn primary" type="submit">Publicar aviso</button>
+</form>
+</div>
+</article>
+<article class="panel">
+<div class="panel-head"><h3>Indicadores gerais</h3></div>
+<div class="panel-body staff-general-stats">
+<div><span>Solicitações concluídas</span><strong id="staffResolvedRequests">0</strong></div>
+<div><span>Eventos cadastrados</span><strong id="staffEventsCreated">0</strong></div>
+<div><span>Registros de auditoria</span><strong id="staffAuditCount">0</strong></div>
+<div><span>Tempo médio de resposta</span><strong id="staffAverageResponse">—</strong></div>
+<div><span>Level médio dos membros</span><strong id="staffAverageMemberLevel">1</strong></div>
+</div>
+</article>
+</aside>
+</div>
+</section>
+<section class="page page-animate owner-only" id="configuracoes">
+<div class="settings-shell">
+<aside class="settings-sidebar">
+<div class="settings-search-wrap">
+<input id="settingsSearch" placeholder="Pesquisar configurações..." type="search"/>
+</div>
+<nav id="settingsNav">
+<button class="active" data-settings-tab="general" type="button">🏠 <span>Geral</span></button>
+<button data-settings-tab="team" type="button">👥 <span>Equipe</span></button>
+<button data-settings-tab="permissions" type="button">🔐 <span>Permissões</span></button>
+<button data-settings-tab="attendance" type="button">📅 <span>Presenças</span></button>
+<button data-settings-tab="events" type="button">🏰 <span>Eventos</span></button>
+<button data-settings-tab="characters" type="button">⚔️ <span>Personagens</span></button>
+<button data-settings-tab="notifications" type="button">🔔 <span>Notificações</span></button>
+<button data-settings-tab="appearance" type="button">🎨 <span>Aparência</span></button>
+<button data-settings-tab="backup" type="button">💾 <span>Backup</span></button>
+<button data-settings-tab="security" type="button">🛡️ <span>Segurança</span></button>
+<button data-settings-tab="system" type="button">🖥️ <span>Sistema</span></button>
+<button data-settings-tab="about" type="button">ℹ️ <span>Sobre</span></button>
+</nav>
+</aside>
+<div class="settings-content">
+<section class="settings-tab active" data-settings-panel="general">
+<div class="settings-page-head"><div><span>CONFIGURAÇÕES</span><h2>Geral</h2><p>Identidade e informações oficiais da equipe.</p></div><button class="btn primary" data-save-settings="general" type="button">Salvar</button></div>
+<div class="settings-grid">
+<article class="settings-card span-2">
+<h3>Identidade da equipe</h3>
+<div class="form-grid-2">
+<label>Nome da equipe<input id="cfgTeamName" value="77 TEAM"/></label>
+<label>Nome do sistema<input id="cfgSystemName" value="77 TEAM MANAGER"/></label>
+<label class="span-2">Descrição<textarea id="cfgDescription" placeholder="Descrição da equipe" rows="3"></textarea></label>
+</div>
+</article>
+<article class="settings-card">
+<h3>Contatos</h3>
+<div class="stack">
+<label>Discord<input id="cfgDiscord"/></label>
+<label>WhatsApp<input id="cfgWhatsapp"/></label>
+<label>Instagram<input id="cfgInstagram"/></label>
+<label>Site<input id="cfgWebsite"/></label>
+</div>
+</article>
+<article class="settings-card preview-card">
+<h3>Pré-visualização</h3>
+<div class="brand-preview">
+<img alt="Logo" src="assets/logo-77-team-vertical.webp"/>
+<strong id="cfgPreviewName">77 TEAM</strong>
+<span id="cfgPreviewDescription">Gestão completa da equipe.</span>
+</div>
+</article>
+</div>
+</section>
+<section class="settings-tab" data-settings-panel="team">
+<div class="settings-page-head"><div><span>CONFIGURAÇÕES</span><h2>Equipe</h2><p>Cadastro, perfil e comportamento dos membros.</p></div><button class="btn primary" data-save-settings="team" type="button">Salvar</button></div>
+<div class="settings-grid">
+<article class="settings-card">
+<h3>Aprovação e cadastro</h3>
+<label class="toggle-row"><span>Aprovação manual de novos membros</span><input checked="" id="cfgManualApproval" type="checkbox"/></label>
+<label class="toggle-row"><span>Permitir acesso de visitante</span><input checked="" id="cfgGuestAccess" type="checkbox"/></label>
+<label class="toggle-row"><span>Exigir personagem preenchido</span><input id="cfgRequireCharacter" type="checkbox"/></label>
+</article>
+<article class="settings-card">
+<h3>Perfil do membro</h3>
+<label class="toggle-row"><span>Permitir alteração de nickname</span><input checked="" id="cfgAllowNickname" type="checkbox"/></label>
+<label class="toggle-row"><span>Permitir troca de avatar</span><input checked="" id="cfgAllowAvatar" type="checkbox"/></label>
+<label class="toggle-row"><span>Permitir troca de senha</span><input checked="" id="cfgAllowPassword" type="checkbox"/></label>
+</article>
+<article class="settings-card span-2">
+<h3>Inatividade</h3>
+<div class="form-grid-3">
+<label>Dias para alerta<input id="cfgInactiveWarningDays" min="1" type="number" value="15"/></label>
+<label>Dias para considerar inativo<input id="cfgInactiveDays" min="1" type="number" value="30"/></label>
+<label>Ação automática<select id="cfgInactiveAction"><option value="none">Nenhuma</option><option value="notify">Notificar Staff</option><option value="block">Bloquear conta</option></select></label>
+</div>
+</article>
+</div>
+</section>
+<section class="settings-tab" data-settings-panel="permissions">
+<div class="settings-page-head"><div><span>CONFIGURAÇÕES</span><h2>Permissões</h2><p>Visibilidade dos módulos por perfil.</p></div><button class="btn primary" data-save-settings="permissions" type="button">Salvar</button></div>
+<article class="settings-card">
+<div class="table-wrap">
+<table class="permissions-table">
+<thead><tr><th>Módulo</th><th>Liderança</th><th>Staff</th><th>Membro</th><th>Visitante</th></tr></thead>
+<tbody id="permissionsRows"></tbody>
+</table>
+</div>
+<p class="settings-note">As regras críticas da Liderança permanecem protegidas pelo Firestore.</p>
+</article>
+</section>
+<section class="settings-tab" data-settings-panel="attendance">
+<div class="settings-page-head"><div><span>CONFIGURAÇÕES</span><h2>Presenças</h2><p>Horários, pontuação e regras de registro.</p></div><button class="btn primary" data-save-settings="attendance" type="button">Salvar</button></div>
+<div class="settings-grid">
+<article class="settings-card span-2">
+<h3>Horários</h3>
+<div class="form-grid-2">
+<label>WorldBoss<input id="cfgWorldbossSchedule" value="10H,12H,20H,22H,00H"/></label>
+<label>Purgatório<input id="cfgPurgatorioSchedule" value="06H,12H,18H,00H"/></label>
+<label>Eventos<input id="cfgEventsSchedule" value="Guerra de Vale,Defesa de Crista,Evento de Vale,Saque de Castelo"/></label>
+<label>Tolerância em minutos<input id="cfgAttendanceTolerance" min="0" type="number" value="15"/></label>
+</div>
+</article>
+<article class="settings-card">
+<h3>Pontuação</h3>
+<label>Presença<input id="cfgPresencePoints" min="0" type="number" value="100"/></label>
+<label>Evento<input id="cfgEventPoints" min="0" type="number" value="150"/></label>
+<label>Ausência<input id="cfgAbsencePoints" type="number" value="0"/></label>
+</article>
+<article class="settings-card">
+<h3>Regras</h3>
+<label class="toggle-row"><span>Exigir observação em ausência</span><input id="cfgAbsenceReason" type="checkbox"/></label>
+<label class="toggle-row"><span>Fechamento automático</span><input id="cfgAutoCloseAttendance" type="checkbox"/></label>
+<label class="toggle-row"><span>Notificar faltas</span><input checked="" id="cfgNotifyAbsence" type="checkbox"/></label>
+</article>
+</div>
+</section>
+<section class="settings-tab" data-settings-panel="events">
+<div class="settings-page-head"><div><span>CONFIGURAÇÕES</span><h2>Eventos</h2><p>Ativação, recompensas e limites.</p></div><button class="btn primary" data-save-settings="events" type="button">Salvar</button></div>
+<div class="settings-grid">
+<article class="settings-card"><h3>WorldBoss</h3><label class="toggle-row"><span>Ativo</span><input checked="" id="cfgWorldbossEnabled" type="checkbox"/></label><label>Recompensa<input id="cfgWorldbossReward" min="0" type="number" value="100"/></label></article>
+<article class="settings-card"><h3>Purgatório</h3><label class="toggle-row"><span>Ativo</span><input checked="" id="cfgPurgatorioEnabled" type="checkbox"/></label><label>Recompensa<input id="cfgPurgatorioReward" min="0" type="number" value="100"/></label></article>
+<article class="settings-card"><h3>Eventos personalizados</h3><label class="toggle-row"><span>Ativos</span><input checked="" id="cfgCustomEventsEnabled" type="checkbox"/></label><label>Máximo por mês<input id="cfgMaxMonthlyEvents" min="1" type="number" value="20"/></label></article>
+</div>
+</section>
+<section class="settings-tab" data-settings-panel="characters">
+<div class="settings-page-head"><div><span>CONFIGURAÇÕES</span><h2>Personagens</h2><p>Classes disponíveis e limites de atributos.</p></div><button class="btn primary" data-save-settings="characters" type="button">Salvar</button></div>
+<div class="settings-grid">
+<article class="settings-card span-2"><h3>Classes</h3><label>Classes permitidas<textarea id="cfgCharacterClasses" rows="4">Guerreiro,Mago,Arqueiro,Monge</textarea></label><p class="settings-note">Separe as classes por vírgula.</p></article>
+<article class="settings-card span-2"><h3>Limites</h3><div class="form-grid-3"><label>Power máximo<input id="cfgMaxPower" min="0" type="number" value="999999999"/></label><label>Level máximo<input id="cfgMaxLevel" min="0" type="number" value="999"/></label><label>Codex máximo<input id="cfgMaxCodex" min="0" type="number" value="9999"/></label><label>Mandalla máxima<input id="cfgMaxMandalla" min="0" type="number" value="9999"/></label><label>Chi máximo<input id="cfgMaxChi" min="0" type="number" value="9999"/></label><label>Treino Ermo máximo<input id="cfgMaxWilderness" min="0" type="number" value="9999"/></label></div></article>
+</div>
+</section>
+<section class="settings-tab" data-settings-panel="notifications">
+<div class="settings-page-head"><div><span>CONFIGURAÇÕES</span><h2>Notificações</h2><p>Eventos que geram alertas internos.</p></div><button class="btn primary" data-save-settings="notifications" type="button">Salvar</button></div>
+<div class="settings-grid">
+<article class="settings-card">
+<h3>Alertas internos</h3>
+<label class="toggle-row"><span>Novo membro</span><input checked="" id="cfgNotifyNewMember" type="checkbox"/></label>
+<label class="toggle-row"><span>Atualização de personagem</span><input checked="" id="cfgNotifyCharacter" type="checkbox"/></label>
+<label class="toggle-row"><span>Evento criado</span><input checked="" id="cfgNotifyEvent" type="checkbox"/></label>
+<label class="toggle-row"><span>Meta concluída</span><input checked="" id="cfgNotifyGoal" type="checkbox"/></label>
+</article>
+<article class="settings-card">
+<h3>Integração opcional</h3>
+<label>Webhook do Discord<input id="cfgDiscordWebhook" placeholder="https://discord.com/api/webhooks/..." type="password"/></label>
+<p class="settings-note">O endereço fica salvo no Firestore. Não o publique em repositórios públicos.</p>
+</article>
+</div>
+</section>
+<section class="settings-tab" data-settings-panel="appearance">
+<div class="settings-page-head"><div><span>CONFIGURAÇÕES</span><h2>Aparência</h2><p>Tema, efeitos e densidade da interface.</p></div><button class="btn primary" data-save-settings="appearance" type="button">Salvar</button></div>
+<div class="settings-grid">
+<article class="settings-card">
+<h3>Tema</h3>
+<div class="theme-options">
+<button data-theme-choice="purple" type="button">🟣 Roxo</button>
+<button data-theme-choice="blue" type="button">🔵 Azul</button>
+<button data-theme-choice="green" type="button">🟢 Verde</button>
+<button data-theme-choice="gold" type="button">🟡 Dourado</button>
+<button data-theme-choice="dark" type="button">⚫ Grafite</button>
+</div>
+<input id="cfgThemeName" type="hidden" value="purple"/>
+</article>
+<article class="settings-card">
+<h3>Personalização</h3>
+<label>Cor principal<input id="cfgPrimaryColor" type="color" value="#a83cff"/></label>
+<label>Densidade<select id="cfgDensity"><option value="comfortable">Confortável</option><option value="compact">Compacta</option></select></label>
+<label class="toggle-row"><span>Animações</span><input checked="" id="cfgAnimations" type="checkbox"/></label>
+<label class="toggle-row"><span>Efeito neon</span><input checked="" id="cfgNeon" type="checkbox"/></label>
+</article>
+</div>
+</section>
+<section class="settings-tab" data-settings-panel="backup">
+<div class="settings-page-head"><div><span>CONFIGURAÇÕES</span><h2>Backup</h2><p>Exportação e restauração controlada dos dados.</p></div></div>
+<div class="settings-grid">
+<article class="settings-card">
+<h3>Exportar</h3>
+<p>Gera um arquivo JSON com os dados carregados no painel.</p>
+<button class="btn primary full" id="exportCompleteBackup" type="button">Baixar backup completo</button>
+</article>
+<article class="settings-card">
+<h3>Restaurar</h3>
+<p>Importa documentos preservando seus IDs. A restauração usa mesclagem e não apaga dados existentes.</p>
+<input accept="application/json" id="importBackupFile" type="file"/>
+<button class="btn full" id="restoreCompleteBackup" type="button">Restaurar backup</button>
+</article>
+<article class="settings-card span-2 backup-warning"><h3>Importante</h3><p>Faça um backup antes de qualquer restauração. Contas do Firebase Authentication não fazem parte deste arquivo JSON.</p></article>
+</div>
+</section>
+<section class="settings-tab" data-settings-panel="security">
+<div class="settings-page-head"><div><span>CONFIGURAÇÕES</span><h2>Segurança</h2><p>Políticas de sessão e proteção administrativa.</p></div><button class="btn primary" data-save-settings="security" type="button">Salvar</button></div>
+<div class="settings-grid">
+<article class="settings-card"><h3>Sessão</h3><label>Tempo máximo em minutos<input id="cfgSessionMinutes" min="15" type="number" value="480"/></label><label class="toggle-row"><span>Exigir login recente para ações críticas</span><input checked="" id="cfgRecentLoginCritical" type="checkbox"/></label></article>
+<article class="settings-card"><h3>Auditoria</h3><label class="toggle-row"><span>Registrar alterações administrativas</span><input checked="" id="cfgAuditChanges" type="checkbox"/></label><label class="toggle-row"><span>Alertar tentativas negadas</span><input checked="" id="cfgDeniedAlerts" type="checkbox"/></label></article>
+</div>
+</section>
+<section class="settings-tab" data-settings-panel="system">
+<div class="settings-page-head"><div><span>CONFIGURAÇÕES</span><h2>Sistema</h2><p>Saúde e estatísticas técnicas da aplicação.</p></div><button class="btn" id="refreshSystemHealth" type="button">Atualizar</button></div>
+<div class="system-health-grid">
+<article><span>Versão</span><strong>20.0</strong><small>Versão estável atual</small></article>
+<article><span>Projeto Firebase</span><strong id="systemProjectId">—</strong><small>Conectado</small></article>
+<article><span>Usuários</span><strong id="systemUsersCount">0</strong><small>Perfis</small></article>
+<article><span>Membros</span><strong id="systemMembersCount">0</strong><small>Ativos</small></article>
+<article><span>Presenças</span><strong id="systemAttendanceCount">0</strong><small>Registros</small></article>
+<article><span>Eventos</span><strong id="systemEventsCount">0</strong><small>Cadastrados</small></article>
+<article><span>Status</span><strong class="health-ok">Operacional</strong><small id="systemLastCheck">—</small></article>
+<article><span>Último backup</span><strong id="systemLastBackup">Nunca</strong><small>Backup local</small></article>
+</div>
+</section>
+<section class="settings-tab" data-settings-panel="about">
+<div class="settings-page-head"><div><span>CONFIGURAÇÕES</span><h2>Sobre</h2><p>Informações da plataforma.</p></div></div>
+<article class="settings-card about-enterprise-card">
+<img alt="77 TEAM" src="assets/logo-77-team-vertical.webp"/>
+<h2>77 TEAM Manager</h2>
+<strong>Versão 20.0 Enterprise</strong>
+<p>Plataforma de gestão de membros, presenças, personagens, metas, eventos e inteligência administrativa da 77 TEAM.</p>
+<div class="version-history"><span>v7.0 Player Center</span><span>v7.1 Central de Personagens</span><span>v13.2 Central de Histórico</span><span>v14 Menu por Permissões</span></div>
+</article>
+</section>
+</div>
+</div>
+</section>
+<section class="page page-animate owner-only advanced-page" id="atualizacoes">
+<div class="page-head"><div><h2>🚀 Atualizações</h2><p>Central de implantação do 77 TEAM Manager.</p></div></div>
+<div class="advanced-grid"><article class="panel"><div class="panel-head"><h3>Versão do sistema</h3></div><div class="panel-body advanced-card"><strong>20.0</strong><p id="updateStatusText">Sistema atualizado e verificado.</p><div class="version-details"><span>Base estável: 16.0</span><span>Compilação: 17/07/2026</span></div><button class="btn primary" id="checkUpdatesButton" type="button">Verificar versão instalada</button></div></article><article class="panel"><div class="panel-head"><h3>Novidades da V20.0</h3></div><div class="panel-body"><ul class="release-notes"><li>DEV, Liderança e Staff podem aprovar ou rejeitar solicitações conforme a hierarquia.</li><li>DEV pode atribuir DEV, Liderança, Staff e cargos de membros.</li><li>Regras do Firestore revisadas para aprovação e alteração de cargos.</li><li>Auditoria de aprovações, rejeições e mudanças de cargo.</li></ul></div></article><article class="panel"><div class="panel-head"><h3>Implantação automática</h3></div><div class="panel-body"><p>Para instalar versões com um clique, conecte uma Cloud Function protegida ao GitHub Actions. Tokens nunca devem ficar no navegador.</p><span class="service-chip warning">Integração externa não configurada</span></div></article></div>
+</section>
+<section class="page page-animate owner-only advanced-page" id="backup"><div class="page-head"><div><h2>💾 Backup e restauração</h2><p>Exporte os dados carregados no painel e prepare uma restauração controlada.</p></div></div><div class="advanced-grid"><article class="panel"><div class="panel-head"><h3>Novo backup</h3></div><div class="panel-body"><p>Gera um arquivo JSON com os dados atualmente disponíveis para o DEV.</p><button class="btn primary" id="createBackupButton" type="button">Gerar backup JSON</button></div></article><article class="panel"><div class="panel-head"><h3>Restauração</h3></div><div class="panel-body"><p>Por segurança, a restauração automática exige backend administrativo. O arquivo pode ser validado aqui antes da implantação.</p><input accept="application/json" id="restoreBackupFile" type="file"/><p class="muted" id="restoreBackupInfo"></p></div></article></div></section>
+<section class="page page-animate owner-only advanced-page" id="logs-sistema"><div class="page-head"><div><h2>📋 Logs do sistema</h2><p>Registros de auditoria e eventos operacionais.</p></div></div><article class="panel"><div class="table-wrap"><table><thead><tr><th>Data</th><th>Usuário</th><th>Ação</th><th>Detalhes</th></tr></thead><tbody id="advancedLogsRows"></tbody></table></div></article></section>
+<section class="page page-animate owner-only advanced-page" id="status-firebase"><div class="page-head"><div><h2>📊 Status do Firebase</h2><p>Diagnóstico da conexão utilizada pelo painel.</p></div></div><div class="advanced-grid" id="firebaseStatusCards"></div></section>
+<section class="page page-animate owner-only advanced-page" id="status-github"><div class="page-head"><div><h2>🌐 Status do GitHub</h2><p>Preparado para integração segura com GitHub Actions.</p></div></div><article class="panel"><div class="panel-body advanced-card"><span class="service-light warning"></span><strong>Não configurado</strong><p>Informe o repositório e configure a Cloud Function para consultar workflows sem expor tokens.</p></div></article></section>
+<section class="page page-animate owner-only advanced-page" id="sessoes"><div class="page-head"><div><h2>👥 Sessões de usuários conectados</h2><p>Sessões registradas pelo aplicativo.</p></div></div><article class="panel"><div class="panel-body" id="activeSessionsList"></div></article></section>
+<section class="page page-animate owner-only advanced-page" id="manutencao"><div class="page-head"><div><h2>⚙️ Modo manutenção</h2><p>Controle de acesso temporário do sistema.</p></div></div><article class="panel"><div class="panel-body"><label class="toggle-row"><span><strong>Ativar modo manutenção</strong><small>O DEV continua com acesso. A aplicação respeitará esta opção após publicação das regras e lógica correspondente.</small></span><input id="maintenanceModeToggle" type="checkbox"/></label><label>Mensagem de manutenção<textarea id="maintenanceMessage" placeholder="Estamos realizando melhorias..." rows="4"></textarea></label><button class="btn primary" id="saveMaintenanceButton" type="button">Salvar configuração</button></div></article></section>
+<section class="page page-animate owner-only advanced-page" id="status-servicos"><div class="page-head"><div><h2>🟢 Status dos serviços</h2><p>Visão consolidada dos componentes do sistema.</p></div></div><div class="advanced-grid" id="servicesStatusGrid"></div></section>
+<section class="page page-animate owner-only advanced-page" id="limpeza-cache"><div class="page-head"><div><h2>🧹 Limpeza de cache</h2><p>Atualize arquivos locais e Service Workers do navegador.</p></div></div><article class="panel"><div class="panel-body advanced-card"><strong>Cache da aplicação</strong><p>Remove caches do site e força o recarregamento da versão atual.</p><button class="btn danger" id="clearCacheButton" type="button">Limpar cache e recarregar</button></div></article></section>
+<section class="page page-animate owner-only advanced-page" id="estatisticas-sistema"><div class="page-head"><div><h2>📈 Estatísticas do sistema</h2><p>Indicadores técnicos e administrativos.</p></div></div><div class="cards" id="systemStatsGrid"></div></section>
+<section class="page page-animate" id="sobre">
+<div class="about-v152-shell">
+<article class="about-v152-card">
+<div class="about-v152-system">
+<img alt="Logo 77 TEAM" class="about-v152-team-logo" src="assets/logo-77-team-vertical.webp?v=20.2"/>
+<div><span class="about-v152-kicker">SISTEMA OFICIAL</span><h2>77 TEAM Manager</h2><p>Plataforma de gerenciamento da comunidade 77 TEAM, criada para organizar membros, presenças, eventos, personagens, metas e rotinas administrativas.</p></div>
+</div>
+<div class="about-v152-divider"></div>
+<div class="about-v152-developer">
+<img alt="PrimeTools Labs" class="about-v152-prime-logo" src="assets/primetools-labs.png?v=20.2"/>
+<div><span>DESENVOLVIDO POR</span><h3>PrimeTools Labs</h3><p>Tecnologia • Soluções • Resultados</p></div>
+</div>
+<div class="about-v152-meta">
+<div><span>Versão</span><strong>20.0</strong></div>
+<div><span>Tecnologias</span><strong>HTML5, CSS3, JavaScript e Firebase</strong></div>
+<div><span>Licença</span><strong>Uso exclusivo da 77 TEAM</strong></div>
+</div>
+<footer>© 2026 PrimeTools Labs. Todos os direitos reservados.</footer>
+</article>
+</div>
+</section>
+<section class="page owner-only" id="auditoria">
+<div class="panel"><div class="panel-head"><h3>Auditoria</h3></div>
+<div class="panel-body table-wrap"><table><thead><tr><th>Data</th><th>Usuário</th><th>Ação</th><th>Detalhes</th></tr></thead><tbody id="auditRows"></tbody></table></div></div>
+</section>
+<footer class="app-footer">© 2026 77 TEAM Manager — Desenvolvido por PrimeTools Labs.</footer>
+</main>
+</div>
+<aside class="drawer staff-details-drawer hidden" id="staffDetailsDrawer">
+<div class="drawer-head">
+<h3>Perfil da Staff</h3>
+<button id="closeStaffDrawer" type="button">×</button>
+</div>
+<div class="drawer-body" id="staffDetailsContent"></div>
+</aside>
+<aside class="drawer history-details-drawer hidden" id="historyDetailsDrawer">
+<div class="drawer-head">
+<h3>Detalhes do registro</h3>
+<button id="closeHistoryDrawer" type="button">×</button>
+</div>
+<div class="drawer-body" id="historyDetailsContent"></div>
+</aside>
+<aside class="drawer character-details-drawer hidden" id="characterDetailsDrawer">
+<div class="drawer-head">
+<h3>Ficha do personagem</h3>
+<button id="closeCharacterDrawer" type="button">×</button>
+</div>
+<div class="drawer-body" id="characterDetailsContent"></div>
+</aside>
+<aside class="drawer character-edit-drawer hidden" id="characterEditDrawer">
+<div class="drawer-head">
+<div><h3>Editar personagem</h3><small id="responsibleCharacterName">Personagem</small></div>
+<button id="closeCharacterEditDrawer" type="button">×</button>
+</div>
+<div class="drawer-body">
+<form class="responsible-character-form" id="responsibleCharacterForm">
+<label>Classe<input id="responsibleCharacterClass" required type="text"></label>
+<div class="responsible-character-grid">
+<label>Power<input id="responsibleCharacterPower" min="0" type="number"></label>
+<label>Level<input id="responsibleCharacterLevel" min="0" type="number"></label>
+<label>Codex<input id="responsibleCharacterCodex" min="0" type="number"></label>
+<label>Mandalla<input id="responsibleCharacterMandalla" min="0" type="number"></label>
+<label>Chi 1<input id="responsibleCharacterChi1" min="0" type="number"></label>
+<label>Chi 2<input id="responsibleCharacterChi2" min="0" type="number"></label>
+<label>Chi 3<input id="responsibleCharacterChi3" min="0" type="number"></label>
+<label>Postura do Sapo<input id="responsibleCharacterFrogPosture" min="0" type="number"></label>
+<label>Constituição<input id="responsibleCharacterConstitution" min="0" type="number"></label>
+<label>Treino Ermo<input id="responsibleCharacterWildernessTraining" min="0" type="number"></label>
+</div>
+<button class="btn primary full" type="submit">Salvar alterações</button>
+</form>
+</div>
+</aside>
+<aside class="drawer hidden" id="memberDrawer">
+<div class="drawer-head">
+<h3>Perfil do membro</h3>
+<button data-close-drawer="" type="button">×</button>
+</div>
+<div class="drawer-body" id="memberDrawerContent"></div>
+</aside>
+<aside class="notification-panel hidden" id="notificationPanel">
+<div class="drawer-head">
+<h3>Notificações</h3>
+<button id="closeNotifications" type="button">×</button>
+</div>
+<div class="notification-list" id="notificationRows"></div>
+</aside>
+<div aria-labelledby="notificationPopupTitle" aria-modal="true" class="notification-popup hidden" id="notificationPopup" role="dialog">
+<div class="notification-popup-card">
+<div class="notification-popup-type" id="notificationPopupType">🔔 Notificação</div>
+<h3 id="notificationPopupTitle">Aviso</h3>
+<p id="notificationPopupMessage"></p>
+<small id="notificationPopupMeta"></small>
+<div class="notification-popup-actions">
+<button class="btn" id="notificationPopupLater" type="button">Ver depois</button>
+<button class="btn primary" id="notificationPopupRead" type="button">Marcar como lida</button>
+</div>
+</div>
+</div>
+<div class="modal hidden" id="eventModal">
+<div class="modal-card">
+<div class="drawer-head"><h3>Novo evento</h3><button id="closeEventModal" type="button">×</button></div>
+<form class="stack" id="eventForm">
+<label>Título<input id="eventTitle" required=""/></label>
+<label>Data<input id="eventDate" required="" type="date"/></label>
+<label>Tipo<select id="eventType"><option>WorldBoss</option><option>Purgatório</option><option>Evento</option><option>Reunião</option></select></label>
+<label>Descrição<textarea id="eventDescription"></textarea></label>
+<button class="btn primary" type="submit">Salvar evento</button>
+</form>
+</div>
+</div>
+
+<div class="modal hidden presence-modal-v207" id="presenceModal" aria-modal="true" role="dialog">
+  <div class="modal-card presence-modal-card-v207">
+    <div class="drawer-head"><div><h3>➕ Registrar Presença</h3><small>O registro será enviado ao Histórico e ao RT Presença.</small></div><button id="closePresenceModal" type="button">×</button></div>
+    <div class="presence-horizontal-form">
+      <label>👤 Usuário<input id="presenceModalUser" list="presenceMemberOptions" placeholder="Digite ou selecione o nickname" autocomplete="off"><datalist id="presenceMemberOptions"></datalist></label>
+      <label>🎯 Evento<select id="presenceModalKind"><option value="worldboss">WorldBoss</option><option value="purgatorio">Purgatório</option><option value="eventos">Eventos</option></select></label>
+      <label>🕒 Horário/Atividade<select id="presenceModalSlot"></select></label>
+      <label>📅 Data<input id="presenceModalDate" type="date"></label>
+      <fieldset class="presence-status-field"><legend>📌 Status</legend><div class="presence-status-buttons"><button type="button" class="active" data-presence-status-choice="1">🟢 Presente</button><button type="button" data-presence-status-choice="3">🟡 Justificado</button><button type="button" data-presence-status-choice="-1">🔴 Ausente</button></div></fieldset>
+    </div>
+    <label class="presence-note-horizontal">📝 Observação<textarea id="presenceModalNote" placeholder="Obrigatória para presença justificada"></textarea></label>
+    <div class="presence-modal-actions"><button class="btn" id="cancelPresenceModal" type="button">Cancelar</button><button class="btn primary" id="savePresenceModal" type="button">💾 Salvar Presença</button></div>
+  </div>
+</div>
+<div class="global-search-results hidden" id="globalSearchResults"></div>
+<div class="toast" id="toast"></div>
+<script src="js/ui.js?v=20.7"></script>
+<script src="js/main.js?v=20.7" type="module"></script>
+</body>
+</html>
