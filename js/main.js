@@ -35,22 +35,10 @@ const REQUEST_ACCESS_OPTIONS={
 };
 const TYPES={worldboss:["10H","12H","20H","22H","00H"],purgatorio:["06H","12H","18H","00H"],eventos:["Guerra de Vale","Defesa de Crista","Evento de Vale","Saque de Castelo"]};
 
-const state={user:null,profile:null,guest:false,onboardingRequired:false,members:[],attendance:[],rtPresence:[],users:[],audit:[],events:[],notifications:[],sentNotifications:[],notificationReads:[],settings:{},xpLogs:[],supportMessages:[],selectedSupportOwnerUid:"",selectedSupportTicketId:"",supportView:"active",chatMessages:[],selectedChatOwnerUid:"",selectedChatId:"",chatView:"active",chatSearch:"",editingCharacterUserId:"",presenceFilters:{},maintenanceChecked:false,unsubs:[]};
+const state={user:null,profile:null,guest:false,onboardingRequired:false,members:[],attendance:[],rtPresence:[],users:[],audit:[],events:[],notifications:[],sentNotifications:[],notificationReads:[],settings:{},xpLogs:[],supportMessages:[],selectedSupportOwnerUid:"",selectedSupportTicketId:"",supportView:"active",chatMessages:[],selectedChatOwnerUid:"",selectedChatId:"",chatView:"active",chatSearch:"",editingCharacterUserId:"",presenceFilters:{},unsubs:[]};
 
 function toast(msg){const el=$("#toast");el.textContent=msg;el.classList.add("show");clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.remove("show"),3000)}
-function errMsg(e){return ({
-  'auth/invalid-credential':'E-mail ou senha incorretos.',
-  'auth/user-not-found':'Usuário não encontrado.',
-  'auth/wrong-password':'Senha incorreta.',
-  'auth/user-disabled':'Esta conta foi desativada.',
-  'auth/too-many-requests':'Muitas tentativas. Aguarde alguns minutos antes de tentar novamente.',
-  'auth/quota-exceeded':'O Firebase bloqueou temporariamente novas verificações de senha por limite de cota. Aguarde a liberação da cota.',
-  'auth/network-request-failed':'Falha de conexão. Verifique a internet e tente novamente.',
-  'auth/invalid-email':'Informe um e-mail válido.',
-  'auth/email-already-in-use':'Este e-mail já existe.',
-  'auth/weak-password':'A senha precisa ter pelo menos 6 caracteres.',
-  'permission-denied':'Permissão negada. Publique o firestore.rules novo.'
-})[e?.code]||`${e?.code||'erro'}: ${e?.message||'Falha inesperada'}`}
+function errMsg(e){return ({'auth/invalid-credential':'E-mail ou senha incorretos.','auth/email-already-in-use':'Este e-mail já existe.','auth/weak-password':'A senha precisa ter pelo menos 6 caracteres.','permission-denied':'Permissão negada. Publique o firestore.rules novo.'})[e?.code]||`${e?.code||'erro'}: ${e?.message||'Falha inesperada'}`}
 function showOnly(id){document.body.dataset.screen=id;["loading","setupScreen","authScreen","app"].forEach(x=>$("#"+x).classList.toggle("hidden",x!==id))}
 
 function accessRoleFromMemberRole(memberRole){
@@ -73,11 +61,7 @@ function linkedUserForMember(member){
 }
 
 function normalizeAccessRole(role){
-  const value=String(role||"member").trim().toLowerCase();
-  if(["dev","developer","desenvolvedor","owner","proprietario","proprietário"].includes(value))return "dev";
-  if(["leadership","lideranca","liderança"].includes(value))return "leadership";
-  if(value==="staff")return "staff";
-  return "member";
+  return role==="owner"?"dev":role==="lideranca"?"leadership":role||"member";
 }
 function accessRoleLabel(role){
   return ({dev:"DEV",leadership:"Liderança",staff:"Staff",member:"Membro"})[normalizeAccessRole(role)]||"Membro";
@@ -112,7 +96,7 @@ function selectedCargoValue(member,user){
 }
 
 const STAFF_ONLY_PAGES=new Set(["staff-hub","registros","worldboss","purgatorio","eventos","personagens","metas","solicitacoes","notificacoes","atendimento","chat"]);
-const OWNER_ONLY_PAGES=new Set(["staff","configuracoes","auditoria","atualizacoes","backup","logs-sistema","status-firebase","status-github","sessoes","manutencao","status-servicos","limpeza-cache","estatisticas-sistema","diagnostico-login"]);
+const OWNER_ONLY_PAGES=new Set(["staff","configuracoes","auditoria","atualizacoes","backup","logs-sistema","status-firebase","status-github","sessoes","manutencao","status-servicos","limpeza-cache","estatisticas-sistema"]);
 
 function canOpenPage(page){
   if(state.onboardingRequired && !state.guest)return page==="meu-perfil" || page==="sobre";
@@ -147,37 +131,7 @@ function fillSelects(){
 }
 fillSelects();
 
-function maintenanceConfig(){
-  return state.settings?.maintenance||{};
-}
-function maintenanceEnabled(){
-  return maintenanceConfig().enabled===true;
-}
-function maintenanceMessage(){
-  return maintenanceConfig().message||"Estamos realizando melhorias. Somente o DEV pode entrar neste momento.";
-}
-function updateMaintenanceUI(){
-  const enabled=maintenanceEnabled();
-  document.body.classList.toggle("maintenance-active",enabled);
-  const alert=byId("maintenanceLoginAlert");
-  if(alert)alert.classList.toggle("hidden",!enabled);
-  setText("maintenanceLoginMessage",maintenanceMessage());
-  setText("maintenancePreviewText",byId("maintenanceMessage")?.value.trim()||maintenanceMessage());
-  const dot=byId("maintenanceStatusDot");
-  if(dot)dot.classList.toggle("active",enabled);
-  setText("maintenanceStatusLabel",enabled?"Manutenção ativada":"Manutenção desativada");
-  setText("maintenanceStatusHelp",enabled?"Somente o DEV pode acessar o painel.":"Todos os usuários podem entrar normalmente.");
-}
-async function loadPublicMaintenance(){
-  try{
-    const snap=await getDoc(doc(db,"settings","app"));
-    if(snap.exists())state.settings={...state.settings,...snap.data()};
-  }catch(error){console.warn("Não foi possível consultar o modo manutenção:",error)}
-  state.maintenanceChecked=true;
-  updateMaintenanceUI();
-}
 async function decideInitialScreen(){
-  await loadPublicMaintenance();
   const exists=await ownerExists();
   showOnly(exists?"authScreen":"setupScreen");
 }
@@ -198,73 +152,7 @@ $("#setupForm").onsubmit=async e=>{
   }catch(e){toast(errMsg(e))}
 };
 
-
-const LOGIN_DIAGNOSTIC_KEY="team77_login_diagnostics_v22";
-let loginInProgress=false;
-function readLoginDiagnostics(){
-  try{return JSON.parse(localStorage.getItem(LOGIN_DIAGNOSTIC_KEY)||"[]")}catch{return []}
-}
-function recordLoginDiagnostic(entry){
-  const rows=readLoginDiagnostics();
-  rows.unshift({at:new Date().toISOString(),...entry});
-  localStorage.setItem(LOGIN_DIAGNOSTIC_KEY,JSON.stringify(rows.slice(0,50)));
-  renderLoginDiagnostics();
-}
-function loginCooldownUntil(){return Number(localStorage.getItem("team77_login_cooldown_until")||0)}
-function setLoginCooldown(ms){localStorage.setItem("team77_login_cooldown_until",String(Date.now()+ms))}
-function clearLoginCooldown(){localStorage.removeItem("team77_login_cooldown_until")}
-function renderLoginDiagnostics(){
-  const body=byId("loginDiagnosticRows");
-  if(body){
-    const rows=readLoginDiagnostics();
-    body.innerHTML=rows.length?rows.map(row=>`<tr><td>${new Date(row.at).toLocaleString("pt-BR")}</td><td>${escapeHtml(row.email||"—")}</td><td>${escapeHtml(row.result||"—")}</td><td>${escapeHtml(row.code||"—")}</td></tr>`).join(""):`<tr><td colspan="4" class="muted">Nenhuma tentativa registrada neste navegador.</td></tr>`;
-  }
-  setText("diagAuthState",auth.currentUser?"Sessão autenticada":"Sem sessão autenticada");
-  setText("diagProfileState",state.profile?`${state.profile.name||state.profile.email||"Perfil carregado"} • ${accessRoleLabel(state.profile.role)}`:"Perfil não carregado");
-  setText("diagMaintenanceState",maintenanceEnabled()?"Manutenção ativada":"Sistema online");
-  setText("diagFirestoreUsers",String(state.users?.length||0));
-}
-function setLoginFeedback(message="",isError=false){
-  const feedback=byId("loginFeedback");
-  if(feedback){feedback.textContent=message;feedback.classList.toggle("error",!!isError)}
-}
-function setLoginBusy(busy){
-  const button=byId("loginButton");
-  if(button){button.disabled=busy;button.textContent=busy?"Entrando...":"Entrar"}
-}
-async function handleLoginSubmit(event){
-  event?.preventDefault();
-  if(loginInProgress)return;
-  const email=String(byId("loginEmail")?.value||"").trim().toLowerCase();
-  const password=String(byId("loginPassword")?.value||"");
-  if(!email||!password){setLoginFeedback("Informe o e-mail e a senha.",true);return}
-  const cooldown=loginCooldownUntil()-Date.now();
-  if(cooldown>0){
-    const seconds=Math.ceil(cooldown/1000);
-    setLoginFeedback(`Aguarde ${seconds}s antes de uma nova tentativa.`,true);
-    return;
-  }
-  loginInProgress=true;
-  setLoginBusy(true);
-  setLoginFeedback("Verificando acesso...");
-  recordLoginDiagnostic({email,result:"Iniciada",code:"—"});
-  try{
-    await signInWithEmailAndPassword(auth,email,password);
-    clearLoginCooldown();
-    recordLoginDiagnostic({email,result:"Credencial validada",code:"OK"});
-    setLoginFeedback("Login validado. Carregando painel...");
-  }catch(error){
-    console.error("Falha no login:",error);
-    if(["auth/quota-exceeded","auth/too-many-requests"].includes(error?.code))setLoginCooldown(5*60*1000);
-    recordLoginDiagnostic({email,result:"Falha",code:error?.code||"erro"});
-    const message=errMsg(error);
-    setLoginFeedback(message,true);
-    toast(message);
-    setLoginBusy(false);
-    loginInProgress=false;
-  }
-}
-on("loginForm","submit",handleLoginSubmit);
+$("#loginForm").onsubmit=async e=>{e.preventDefault();try{await signInWithEmailAndPassword(auth,$("#loginEmail").value.trim(),$("#loginPassword").value)}catch(e2){toast(errMsg(e2))}};
 $("#toggleSignup").onclick=()=>$("#signupBox").classList.toggle("hidden");
 $("#guestButton").onclick=()=>{state.guest=true;state.profile={role:"guest",name:"Visitante"};showOnly("app");applyPermissions();subscribePublic()};
 
@@ -284,71 +172,17 @@ $("#signupForm").onsubmit=async e=>{
 $("#sidebarLogout").onclick=()=>$("#logoutButton").click();
 $("#logoutButton").onclick=async()=>{clearSubs();if(state.guest){state.guest=false;showOnly("authScreen")}else await signOut(auth)};
 
-function normalizedAccountStatus(profile={}){
-  const status=String(profile.status??"").trim().toLowerCase();
-  const activeValue=profile.active;
-  const explicitlyInactive=activeValue===false||String(activeValue).toLowerCase()==="false";
-  const pending=["pending","pendente","aguardando","waiting"].includes(status);
-  const rejected=["rejected","rejeitado","recusado","blocked","bloqueado","inactive","inativo"].includes(status);
-  const approved=["approved","aprovado","ativo","active"].includes(status);
-  return {explicitlyInactive,pending,rejected,approved,status};
-}
-async function ensureUserProfile(user){
-  const userRef=doc(db,"users",user.uid);
-  const snapshot=await getDoc(userRef);
-  if(snapshot.exists())return {id:user.uid,...snapshot.data()};
-  // Recuperação segura: cria somente um perfil pendente vinculado ao próprio UID.
-  const fallback={
-    name:user.displayName||String(user.email||"").split("@")[0]||"Usuário",
-    email:String(user.email||"").toLowerCase(),
-    role:"member",memberRole:"Membros",active:false,status:"pending",
-    firstLogin:true,profileCompleted:false,createdAt:serverTimestamp(),recoveredAt:serverTimestamp()
-  };
-  try{
-    await setDoc(userRef,fallback);
-    return {id:user.uid,...fallback,__recovered:true};
-  }catch(error){
-    console.error("Não foi possível recuperar o perfil ausente:",error);
-    return null;
-  }
-}
-
 onAuthStateChanged(auth,async user=>{
   if(state.guest)return;
   state.user=user;
   if(!user){if(await ownerExists())showOnly("authScreen");return}
   try{
-    state.profile=await ensureUserProfile(user);
-    if(!state.profile){
-      await signOut(auth);
-      setLoginBusy(false);
-      setLoginFeedback("Conta autenticada, mas o perfil não pôde ser carregado. Solicite ao DEV a sincronização do usuário.",true);
-      return toast("Perfil do usuário não encontrado no Firestore.");
-    }
-    const accountStatus=normalizedAccountStatus(state.profile);
-    if(accountStatus.explicitlyInactive||accountStatus.pending||accountStatus.rejected||state.profile.__recovered){
-      await signOut(auth);
-      setLoginBusy(false);
-      const message=state.profile.__recovered
-        ?"A conta foi recuperada e enviada para aprovação do DEV."
-        :accountStatus.rejected
-          ?"Esta conta está bloqueada ou foi recusada."
-          :"Conta ainda não aprovada.";
-      setLoginFeedback(message,true);
-      return toast(message);
-    }
-    if(!state.maintenanceChecked)await loadPublicMaintenance();
-    if(maintenanceEnabled()&&!owner()){
-      const message=maintenanceMessage();
-      state.profile=null;
-      await signOut(auth);
-      showOnly("authScreen");
-      updateMaintenanceUI();
-      return toast(message);
-    }
+    const snap=await getDoc(doc(db,"users",user.uid));
+    if(!snap.exists()){await signOut(auth);return toast("Perfil não encontrado.");}
+    state.profile={id:user.uid,...snap.data()};
+    if(state.profile.active===false||state.profile.status==="pending"){await signOut(auth);return toast("Conta ainda não aprovada.");}
     // Compatibilidade: contas antigas sem os campos de primeiro acesso continuam liberadas.
     state.onboardingRequired=state.profile.profileCompleted===false || state.profile.firstLogin===true;
-    loginInProgress=false;setLoginBusy(false);setLoginFeedback("");
     showOnly("app");applyPermissions();subscribeAll();
     if(state.onboardingRequired){
       requestAnimationFrame(()=>{
@@ -358,11 +192,7 @@ onAuthStateChanged(auth,async user=>{
         toast("Complete seu perfil para liberar o sistema.");
       });
     }
-  }catch(e){
-    console.error("Erro ao concluir login:",e);
-    const message=errMsg(e);
-    loginInProgress=false;setLoginBusy(false);setLoginFeedback(message,true);toast(message);showOnly("authScreen")
-  }
+  }catch(e){toast(errMsg(e));showOnly("authScreen")}
 });
 
 function applyPermissions(){
@@ -510,25 +340,7 @@ function subscribeAll(){
     const chatQuery=editor()?collection(db,"chatMessages"):query(collection(db,"chatMessages"),where("ownerUid","==",state.user.uid));
     state.unsubs.push(onSnapshot(chatQuery,s=>{state.chatMessages=s.docs.map(d=>({id:d.id,...d.data()}));renderPrivateChat();},error=>console.error("Falha ao carregar chat privado:",error)));
   }
-  state.unsubs.push(onSnapshot(doc(db,"settings","app"),async snapshot=>{
-    state.settings=snapshot.exists()?snapshot.data():{};
-    state.maintenanceChecked=true;
-    updateMaintenanceUI();
-    if(maintenanceEnabled()&&!owner()){
-      const message=maintenanceMessage();
-      clearSubs();
-      if(state.guest){
-        state.guest=false;state.profile=null;showOnly("authScreen");updateMaintenanceUI();toast(message);
-      }else if(state.user){
-        const blockedUser=state.user;
-        state.profile=null;
-        try{await signOut(auth)}catch(error){console.warn("Falha ao encerrar sessão bloqueada:",error)}
-        if(blockedUser){showOnly("authScreen");updateMaintenanceUI();toast(message)}
-      }
-      return;
-    }
-    loadSettingsForm();renderGoals();render();
-  }));
+  state.unsubs.push(onSnapshot(doc(db,"settings","app"),s=>{state.settings=s.exists()?s.data():{};loadSettingsForm();renderGoals();render()}));
 }
 async function audit(action,details){if(!state.user||!editor())return;try{await addDoc(collection(db,"audit"),{userId:state.user.uid,userName:state.profile.name,action,details,createdAt:serverTimestamp()})}catch{}}
 
@@ -1062,26 +874,12 @@ function renderAdvancedCenter(){
   const maintenance=state.settings?.maintenance||{};
   const toggle=byId("maintenanceModeToggle"); if(toggle)toggle.checked=maintenance.enabled===true;
   setValue("maintenanceMessage",maintenance.message||"");
-  updateMaintenanceUI();
 }
 function downloadJson(filename,data){const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
 on("checkUpdatesButton","click",()=>{setText("updateStatusText","Versão 16.1 instalada e verificada. Base estável: V16.0.");toast("Verificação local concluída.")});
-on("createBackupButton","click",()=>{if(!owner())return;downloadJson(`77-team-backup-${new Date().toISOString().slice(0,10)}.json`,{version:"21.2",baseVersion:"21.1",exportedAt:new Date().toISOString(),members:state.members,attendance:state.attendance,users:state.users,events:state.events,notifications:state.sentNotifications,audit:state.audit,settings:state.settings});toast("Backup JSON gerado.")});
+on("createBackupButton","click",()=>{if(!owner())return;downloadJson(`77-team-backup-${new Date().toISOString().slice(0,10)}.json`,{version:"21.0",baseVersion:"16.0",exportedAt:new Date().toISOString(),members:state.members,attendance:state.attendance,users:state.users,events:state.events,notifications:state.sentNotifications,audit:state.audit,settings:state.settings});toast("Backup JSON gerado.")});
 on("restoreBackupFile","change",async e=>{const file=e.target.files?.[0];if(!file)return;try{const data=JSON.parse(await file.text());setText("restoreBackupInfo",`Arquivo válido: versão ${data.version||"não informada"}, exportado em ${data.exportedAt||"data não informada"}.`)}catch{setText("restoreBackupInfo","Arquivo inválido ou corrompido.")}});
-on("maintenanceMessage","input",()=>setText("maintenancePreviewText",byId("maintenanceMessage")?.value.trim()||"Estamos realizando melhorias. Somente o DEV pode entrar neste momento."));
-on("maintenanceModeToggle","change",()=>{
-  const enabled=byId("maintenanceModeToggle")?.checked===true;
-  const dot=byId("maintenanceStatusDot");if(dot)dot.classList.toggle("active",enabled);
-  setText("maintenanceStatusLabel",enabled?"Manutenção será ativada":"Manutenção será desativada");
-  setText("maintenanceStatusHelp",enabled?"Após salvar, somente o DEV poderá entrar.":"Após salvar, o acesso normal será restaurado.");
-});
-on("saveMaintenanceButton","click",async()=>{if(!owner())return;try{
-  const enabled=byId("maintenanceModeToggle")?.checked===true;
-  const message=byId("maintenanceMessage")?.value.trim()||"Estamos realizando melhorias. Somente o DEV pode entrar neste momento.";
-  await setDoc(doc(db,"settings","app"),{maintenance:{enabled,message,updatedAt:new Date().toISOString(),updatedBy:state.user.uid}},{merge:true});
-  await audit("modo manutenção atualizado",enabled?"ativado — acesso exclusivo do DEV":"desativado");
-  toast(enabled?"Modo manutenção ativado. Somente o DEV poderá entrar.":"Modo manutenção desativado. Acesso normal restaurado.");
-}catch(e){toast(errMsg(e))}});
+on("saveMaintenanceButton","click",async()=>{if(!owner())return;try{await setDoc(doc(db,"settings","app"),{maintenance:{enabled:byId("maintenanceModeToggle")?.checked===true,message:byId("maintenanceMessage")?.value.trim()||"Sistema em manutenção.",updatedAt:new Date().toISOString(),updatedBy:state.user.uid}},{merge:true});await audit("modo manutenção atualizado",byId("maintenanceModeToggle")?.checked?"ativado":"desativado");toast("Configuração de manutenção salva.")}catch(e){toast(errMsg(e))}});
 on("clearCacheButton","click",async()=>{if(!owner())return;try{if("serviceWorker" in navigator){const regs=await navigator.serviceWorker.getRegistrations();await Promise.all(regs.map(r=>r.unregister()))}if("caches" in window){const keys=await caches.keys();await Promise.all(keys.map(k=>caches.delete(k)))}toast("Cache limpo. Recarregando...");setTimeout(()=>location.reload(true),700)}catch(e){toast("Não foi possível limpar todo o cache.")}});
 
 document.addEventListener("input",e=>{if(e.target.matches("[data-unified-presence-search],[data-unified-presence-date]"))filterUnifiedPresence()});
@@ -4193,12 +3991,3 @@ document.addEventListener("click",event=>{const mode=event.target.closest("[data
 on("recordsClear","click",()=>{["recordsSearch","recordsMember","recordsDateFrom","recordsDateTo","recordsKind","recordsSlot","recordsStatus","recordsClan"].forEach(id=>setValue(id,""));renderRecordsCenter()});on("recordsCsv","click",downloadRecordsCsv);on("recordsExcel","click",downloadRecordsExcel);on("recordsPrint","click",()=>printRecords(true));on("recordsPdf","click",()=>printRecords(true));
 
 // V20.9 — Hub STAFF integrado ao menu e aos módulos operacionais.
-
-
-on("refreshLoginDiagnostics","click",()=>{renderLoginDiagnostics();toast("Diagnóstico atualizado.")});
-on("clearLoginDiagnostics","click",()=>{localStorage.removeItem(LOGIN_DIAGNOSTIC_KEY);clearLoginCooldown();renderLoginDiagnostics();toast("Histórico local de login limpo.")});
-on("copyLoginDiagnostics","click",async()=>{
-  const payload={generatedAt:new Date().toISOString(),authUser:auth.currentUser?.email||null,profile:state.profile?{email:state.profile.email,role:state.profile.role,status:state.profile.status,active:state.profile.active}:null,maintenance:maintenanceConfig(),attempts:readLoginDiagnostics()};
-  try{await navigator.clipboard.writeText(JSON.stringify(payload,null,2));toast("Relatório copiado.")}catch{toast("Não foi possível copiar o relatório.")}
-});
-window.addEventListener("teammanager:pagechange",renderLoginDiagnostics);
