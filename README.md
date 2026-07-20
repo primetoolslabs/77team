@@ -1,3 +1,13 @@
+# 77 TEAM Manager — V21.1 🟢 Stable
+
+- Modo manutenção informativo em **Avançado**.
+- Todos continuam com acesso normal.
+- Aviso configurável no login e dentro do painel.
+- Título, mensagem, imagem por URL e previsão de término.
+- Configuração salva no Firestore em `settings/app.maintenance`.
+
+---
+
 ## V21.0.1 — Ajuste global de layout
 
 - Removido o contorno externo do menu interno em todas as páginas.

@@ -174,7 +174,7 @@
       ["staff","👥","Staff"],["configuracoes","⚙️","Configurações"],["auditoria","📜","Auditoria"]
     ]},
     avancado:{title:"AVANÇADO",icon:"🚀",defaultPage:"atualizacoes",role:"owner",items:[
-      ["atualizacoes","🚀","Atualizações"],["backup","💾","Backup e restauração"],["logs-sistema","📋","Logs do sistema"],["status-firebase","🔥","Status do Firebase"],["status-github","🌐","Status do GitHub"],["sessoes","👥","Sessões conectadas"],["manutencao","⚙️","Modo manutenção"],["status-servicos","🟢","Status dos serviços"],["limpeza-cache","🧹","Limpeza de cache"],["estatisticas-sistema","📈","Estatísticas do sistema"]
+      ["atualizacoes","🚀","Atualizações"],["backup","💾","Backup e restauração"],["logs-sistema","📋","Logs do sistema"],["status-firebase","🔥","Status do Firebase"],["status-github","🌐","Status do GitHub"],["sessoes","👥","Sessões conectadas"],["manutencao","🚧","Modo manutenção"],["status-servicos","🟢","Status dos serviços"],["limpeza-cache","🧹","Limpeza de cache"],["estatisticas-sistema","📈","Estatísticas do sistema"]
     ]},
     sobre:{title:"SOBRE",icon:"ℹ️",defaultPage:"sobre",items:[["sobre","ℹ️","Sobre"]]}
   };
