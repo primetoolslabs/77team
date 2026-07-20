@@ -4509,3 +4509,28 @@ body[data-screen="loading"] > :not(#loading):not(#toast){
 
 /* V20.8 — Central de Registros */
 .records-tabs{display:flex;gap:10px;margin:0 0 16px}.records-summary-cards{grid-template-columns:repeat(4,minmax(0,1fr));margin-bottom:16px}.records-panel-head{align-items:flex-start;gap:16px}.records-export-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}.records-filter-grid{display:grid;grid-template-columns:2fr repeat(7,minmax(130px,1fr));gap:10px;padding:16px;border-top:1px solid var(--border-color,#2d3142);border-bottom:1px solid var(--border-color,#2d3142)}.records-filter-grid input,.records-filter-grid select{min-width:0}.records-panel tbody tr{cursor:pointer}.records-panel tbody tr:hover{background:rgba(139,92,246,.08)}@media(max-width:1200px){.records-filter-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:760px){.records-summary-cards{grid-template-columns:repeat(2,minmax(0,1fr))}.records-filter-grid{grid-template-columns:1fr}.records-panel-head{display:block}.records-export-actions{justify-content:flex-start;margin-top:12px}.records-tabs{display:grid;grid-template-columns:1fr 1fr}}
+
+/* V20.9 — Hub STAFF no padrão visual de Configurações */
+.nav-hub-group{display:block}
+.nav-hub-link{width:100%;display:flex;align-items:center;gap:12px;padding:13px 14px;border:0;border-radius:12px;background:transparent;color:inherit;text-align:left;cursor:pointer}
+.nav-hub-link:hover,.nav-hub-link.active{background:linear-gradient(135deg,rgba(124,58,237,.22),rgba(59,130,246,.1));box-shadow:inset 0 0 0 1px rgba(167,139,250,.25)}
+.nav-hub-link .nav-group-title{flex:1;font-weight:800;letter-spacing:.06em}
+.staff-hub-shell{min-height:calc(100vh - 160px)}
+.staff-hub-brand{display:flex;align-items:center;gap:12px;padding:8px 8px 20px;border-bottom:1px solid var(--border)}
+.staff-hub-brand>span{display:grid;place-items:center;width:44px;height:44px;border-radius:14px;background:rgba(124,58,237,.18);font-size:24px}
+.staff-hub-brand div{display:flex;flex-direction:column}.staff-hub-brand strong{font-size:1rem}.staff-hub-brand small{opacity:.65}
+.staff-hub-nav{display:grid;gap:7px;margin-top:18px}
+.staff-hub-nav button{display:flex;align-items:center;gap:11px;width:100%;padding:11px 12px;border:0;border-radius:10px;background:transparent;color:inherit;text-align:left;cursor:pointer}
+.staff-hub-nav button:hover{background:rgba(124,58,237,.13)}
+.staff-hub-nav button span{flex:1}.staff-hub-nav button b{min-width:24px;padding:2px 7px;border-radius:999px;background:rgba(239,68,68,.17);font-size:.72rem;text-align:center}
+.staff-hub-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:18px}
+.staff-hub-summary article{display:flex;flex-direction:column;gap:5px;padding:17px;border:1px solid var(--border);border-radius:14px;background:var(--surface,rgba(15,23,42,.7))}
+.staff-hub-summary strong{font-size:1.6rem}.staff-hub-summary small{opacity:.62}
+.staff-hub-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+.staff-module-card{min-height:190px;display:flex;flex-direction:column;justify-content:space-between;gap:14px;cursor:pointer;transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}
+.staff-module-card:hover{transform:translateY(-4px);border-color:rgba(167,139,250,.55);box-shadow:0 16px 34px rgba(0,0,0,.2)}
+.staff-module-icon{display:grid;place-items:center;width:52px;height:52px;border-radius:16px;background:linear-gradient(135deg,rgba(124,58,237,.24),rgba(59,130,246,.13));font-size:28px}
+.staff-module-card h3{margin:0 0 7px}.staff-module-card p{margin:0;opacity:.72;line-height:1.45}.staff-module-card>span{font-size:.82rem;font-weight:800;color:#a78bfa}
+@media(max-width:1200px){.staff-hub-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.staff-hub-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:860px){.staff-hub-shell{display:block}.staff-hub-sidebar{margin-bottom:16px}.staff-hub-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.staff-hub-grid,.staff-hub-summary{grid-template-columns:1fr}.staff-module-card{min-height:160px}.staff-hub-head{align-items:flex-start}}
