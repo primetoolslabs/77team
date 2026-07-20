@@ -946,7 +946,7 @@ Publique `firestore.rules` e `storage.rules` desta versão para habilitar as men
 - Regras do Firestore revisadas para permitir leitura da Auditoria pela Liderança sem conceder alteração.
 
 
-## V21.2.2 — Correção definitiva da alteração de cargos
+## V21.2.3 — Correção definitiva da alteração de cargos
 
 - Corrigido o sincronizador que rebaixava automaticamente o cargo Liderança para Membro.
 - O campo de acesso da conta em `users` passou a ser a fonte oficial das permissões.
@@ -954,3 +954,10 @@ Publique `firestore.rules` e `storage.rules` desta versão para habilitar as men
 - Alterações de cargo atualizam `role`, `accessRole` e `memberRole` de forma consistente.
 - Cor, etiqueta, menus e permissões são atualizados imediatamente após salvar.
 - Preservada a compatibilidade com contas antigas.
+
+
+## V21.2.3 — correção visual definitiva de cargos
+- A coluna Cargo agora exibe o cargo de acesso do sistema (DEV, Liderança ou Staff) quando existir.
+- O cargo do clã continua separado em `memberRole`/`members.role`.
+- Liderança passa a aparecer com destaque vermelho conforme solicitado.
+- A mudança é refletida imediatamente após salvar, sem depender de recarregar a página.

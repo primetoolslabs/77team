@@ -174,6 +174,19 @@ function openAllowedPage(page){
   window.TeamManagerUI?.activatePage(page);
   return true;
 }
+
+function memberSystemRole(member){
+  const user=linkedUserForMember(member);
+  return user ? resolveAccessRole(user) : normalizeAccessRole(member?.accessRole);
+}
+
+function memberDisplayRoleBadge(member){
+  const access=memberSystemRole(member);
+  // Cargos administrativos devem prevalecer visualmente na coluna Cargo.
+  // O cargo de clã permanece salvo em member.role/memberRole, sem controlar permissões.
+  if(["dev","leadership","staff"].includes(access))return roleBadge(access);
+  return roleBadge(member?.role||"Membros");
+}
 function roleBadge(role){
   const access=normalizeAccessRole(role);
   const memberMap={"PT TIME":"role-time","PT BOOST":"role-boost","PT CORE":"role-core","Membros":"role-member","Membro":"role-member"};
@@ -497,7 +510,7 @@ function openMemberDrawer(member){
   const s=stats(member.name),xp=progressionFor(member),level=xp.level,medals=memberMedals(member);
   $("#memberDrawerContent").innerHTML=`<div class="profile-hero">
     <div class="profile-big-avatar">${(member.name||"?").slice(0,1).toUpperCase()}</div>
-    <h2>${member.name}</h2>${roleBadge(member.role)}<p>${member.clan||"Sem clã"}</p>
+    <h2>${member.name}</h2>${memberDisplayRoleBadge(member)}<p>${member.clan||"Sem clã"}</p>
   </div>
   <div class="profile-level"><span>Level ${level} · ${xp.title}</span><div><i style="width:${xp.progress}%"></i></div><small>${xp.currentXp} / ${xp.requiredXp} XP</small></div>
   <div class="profile-stats">
@@ -879,7 +892,7 @@ function render(){
 
   $("#dashboardMemberRows").innerHTML=dashboardMembers.map(m=>`<tr>
     <td><span class="member-avatar">${(m.name||"?").slice(0,1).toUpperCase()}</span><strong>${m.name}</strong></td>
-    <td>${roleBadge(m.role)}</td>
+    <td>${memberDisplayRoleBadge(m)}</td>
     <td>${m.clan||"—"}</td>
     <td>${m.present}</td>
     <td><strong class="ranking-points">${m.rate}%</strong></td>
@@ -890,7 +903,7 @@ function render(){
     const progression=progressionFor(member);
     return `<tr>
       <td><button class="member-link" data-view-member="${member.id}">${member.name}</button></td>
-      <td>${roleBadge(member.role)}</td>
+      <td>${memberDisplayRoleBadge(member)}</td>
       <td>${member.clan||"—"}</td>
       <td><strong>Lv. ${progression.level}</strong></td>
       <td>${progression.title}</td>
@@ -943,8 +956,8 @@ function renderAdvancedCenter(){
   const showLogin=byId("maintenanceShowLogin"); if(showLogin)showLogin.checked=maintenance.showLogin!==false; const showApp=byId("maintenanceShowApp"); if(showApp)showApp.checked=maintenance.showApp!==false; updateMaintenancePreview(); applyMaintenanceNotice();
 }
 function downloadJson(filename,data){const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
-on("checkUpdatesButton","click",()=>{setText("updateStatusText","Versão 21.1 instalada e verificada. Base estável: V21.0.1.");toast("Verificação local concluída.")});
-on("createBackupButton","click",()=>{if(!owner())return;downloadJson(`77-team-backup-${new Date().toISOString().slice(0,10)}.json`,{version:"21.1",baseVersion:"21.0.1",exportedAt:new Date().toISOString(),members:state.members,attendance:state.attendance,users:state.users,events:state.events,notifications:state.sentNotifications,audit:state.audit,settings:state.settings});toast("Backup JSON gerado.")});
+on("checkUpdatesButton","click",()=>{setText("updateStatusText","Versão 21.2.3 instalada e verificada. Base estável: V21.0.1.");toast("Verificação local concluída.")});
+on("createBackupButton","click",()=>{if(!owner())return;downloadJson(`77-team-backup-${new Date().toISOString().slice(0,10)}.json`,{version:"21.2.3",baseVersion:"21.0.1",exportedAt:new Date().toISOString(),members:state.members,attendance:state.attendance,users:state.users,events:state.events,notifications:state.sentNotifications,audit:state.audit,settings:state.settings});toast("Backup JSON gerado.")});
 on("restoreBackupFile","change",async e=>{const file=e.target.files?.[0];if(!file)return;try{const data=JSON.parse(await file.text());setText("restoreBackupInfo",`Arquivo válido: versão ${data.version||"não informada"}, exportado em ${data.exportedAt||"data não informada"}.`)}catch{setText("restoreBackupInfo","Arquivo inválido ou corrompido.")}});
 function maintenanceFormData(){return {enabled:byId("maintenanceModeToggle")?.checked===true,title:byId("maintenanceTitle")?.value.trim()||"Sistema em manutenção",message:byId("maintenanceMessage")?.value.trim()||"Estamos realizando melhorias. Algumas funções podem apresentar instabilidade.",imageUrl:byId("maintenanceImageUrl")?.value.trim()||"",expectedEnd:byId("maintenanceExpectedEnd")?.value||"",showLogin:byId("maintenanceShowLogin")?.checked!==false,showApp:byId("maintenanceShowApp")?.checked!==false}}
 function formatMaintenanceEnd(value){if(!value)return "";const d=new Date(value);return Number.isNaN(d.getTime())?"":`Previsão de término: ${d.toLocaleString("pt-BR")}`}
