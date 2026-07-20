@@ -5,9 +5,9 @@ service cloud.firestore {
     function profileExists(){return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid));}
     function profile(){return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;}
     function active(){return profileExists() && profile().active == true && profile().get('status','approved') == 'approved';}
-    function dev(){return active() && profile().role in ['dev','owner'];}
-    function leadership(){return active() && profile().role in ['leadership','lideranca'];}
-    function staff(){return active() && profile().role == 'staff';}
+    function dev(){return active() && profile().role in ['dev','DEV','developer','desenvolvedor','owner','proprietario','proprietário'];}
+    function leadership(){return active() && profile().role in ['leadership','Leadership','lideranca','liderança','Lideranca','Liderança'];}
+    function staff(){return active() && profile().role in ['staff','Staff','STAFF'];}
     function editor(){return dev() || leadership() || staff();}
     function ownerExists(){return exists(/databases/$(database)/documents/system/owner);}
     function pendingMember(){return resource.data.role == 'member' && resource.data.status == 'pending' && resource.data.active == false;}
@@ -24,11 +24,11 @@ service cloud.firestore {
       allow get: if signedIn() && (request.auth.uid == uid || editor());
       allow list: if editor();
       allow create: if signedIn() && (
-        (request.auth.uid == uid && !ownerExists() && request.resource.data.role in ['dev','owner'] && request.resource.data.active == true && request.resource.data.status == 'approved')
+        (request.auth.uid == uid && !ownerExists() && request.resource.data.role in ['dev','DEV','developer','desenvolvedor','owner','proprietario','proprietário'] && request.resource.data.active == true && request.resource.data.status == 'approved')
         ||
         (request.auth.uid == uid && request.resource.data.role == 'member' && request.resource.data.active == false && request.resource.data.status == 'pending')
         ||
-        (dev() && request.resource.data.role in ['dev','owner','staff','leadership','lideranca'] && request.resource.data.active == true && request.resource.data.status == 'approved')
+        (dev() && request.resource.data.role in ['dev','DEV','developer','desenvolvedor','owner','proprietario','proprietário','staff','Staff','STAFF','leadership','Leadership','lideranca','liderança','Lideranca','Liderança'] && request.resource.data.active == true && request.resource.data.status == 'approved')
       );
 
       allow update: if dev()

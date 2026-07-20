@@ -61,7 +61,11 @@ function linkedUserForMember(member){
 }
 
 function normalizeAccessRole(role){
-  return role==="owner"?"dev":role==="lideranca"?"leadership":role||"member";
+  const value=String(role||"member").trim().toLowerCase();
+  if(["dev","developer","desenvolvedor","owner","proprietario","proprietário"].includes(value))return "dev";
+  if(["leadership","lideranca","liderança"].includes(value))return "leadership";
+  if(value==="staff")return "staff";
+  return "member";
 }
 function accessRoleLabel(role){
   return ({dev:"DEV",leadership:"Liderança",staff:"Staff",member:"Membro"})[normalizeAccessRole(role)]||"Membro";
@@ -212,7 +216,7 @@ onAuthStateChanged(auth,async user=>{
     state.profile={id:user.uid,...snap.data()};
     if(state.profile.active===false||state.profile.status==="pending"){await signOut(auth);return toast("Conta ainda não aprovada.");}
     if(!state.maintenanceChecked)await loadPublicMaintenance();
-    if(maintenanceEnabled()&&normalizeAccessRole(state.profile.role)!=="dev"){
+    if(maintenanceEnabled()&&!owner()){
       const message=maintenanceMessage();
       state.profile=null;
       await signOut(auth);
@@ -386,8 +390,14 @@ function subscribeAll(){
     if(maintenanceEnabled()&&!owner()){
       const message=maintenanceMessage();
       clearSubs();
-      if(state.guest){state.guest=false;state.profile=null;showOnly("authScreen");updateMaintenanceUI();toast(message)}
-      else if(state.user){state.profile=null;await signOut(auth);showOnly("authScreen");updateMaintenanceUI();toast(message)}
+      if(state.guest){
+        state.guest=false;state.profile=null;showOnly("authScreen");updateMaintenanceUI();toast(message);
+      }else if(state.user){
+        const blockedUser=state.user;
+        state.profile=null;
+        try{await signOut(auth)}catch(error){console.warn("Falha ao encerrar sessão bloqueada:",error)}
+        if(blockedUser){showOnly("authScreen");updateMaintenanceUI();toast(message)}
+      }
       return;
     }
     loadSettingsForm();renderGoals();render();
@@ -929,7 +939,7 @@ function renderAdvancedCenter(){
 }
 function downloadJson(filename,data){const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
 on("checkUpdatesButton","click",()=>{setText("updateStatusText","Versão 16.1 instalada e verificada. Base estável: V16.0.");toast("Verificação local concluída.")});
-on("createBackupButton","click",()=>{if(!owner())return;downloadJson(`77-team-backup-${new Date().toISOString().slice(0,10)}.json`,{version:"21.0",baseVersion:"16.0",exportedAt:new Date().toISOString(),members:state.members,attendance:state.attendance,users:state.users,events:state.events,notifications:state.sentNotifications,audit:state.audit,settings:state.settings});toast("Backup JSON gerado.")});
+on("createBackupButton","click",()=>{if(!owner())return;downloadJson(`77-team-backup-${new Date().toISOString().slice(0,10)}.json`,{version:"21.2",baseVersion:"21.1",exportedAt:new Date().toISOString(),members:state.members,attendance:state.attendance,users:state.users,events:state.events,notifications:state.sentNotifications,audit:state.audit,settings:state.settings});toast("Backup JSON gerado.")});
 on("restoreBackupFile","change",async e=>{const file=e.target.files?.[0];if(!file)return;try{const data=JSON.parse(await file.text());setText("restoreBackupInfo",`Arquivo válido: versão ${data.version||"não informada"}, exportado em ${data.exportedAt||"data não informada"}.`)}catch{setText("restoreBackupInfo","Arquivo inválido ou corrompido.")}});
 on("maintenanceMessage","input",()=>setText("maintenancePreviewText",byId("maintenanceMessage")?.value.trim()||"Estamos realizando melhorias. Somente o DEV pode entrar neste momento."));
 on("maintenanceModeToggle","change",()=>{
