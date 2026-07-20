@@ -1,14 +1,6 @@
-## V21.0.1 — Ajuste global de layout
+# 77 TEAM Manager — V21.0 🟢 Stable
 
-- Removido o contorno externo do menu interno em todas as páginas.
-- Eliminada a barra de rolagem horizontal causada pelo deslocamento lateral.
-- Conteúdo ajustado automaticamente à largura útil da tela.
-- Tabelas largas continuam com rolagem apenas dentro do próprio componente.
-- Mantida a navegação responsiva em desktop, tablet e celular.
-
-# 77 TEAM Manager — V21.0.1 🟢 Stable
-
-## Novidades da V21.0.1
+## Novidades da V21.0
 
 - Navegação principal simplificada em HOME, STAFF, ADMINISTRAÇÃO e AVANÇADO.
 - Menu interno persistente em todas as categorias, seguindo o padrão de Configurações.
@@ -19,10 +11,10 @@
 
 ---
 
-# 77 TEAM Manager V21.0.1 🟢 Stable
+# 77 TEAM Manager V21.0 🟢 Stable
 
 
-## Novidades da V21.0.1
+## Novidades da V21.0
 
 - A antiga categoria **GESTÃO** foi substituída por **STAFF**.
 - Presenças e Consultar Registros foram movidos para o Hub STAFF.
