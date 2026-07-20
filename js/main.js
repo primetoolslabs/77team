@@ -180,6 +180,16 @@ function memberSystemRole(member){
   return user ? resolveAccessRole(user) : normalizeAccessRole(member?.accessRole);
 }
 
+// O perfil do DEV é técnico e não deve aparecer em diretórios, rankings,
+// buscas ou relatórios públicos de membros. O próprio DEV continua usando
+// normalmente a página "Meu Perfil".
+function isHiddenDevMember(member){
+  return memberSystemRole(member)==="dev";
+}
+function visibleMembers(){
+  return state.members.filter(member=>!isHiddenDevMember(member));
+}
+
 function memberDisplayRoleBadge(member){
   const access=memberSystemRole(member);
   // Cargos administrativos devem prevalecer visualmente na coluna Cargo.
@@ -507,6 +517,7 @@ function memberMedals(member){
   return medals;
 }
 function openMemberDrawer(member){
+  if(!member||isHiddenDevMember(member))return;
   const s=stats(member.name),xp=progressionFor(member),level=xp.level,medals=memberMedals(member);
   $("#memberDrawerContent").innerHTML=`<div class="profile-hero">
     <div class="profile-big-avatar">${(member.name||"?").slice(0,1).toUpperCase()}</div>
@@ -590,7 +601,7 @@ function renderStatistics(){
   setText("statsPresenceTotal",present);
   setText("statsAbsenceTotal",absent);
   setText("statsGeneralRate",(total?Math.round(present/total*100):0)+"%");
-  setText("statsActiveMembers",state.members.length);
+  setText("statsActiveMembers",visibleMembers().length);
   const kinds=["worldboss","purgatorio","eventos"];
   $("#typeStats").innerHTML=kinds.map(k=>{
     const rows=state.attendance.filter(a=>a.kind===k),p=rows.filter(a=>a.status===1).length,t=rows.filter(a=>a.status!==0).length,r=t?Math.round(p/t*100):0;
@@ -600,7 +611,7 @@ function renderStatistics(){
   state.attendance.filter(a=>a.status===1).forEach(a=>{const m=String(a.date||"").slice(0,7)||"sem data";months[m]=(months[m]||0)+1});
   const max=Math.max(1,...Object.values(months));
   $("#monthlyStats").innerHTML=Object.entries(months).sort().slice(-6).map(([m,v])=>`<div class="chart-row"><span>${m}</span><div><i style="width:${Math.round(v/max*100)}%"></i></div><strong>${v}</strong></div>`).join("")||"<p>Sem dados.</p>";
-  $("#performanceRows").innerHTML=state.members.map(m=>{const s=stats(m.name),level=memberLevel(s.present),medals=memberMedals(m);return `<tr><td><button class="member-link" data-view-member="${m.id}">${m.name}</button></td><td>Lv ${level}</td><td>${medals.join(" ")||"—"}</td><td>${s.present}</td><td>${s.absent}</td><td>${s.rate}%</td></tr>`}).join("");
+  $("#performanceRows").innerHTML=visibleMembers().map(m=>{const s=stats(m.name),level=memberLevel(s.present),medals=memberMedals(m);return `<tr><td><button class="member-link" data-view-member="${m.id}">${m.name}</button></td><td>Lv ${level}</td><td>${medals.join(" ")||"—"}</td><td>${s.present}</td><td>${s.absent}</td><td>${s.rate}%</td></tr>`}).join("");
 }
 
 
@@ -856,7 +867,7 @@ function render(){
   ).size;
   animateNumber("kMonthEvents",monthEvents);
 
-  const rank=state.members
+  const rank=visibleMembers()
     .map(m=>({...m,...stats(m.name)}))
     .sort((a,b)=>b.present-a.present||b.rate-a.rate);
 
@@ -899,7 +910,7 @@ function render(){
     <td><span class="online-status"><i></i>Ativo</span></td>
   </tr>`).join("")||'<tr><td colspan="6">Nenhum membro encontrado.</td></tr>';
 
-  $("#memberRows").innerHTML=state.members.map(member=>{
+  $("#memberRows").innerHTML=visibleMembers().map(member=>{
     const progression=progressionFor(member);
     return `<tr>
       <td><button class="member-link" data-view-member="${member.id}">${member.name}</button></td>
@@ -948,7 +959,7 @@ function renderAdvancedCenter(){
   ].map(([name,status])=>`<article class="panel"><div class="panel-body advanced-card"><span class="service-light ${status==="Operacional"?"ok":"warning"}"></span><strong>${name}</strong><p>${status}</p></div></article>`).join(""));
   setHtml("activeSessionsList",state.user?`<div class="session-row"><div><strong>${escapeHtml(state.profile?.name||state.user.email||"DEV")}</strong><p>${escapeHtml(state.user.email||"")} · Esta sessão</p></div><span class="service-chip ok">Conectado</span></div>`:"<p>Nenhuma sessão identificada.</p>");
   setHtml("systemStatsGrid",[
-    ["Usuários",state.users.length],["Membros",state.members.length],["Presenças",state.attendance.length],["Eventos",state.events.length],["Notificações",state.sentNotifications.length||state.notifications.length],["Logs",state.audit.length]
+    ["Usuários",state.users.filter(user=>resolveAccessRole(user)!=="dev").length],["Membros",visibleMembers().length],["Presenças",state.attendance.length],["Eventos",state.events.length],["Notificações",state.sentNotifications.length||state.notifications.length],["Logs",state.audit.length]
   ].map(([label,value])=>`<article class="card"><span>${label}</span><strong>${Number(value||0).toLocaleString("pt-BR")}</strong><small>Dados carregados nesta sessão</small></article>`).join(""));
   const maintenance=state.settings?.maintenance||{};
   const toggle=byId("maintenanceModeToggle"); if(toggle)toggle.checked=maintenance.enabled===true;
@@ -956,8 +967,8 @@ function renderAdvancedCenter(){
   const showLogin=byId("maintenanceShowLogin"); if(showLogin)showLogin.checked=maintenance.showLogin!==false; const showApp=byId("maintenanceShowApp"); if(showApp)showApp.checked=maintenance.showApp!==false; updateMaintenancePreview(); applyMaintenanceNotice();
 }
 function downloadJson(filename,data){const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
-on("checkUpdatesButton","click",()=>{setText("updateStatusText","Versão 21.2.3 instalada e verificada. Base estável: V21.0.1.");toast("Verificação local concluída.")});
-on("createBackupButton","click",()=>{if(!owner())return;downloadJson(`77-team-backup-${new Date().toISOString().slice(0,10)}.json`,{version:"21.2.3",baseVersion:"21.0.1",exportedAt:new Date().toISOString(),members:state.members,attendance:state.attendance,users:state.users,events:state.events,notifications:state.sentNotifications,audit:state.audit,settings:state.settings});toast("Backup JSON gerado.")});
+on("checkUpdatesButton","click",()=>{setText("updateStatusText","Versão 21.2.4 instalada e verificada. Base estável: V21.0.1.");toast("Verificação local concluída.")});
+on("createBackupButton","click",()=>{if(!owner())return;downloadJson(`77-team-backup-${new Date().toISOString().slice(0,10)}.json`,{version:"21.2.4",baseVersion:"21.0.1",exportedAt:new Date().toISOString(),members:state.members,attendance:state.attendance,users:state.users,events:state.events,notifications:state.sentNotifications,audit:state.audit,settings:state.settings});toast("Backup JSON gerado.")});
 on("restoreBackupFile","change",async e=>{const file=e.target.files?.[0];if(!file)return;try{const data=JSON.parse(await file.text());setText("restoreBackupInfo",`Arquivo válido: versão ${data.version||"não informada"}, exportado em ${data.exportedAt||"data não informada"}.`)}catch{setText("restoreBackupInfo","Arquivo inválido ou corrompido.")}});
 function maintenanceFormData(){return {enabled:byId("maintenanceModeToggle")?.checked===true,title:byId("maintenanceTitle")?.value.trim()||"Sistema em manutenção",message:byId("maintenanceMessage")?.value.trim()||"Estamos realizando melhorias. Algumas funções podem apresentar instabilidade.",imageUrl:byId("maintenanceImageUrl")?.value.trim()||"",expectedEnd:byId("maintenanceExpectedEnd")?.value||"",showLogin:byId("maintenanceShowLogin")?.checked!==false,showApp:byId("maintenanceShowApp")?.checked!==false}}
 function formatMaintenanceEnd(value){if(!value)return "";const d=new Date(value);return Number.isNaN(d.getTime())?"":`Previsão de término: ${d.toLocaleString("pt-BR")}`}
@@ -1201,7 +1212,7 @@ $("#closeEventModal").onclick=()=>$("#eventModal").classList.add("hidden");
 document.addEventListener("click",event=>{
   if(event.target.closest("[data-close-drawer]"))$("#memberDrawer").classList.add("hidden");
   const view=event.target.closest("[data-view-member]");
-  if(view){const member=state.members.find(m=>m.id===view.dataset.viewMember);if(member)openMemberDrawer(member)}
+  if(view){const member=visibleMembers().find(m=>m.id===view.dataset.viewMember);if(member)openMemberDrawer(member)}
 });
 $("#eventForm").onsubmit=async event=>{
   event.preventDefault();if(!editor())return;
@@ -1267,7 +1278,7 @@ function renderGlobalSearch(query){
     return;
   }
 
-  const matches=state.members.filter(member=>
+  const matches=visibleMembers().filter(member=>
     String(member.name||"").toLowerCase().includes(term)||
     String(member.clan||"").toLowerCase().includes(term)||
     String(member.role||"").toLowerCase().includes(term)
@@ -1286,7 +1297,7 @@ on("globalSearch","input",event=>renderGlobalSearch(event.target.value));
 document.addEventListener("click",event=>{
   const result=event.target.closest("[data-search-member]");
   if(result){
-    const member=state.members.find(item=>item.id===result.dataset.searchMember);
+    const member=visibleMembers().find(item=>item.id===result.dataset.searchMember);
     if(member)openMemberDrawer(member);
     byId("globalSearchResults")?.classList.add("hidden");
   }else if(!event.target.closest(".topbar-center")){
