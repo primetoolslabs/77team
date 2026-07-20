@@ -1,4 +1,4 @@
-# 77 TEAM Manager — V21.1 🟢 Stable
+# 77 TEAM Manager — V21.2 🟢 Stable
 
 - Modo manutenção informativo em **Avançado**.
 - Todos continuam com acesso normal.
@@ -931,3 +931,16 @@ Publique `firestore.rules` e `storage.rules` desta versão para habilitar as men
 - Somente essa aba permite registrar ou atualizar presenças.
 - O RT Presença foi removido do menu lateral e continua sendo atualizado internamente.
 - Histórico, Ranking, Estatísticas e Auditoria continuam recebendo os dados automaticamente.
+
+## V21.2 🟢 Stable — Cargos, permissões e cores
+
+- Cargos oficiais padronizados: **DEV**, **Liderança**, **Staff** e **Membro**.
+- Compatibilidade automática com nomes antigos de cargos (owner, proprietário, liderança e variações).
+- Matriz central de acesso:
+  - DEV: HOME, STAFF, ADMINISTRAÇÃO e AVANÇADO.
+  - Liderança: HOME, STAFF e ADMINISTRAÇÃO em modo compatível; Configurações e Auditoria somente leitura.
+  - Staff: HOME e STAFF.
+  - Membro: HOME.
+- Cores globais: DEV vermelho, Liderança roxo, Staff amarelo e Membro azul.
+- Nova tela **Avançado > Cargos e permissões**.
+- Regras do Firestore revisadas para permitir leitura da Auditoria pela Liderança sem conceder alteração.

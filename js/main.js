@@ -60,16 +60,30 @@ function linkedUserForMember(member){
   )||null;
 }
 
+const ROLE_CONFIG=Object.freeze({
+  dev:{label:"DEV",level:4,badgeClass:"role-dev"},
+  leadership:{label:"Liderança",level:3,badgeClass:"role-leadership"},
+  staff:{label:"Staff",level:2,badgeClass:"role-staff"},
+  member:{label:"Membro",level:1,badgeClass:"role-member"},
+  guest:{label:"Visitante",level:0,badgeClass:"role-guest"}
+});
+
 function normalizeAccessRole(role){
-  return role==="owner"?"dev":role==="lideranca"?"leadership":role||"member";
+  const value=String(role||"member").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+  if(["dev","developer","desenvolvedor","owner","proprietario","administrador","admin"].includes(value))return "dev";
+  if(["leadership","lideranca","lider","leader"].includes(value))return "leadership";
+  if(["staff","moderador","moderator"].includes(value))return "staff";
+  if(["guest","visitante"].includes(value))return "guest";
+  return "member";
 }
-function accessRoleLabel(role){
-  return ({dev:"DEV",leadership:"Liderança",staff:"Staff",member:"Membro"})[normalizeAccessRole(role)]||"Membro";
-}
-function owner(){return normalizeAccessRole(state.profile?.role)==="dev"}
-function leadership(){return normalizeAccessRole(state.profile?.role)==="leadership"}
-function staff(){return normalizeAccessRole(state.profile?.role)==="staff"}
-function editor(){return owner()||leadership()||staff()}
+function accessRoleLabel(role){return ROLE_CONFIG[normalizeAccessRole(role)]?.label||"Membro"}
+function currentAccessRole(){return state.guest?"guest":normalizeAccessRole(state.profile?.role)}
+function owner(){return currentAccessRole()==="dev"}
+function leadership(){return currentAccessRole()==="leadership"}
+function staff(){return currentAccessRole()==="staff"}
+function editor(){return ["dev","leadership","staff"].includes(currentAccessRole())}
+function administrator(){return ["dev","leadership"].includes(currentAccessRole())}
+function hasRoleLevel(level){return (ROLE_CONFIG[currentAccessRole()]?.level||0)>=level}
 function canManageAcceptedMember(member,user){
   if(!editor()||!member||!user||user.status!=="approved"||user.active===false)return false;
   if(user.id===state.user?.uid)return false;
@@ -95,33 +109,53 @@ function selectedCargoValue(member,user){
   return role==="member"?`member:${member?.role||user?.memberRole||"Membros"}`:role;
 }
 
-const STAFF_ONLY_PAGES=new Set(["staff-hub","registros","worldboss","purgatorio","eventos","personagens","metas","solicitacoes","notificacoes","atendimento","chat"]);
-const OWNER_ONLY_PAGES=new Set(["staff","configuracoes","auditoria","atualizacoes","backup","logs-sistema","status-firebase","status-github","sessoes","manutencao","status-servicos","limpeza-cache","estatisticas-sistema"]);
+const HOME_PAGES=new Set(["dashboard","meu-perfil","membros","historico","ranking","calendario","estatisticas","sobre"]);
+const STAFF_PAGES=new Set(["staff-hub","presencas","registros","worldboss","purgatorio","eventos","personagens","metas","solicitacoes","notificacoes","atendimento","chat"]);
+const ADMIN_PAGES=new Set(["staff","configuracoes","auditoria"]);
+const ADVANCED_PAGES=new Set(["atualizacoes","backup","logs-sistema","status-firebase","status-github","sessoes","manutencao","status-servicos","limpeza-cache","estatisticas-sistema","permissoes-cargos"]);
 
-function canOpenPage(page){
-  if(state.onboardingRequired && !state.guest)return page==="meu-perfil" || page==="sobre";
-  if(page==="sobre")return true;
-  // V14: estas regras são fixas e prevalecem sobre configurações personalizadas.
-  if(OWNER_ONLY_PAGES.has(page))return owner();
-  if(STAFF_ONLY_PAGES.has(page))return editor();
+const ROLE_PAGE_PERMISSIONS=Object.freeze({
+  dev:{home:true,staff:true,admin:true,advanced:true},
+  leadership:{home:true,staff:true,admin:true,advanced:false},
+  staff:{home:true,staff:true,admin:false,advanced:false},
+  member:{home:true,staff:false,admin:false,advanced:false},
+  guest:{home:true,staff:false,admin:false,advanced:false}
+});
 
-  const role=owner()?"owner":staff()?"staff":state.guest?"guest":"member";
-  const configured=state.settings?.permissions?.[role];
-  if(Array.isArray(configured))return configured.includes(page);
-  return true;
+function pageArea(page){
+  if(ADVANCED_PAGES.has(page))return "advanced";
+  if(ADMIN_PAGES.has(page))return "admin";
+  if(STAFF_PAGES.has(page))return "staff";
+  return "home";
 }
-
+function canOpenPage(page){
+  if(state.onboardingRequired&&!state.guest)return page==="meu-perfil"||page==="sobre";
+  const area=pageArea(page);
+  return ROLE_PAGE_PERMISSIONS[currentAccessRole()]?.[area]===true;
+}
+function permissionMessage(page){
+  const area=pageArea(page);
+  if(area==="advanced")return "Esta área é exclusiva do DEV.";
+  if(area==="admin")return "Esta área é exclusiva do DEV e da Liderança.";
+  if(area==="staff")return "Esta área é exclusiva do DEV, Liderança e Staff.";
+  return "Você não possui permissão para acessar esta página.";
+}
 function openAllowedPage(page){
   if(!canOpenPage(page)){
-    toast(OWNER_ONLY_PAGES.has(page)?"Esta área é exclusiva do DEV.":"Esta área é exclusiva da Liderança e da Staff.");
+    toast(permissionMessage(page));
     window.TeamManagerUI?.activatePage("dashboard");
     return false;
   }
   window.TeamManagerUI?.activatePage(page);
   return true;
 }
-
-function roleBadge(role){const cls={"Staff":"role-staff","Membro":"role-member","Membros":"role-member","PT TIME":"role-time","PT BOOST":"role-boost","PT CORE":"role-core"}[role]||"role-member";return `<span class="role-badge ${cls}">${role||"Membros"}</span>`}
+function roleBadge(role){
+  const access=normalizeAccessRole(role);
+  const memberMap={"PT TIME":"role-time","PT BOOST":"role-boost","PT CORE":"role-core","Membros":"role-member","Membro":"role-member"};
+  const cls=memberMap[role]||ROLE_CONFIG[access]?.badgeClass||"role-member";
+  const label=memberMap[role]?role:accessRoleLabel(access);
+  return `<span class="role-badge ${cls}">${escapeHtml(label)}</span>`;
+}
 function clearSubs(){state.unsubs.forEach(fn=>{try{fn()}catch{}});state.unsubs=[]}
 async function ownerExists(){try{return (await getDoc(doc(db,"system","owner"))).exists()}catch(e){console.error(e);return false}}
 
@@ -200,27 +234,28 @@ onAuthStateChanged(auth,async user=>{
 
 function applyPermissions(){
   $$(".owner-only").forEach(el=>el.classList.toggle("hidden",!owner()));
+  $$(".admin-only").forEach(el=>el.classList.toggle("hidden",!administrator()));
   $$(".editor-only").forEach(el=>el.classList.toggle("hidden",!editor()));
+  document.body.dataset.accessRole=currentAccessRole();
+  document.querySelectorAll("[data-save-settings]").forEach(button=>button.classList.toggle("hidden",!owner()));
+  document.querySelectorAll("#configuracoes input,#configuracoes select,#configuracoes textarea").forEach(field=>field.disabled=!owner());
 
   const displayName=state.guest
     ?"Visitante"
     :(state.profile?.name||state.profile?.email||"Usuário");
 
-  const roleLabel=state.guest
-    ?"Somente visualização"
-    :owner()
-      ?"DEV"
-      :leadership()
-        ?"Liderança"
-        :state.profile?.role==="staff"
-          ?"Staff"
-          :"Membro";
+  const roleLabel=state.guest?"Somente visualização":accessRoleLabel(currentAccessRole());
 
   setText("welcomeName",displayName);
   setText("topbarUserName",displayName);
   setText("userBadge",roleLabel);
   setText("sidebarUserName",displayName);
   setText("sidebarUserRole",roleLabel);
+  ["userBadge","sidebarUserRole"].forEach(id=>{
+    const element=byId(id);if(!element)return;
+    element.classList.remove("role-dev","role-leadership","role-staff","role-member","role-guest");
+    element.classList.add(ROLE_CONFIG[currentAccessRole()]?.badgeClass||"role-member");
+  });
   const currentActivePage=document.querySelector(".page.active")?.id;
   if(currentActivePage&&!canOpenPage(currentActivePage)){
     window.TeamManagerUI?.activatePage("dashboard");
@@ -233,6 +268,7 @@ function applyPermissions(){
     }
   });
   document.body.classList.toggle("first-access-mode",!!state.onboardingRequired);
+  renderRolePermissionMatrix();
   document.querySelectorAll('#nav [data-page]').forEach(button=>{
     const allowed=!state.onboardingRequired || ["meu-perfil","sobre"].includes(button.dataset.page);
     button.classList.toggle("onboarding-locked",!allowed);
@@ -1446,7 +1482,7 @@ document.addEventListener("click",event=>{
   if(requestedPage&&!canOpenPage(requestedPage)){
     event.preventDefault();
     event.stopImmediatePropagation();
-    toast(OWNER_ONLY_PAGES.has(requestedPage)?"Esta área é exclusiva do DEV.":"Esta área é exclusiva da Liderança e da Staff.");
+    toast(permissionMessage(requestedPage));
     window.TeamManagerUI?.activatePage("dashboard");
   }
 },true);
@@ -1470,6 +1506,22 @@ function applyRestrictedVisibility(){
 }
 
 
+function renderRolePermissionMatrix(){
+  const host=byId("rolePermissionMatrix");
+  if(!host)return;
+  const rows=[
+    ["HOME",true,true,true,true],
+    ["STAFF",true,true,true,false],
+    ["ADMINISTRAÇÃO",true,true,false,false],
+    ["AVANÇADO",true,false,false,false],
+    ["Aprovar membros",true,true,true,false],
+    ["Alterar cargos",true,true,"Somente membros",false],
+    ["Auditoria",true,"Somente leitura",false,false],
+    ["Configurações",true,"Somente leitura",false,false]
+  ];
+  const cell=value=>value===true?'<span class="permission-ok">✓ Permitido</span>':value===false?'<span class="permission-no">✕ Bloqueado</span>':`<span class="permission-limited">${escapeHtml(value)}</span>`;
+  host.innerHTML=rows.map(row=>`<tr><th>${row[0]}</th>${row.slice(1).map(cellValue=>`<td>${cell(cellValue)}</td>`).join("")}</tr>`).join("");
+}
 function numberOrZero(value){
   const number=Number(value);
   return Number.isFinite(number)&&number>=0?number:0;
@@ -2306,8 +2358,8 @@ const SETTINGS_MODULES=[
 
 const DEFAULT_PERMISSIONS={
   owner:SETTINGS_MODULES,
-  staff:["dashboard","meu-perfil","membros","historico","ranking","worldboss","purgatorio","eventos","personagens","estatisticas","calendario"],
-  member:["dashboard","meu-perfil","membros","ranking","estatisticas","calendario"],
+  staff:SETTINGS_MODULES,
+  member:["dashboard","meu-perfil","membros","historico","ranking","estatisticas","calendario"],
   guest:["dashboard","membros","ranking","calendario"]
 };
 

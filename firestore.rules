@@ -151,7 +151,7 @@ service cloud.firestore {
     match /settings/{id} { allow read: if true; allow write: if dev(); }
     match /xpLogs/{id} { allow read, create: if editor(); allow update: if false; allow delete: if dev(); }
     match /audit/{id} {
-      allow read: if dev();
+      allow read: if dev() || leadership();
       allow create: if (editor() && request.resource.data.userId == request.auth.uid)
         || (active() && request.resource.data.userId == request.auth.uid && request.resource.data.action == 'Primeiro acesso concluído');
       allow update, delete: if false;
