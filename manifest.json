@@ -1,6 +1,6 @@
 {
-  "name": "77 TEAM Manager 20.5",
-  "short_name": "77 Manager",
+  "name": "77 TEAM Manager V30 Foundation",
+  "short_name": "77 TEAM V30",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
@@ -18,7 +18,7 @@
       "type": "image/png"
     }
   ],
-  "description": "V20.5 com assistente de primeiro acesso, preenchimento obrigatório do perfil e compatibilidade com usuários existentes.",
+  "description": "77 TEAM Manager — V30.1 Dashboard Revolution",
   "version": "20.6",
   "version_name": "20.6"
 }

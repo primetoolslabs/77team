@@ -9,6 +9,11 @@
 <link href="manifest.json" rel="manifest"/>
 <link href="icons/icon-192.png" rel="icon"/>
 <link href="css/style.css?v=21.1" rel="stylesheet"/>
+
+<link rel="stylesheet" href="css/foundation/tokens.css">
+<link rel="stylesheet" href="css/foundation/layout.css">
+<link rel="stylesheet" href="css/foundation/theme.css">
+<link rel="stylesheet" href="css/foundation/responsive.css">
 </head>
 <body>
 <div class="loading" id="loading">
@@ -118,145 +123,90 @@
   <nav class="module-navigation-list" id="moduleNavigationList"></nav>
 </aside>
 <div class="module-breadcrumb" id="moduleBreadcrumb">HOME &gt; Visão Geral</div>
-<section class="page active dashboard-enterprise" id="dashboard">
-<div class="enterprise-kpis">
-<article class="enterprise-kpi kpi-blue">
-<div class="kpi-symbol">♙</div>
-<div class="kpi-copy">
-<span>MEMBROS</span>
-<strong id="kMembers">0</strong>
-<small>Total de membros</small>
-</div>
-<div class="kpi-trend"><b id="dashboardMemberTrend">—</b><small>vs mês passado</small></div>
-</article>
-<article class="enterprise-kpi kpi-green">
-<div class="kpi-symbol">✓</div>
-<div class="kpi-copy">
-<span>PRESENÇAS HOJE</span>
-<strong id="kPresence">0</strong>
-<small>Registradas hoje</small>
-</div>
-<div class="kpi-trend"><b id="dashboardPresenceTrend">—</b><small>vs ontem</small></div>
-</article>
-<article class="enterprise-kpi kpi-orange">
-<div class="kpi-symbol">▣</div>
-<div class="kpi-copy">
-<span>EVENTOS ESTE MÊS</span>
-<strong id="kMonthEvents">0</strong>
-<small>Eventos registrados</small>
-</div>
-<div class="kpi-trend"><b id="dashboardEventTrend">—</b><small>vs mês passado</small></div>
-</article>
-<article class="enterprise-kpi kpi-gold">
-<div class="kpi-symbol">🏆</div>
-<div class="kpi-copy">
-<span>TOP 1 RANKING</span>
-<strong id="kBest">—</strong>
-<small id="kBestPoints">0 pontos</small>
-</div>
-<div class="winner-medal"><span>1</span></div>
-</article>
-</div>
-<div class="enterprise-dashboard-grid enterprise-row-main">
-<article class="panel enterprise-panel enterprise-presences">
-<div class="panel-head">
-<h3>◉ Presenças recentes</h3>
-<button class="dashboard-link" data-page-jump="historico" type="button">Ver todas</button>
-</div>
-<div class="panel-body table-wrap">
-<table>
-<thead><tr><th>Membro</th><th>Cargo</th><th>Data</th><th>Evento</th><th>Status</th></tr></thead>
-<tbody id="recentPresenceRows"></tbody>
-</table>
-</div>
-</article>
-<article class="panel enterprise-panel enterprise-ranking">
-<div class="panel-head">
-<h3>✦ Top 5 ranking</h3>
-<button class="dashboard-link" data-page-jump="ranking" type="button">Ver ranking completo</button>
-</div>
-<div class="panel-body table-wrap">
-<table>
-<thead><tr><th>Posição</th><th>Membro</th><th>Cargo</th><th>Pontos</th></tr></thead>
-<tbody id="topFiveRows"></tbody>
-</table>
-</div>
-</article>
-<article class="panel enterprise-panel dashboard-side-card">
-<div class="panel-head">
-<h3>▣ Eventos de hoje</h3>
-<button class="dashboard-link" data-page-jump="calendario" type="button">Ver calendário</button>
-</div>
-<div class="panel-body today-events-list" id="dashboardTodayEvents"></div>
-</article>
-</div>
-<div class="enterprise-dashboard-grid enterprise-row-analytics">
-<article class="panel enterprise-panel weekly-chart-panel">
-<div class="panel-head">
-<h3>⌁ Presenças da semana</h3>
-<span class="panel-period">Últimos 7 dias</span>
-</div>
-<div class="panel-body">
-<div class="weekly-chart" id="dashboardWeeklyChart"></div>
-</div>
-</article>
-<article class="panel enterprise-panel clan-points-panel">
-<div class="panel-head">
-<h3>▦ Top clãs por pontos</h3>
-<button class="dashboard-link" data-page-jump="ranking" type="button">Ver todos</button>
-</div>
-<div class="panel-body clan-points-list" id="dashboardClanPoints"></div>
-</article>
-<article class="panel enterprise-panel rate-panel">
-<div class="panel-head"><h3>♙ Taxa de presença geral</h3></div>
-<div class="panel-body rate-gauge-wrap">
-<div class="rate-gauge" id="dashboardRateGauge" style="--rate:0">
-<div><strong id="dashboardGeneralRate">0%</strong><span id="dashboardRateLabel">Sem dados</span></div>
-</div>
-<small id="dashboardActiveSummary">0 membros ativos</small>
-</div>
-</article>
-<article class="panel enterprise-panel recent-activity-panel">
-<div class="panel-head"><h3>♣ Atividade recente</h3></div>
-<div class="panel-body recent-activity-list" id="dashboardRecentActivity"></div>
-</article>
-</div>
-<article class="panel enterprise-panel dashboard-members enterprise-members-panel">
-<div class="panel-head dashboard-members-head">
-<h3>♟ Lista de membros</h3>
-<div class="dashboard-tools">
-<input id="dashboardMemberSearch" placeholder="Buscar membro..."/>
-<button class="btn primary editor-only" data-page-jump="membros" type="button">+ Novo membro</button>
-</div>
-</div>
-<div class="panel-body table-wrap">
-<table>
-<thead>
-<tr>
-<th>Nome</th><th>Cargo</th><th>Clã</th><th>Level</th>
-<th>XP</th><th>Presenças</th><th>Taxa</th><th>Status</th><th>Ações</th>
-</tr>
-</thead>
-<tbody id="dashboardMemberRows"></tbody>
-</table>
-</div>
-</article>
-<div class="enterprise-bottom-grid">
-<article class="panel enterprise-panel server-status-panel">
-<div class="panel-head"><h3>⚙ Status do sistema</h3></div>
-<div class="panel-body server-status-content">
-<div class="server-brand"><span>77</span><div><strong>Servidor 77 TEAM</strong><small>Firebase conectado</small></div></div>
-<div class="server-status-grid">
-<div><span>Status</span><strong class="status-online">Online</strong></div>
-<div><span>Usuários</span><strong id="dashboardServerUsers">0</strong></div>
-<div><span>Registros</span><strong id="dashboardServerRecords">0</strong></div>
-<div><span>Atualização</span><strong id="dashboardServerTime">—</strong></div>
-</div>
-<button class="btn full" data-page-jump="configuracoes" type="button">Ver detalhes do sistema</button>
-</div>
-</article>
-</div>
+<section class="page active dashboard-v301" id="dashboard">
+  <div class="v301-hero">
+    <div class="v301-hero-copy">
+      <span class="v301-eyebrow">77 TEAM • CENTRO DE COMANDO</span>
+      <h2>Bem-vindo(a), <span id="dashboardWelcomeName">Pimentel</span>! 👋</h2>
+      <p>Visão estratégica da comunidade, presenças, eventos e operações em tempo real.</p>
+      <div class="v301-hero-status"><span></span> Sistema operacional</div>
+    </div>
+    <div class="v301-hero-emblem" aria-hidden="true"><span>77</span><small>TEAM</small></div>
+  </div>
+
+  <div class="v301-kpis">
+    <button class="v301-kpi kpi-green" data-page-jump="membros" type="button"><span class="kpi-icon">👥</span><div><small>Membros Online</small><strong id="kMembers">0</strong><em id="dashboardMemberTrend">—</em></div><b>›</b></button>
+    <button class="v301-kpi kpi-blue" data-page-jump="historico" type="button"><span class="kpi-icon">📅</span><div><small>Presenças Hoje</small><strong id="kPresence">0</strong><em id="dashboardPresenceTrend">—</em></div><b>›</b></button>
+    <button class="v301-kpi kpi-purple" data-page-jump="calendario" type="button"><span class="kpi-icon">✦</span><div><small>Eventos do Mês</small><strong id="kMonthEvents">0</strong><em id="dashboardEventTrend">—</em></div><b>›</b></button>
+    <button class="v301-kpi kpi-orange editor-only" data-page-jump="solicitacoes" type="button"><span class="kpi-icon">📥</span><div><small>Solicitações</small><strong id="dashboardPendingRequests">0</strong><em>Pendentes</em></div><b>›</b></button>
+    <button class="v301-kpi kpi-cyan editor-only" data-page-jump="atendimento" type="button"><span class="kpi-icon">♡</span><div><small>Atendimentos</small><strong id="dashboardOpenSupport">0</strong><em>Em aberto</em></div><b>›</b></button>
+    <button class="v301-kpi kpi-gold" data-page-jump="notificacoes" type="button"><span class="kpi-icon">🔔</span><div><small>Notificações</small><strong id="dashboardNotificationsCount">0</strong><em>Recentes</em></div><b>›</b></button>
+  </div>
+
+  <div class="v301-main-grid">
+    <article class="v301-panel v301-chart-panel">
+      <header><div><span class="panel-icon">⌁</span><h3>Participação da Semana</h3></div><select aria-label="Filtro de clã"><option>Todos os Clãs</option></select></header>
+      <div class="weekly-chart" id="dashboardWeeklyChart"></div>
+    </article>
+
+    <article class="v301-panel">
+      <header><div><span class="panel-icon">⚔</span><h3>Próximos Eventos</h3></div><button data-page-jump="calendario" type="button">Ver todos</button></header>
+      <div class="today-events-list" id="dashboardTodayEvents"></div>
+    </article>
+
+    <article class="v301-panel">
+      <header><div><span class="panel-icon">◉</span><h3>Últimos Avisos</h3></div><button data-page-jump="notificacoes" type="button">Ver todos</button></header>
+      <div class="recent-activity-list" id="dashboardRecentActivity"></div>
+    </article>
+
+    <article class="v301-panel">
+      <header><div><span class="panel-icon">🏆</span><h3>Ranking da Semana</h3></div><button data-page-jump="ranking" type="button">Completo</button></header>
+      <div class="table-wrap compact-ranking"><table><thead><tr><th>#</th><th>Membro</th><th>Cargo</th><th>Pontos</th></tr></thead><tbody id="topFiveRows"></tbody></table></div>
+      <div class="hidden"><strong id="kBest">—</strong><span id="kBestPoints">0 pontos</span></div>
+    </article>
+  </div>
+
+  <div class="v301-secondary-grid">
+    <article class="v301-panel v301-goal-panel">
+      <header><div><span class="panel-icon">🎯</span><h3>Meta da Semana</h3></div></header>
+      <div class="rate-gauge-wrap"><div class="rate-gauge" id="dashboardRateGauge" style="--rate:0"><div><strong id="dashboardGeneralRate">0%</strong><span id="dashboardRateLabel">Sem dados</span></div></div><small id="dashboardActiveSummary">0 membros ativos</small></div>
+    </article>
+
+    <article class="v301-panel v301-stats-panel">
+      <header><div><span class="panel-icon">▦</span><h3>Estatísticas Gerais</h3></div><button data-page-jump="estatisticas" type="button">Relatório</button></header>
+      <div class="v301-stat-grid"><div><small>Usuários</small><strong id="dashboardServerUsers">0</strong><em>Ativos</em></div><div><small>Registros</small><strong id="dashboardServerRecords">0</strong><em>Presenças</em></div><div><small>Atualização</small><strong id="dashboardServerTime">—</strong><em>Tempo real</em></div><div><small>Status</small><strong class="status-online">Online</strong><em>Firebase</em></div></div>
+    </article>
+
+    <article class="v301-panel">
+      <header><div><span class="panel-icon">♣</span><h3>Top Clãs</h3></div><button data-page-jump="ranking" type="button">Ver todos</button></header>
+      <div class="clan-points-list" id="dashboardClanPoints"></div>
+    </article>
+
+    <article class="v301-panel editor-only">
+      <header><div><span class="panel-icon">🎧</span><h3>Atendimentos Abertos</h3></div><button data-page-jump="atendimento" type="button">Ver todos</button></header>
+      <div class="v301-placeholder-list"><span><i></i> Aguardando atendimento</span><span><i></i> Conversas em andamento</span><span><i></i> Finalizados hoje</span></div>
+    </article>
+  </div>
+
+  <div class="v301-module-cards">
+    <button class="module-card operation editor-only" data-page-jump="presencas" type="button"><span>OPERAÇÃO</span><strong>Gerencie atividades diárias</strong><small>Presenças • Atendimento • Registros</small><b>Acessar módulo →</b></button>
+    <button class="module-card management" data-page-jump="personagens" type="button"><span>GESTÃO</span><strong>Gerencie sua comunidade</strong><small>Membros • Personagens • Metas</small><b>Acessar módulo →</b></button>
+    <button class="module-card administration leadership-only" data-page-jump="administracao-hub" type="button"><span>ADMINISTRAÇÃO</span><strong>Controle e segurança</strong><small>Staff • Configurações • Auditoria</small><b>Acessar módulo →</b></button>
+    <button class="module-card dev dev-only" data-page-jump="avancado-hub" type="button"><span>DEV CENTER</span><strong>Controle total do sistema</strong><small>Firebase • GitHub • Logs • Backup</small><b>Acessar módulo →</b></button>
+  </div>
+
+  <div class="v301-bottom-grid">
+    <article class="v301-panel dashboard-members enterprise-members-panel">
+      <header><div><span class="panel-icon">👥</span><h3>Membros Recentes</h3></div><div class="dashboard-tools"><input id="dashboardMemberSearch" placeholder="Buscar membro..."/><button data-page-jump="membros" type="button">Ver todos</button></div></header>
+      <div class="table-wrap"><table><thead><tr><th>Nome</th><th>Cargo</th><th>Clã</th><th>Level</th><th>XP</th><th>Presenças</th><th>Taxa</th><th>Status</th><th>Ações</th></tr></thead><tbody id="dashboardMemberRows"></tbody></table></div>
+    </article>
+    <article class="v301-panel">
+      <header><div><span class="panel-icon">◉</span><h3>Presenças Recentes</h3></div><button data-page-jump="historico" type="button">Histórico</button></header>
+      <div class="table-wrap"><table><thead><tr><th>Membro</th><th>Cargo</th><th>Data</th><th>Evento</th><th>Status</th></tr></thead><tbody id="recentPresenceRows"></tbody></table></div>
+    </article>
+  </div>
 </section>
+
 <section class="page page-animate editor-only" id="staff-hub">
 <div class="settings-shell staff-hub-shell">
 <aside class="settings-sidebar staff-hub-sidebar">
@@ -1123,7 +1073,7 @@
 <section class="settings-tab" data-settings-panel="system">
 <div class="settings-page-head"><div><span>CONFIGURAÇÕES</span><h2>Sistema</h2><p>Saúde e estatísticas técnicas da aplicação.</p></div><button class="btn" id="refreshSystemHealth" type="button">Atualizar</button></div>
 <div class="system-health-grid">
-<article><span>Versão</span><strong>20.0</strong><small>Versão estável atual</small></article>
+<article><span>Versão</span><strong>30.1 Dashboard Revolution</strong><small>Versão estável atual</small></article>
 <article><span>Projeto Firebase</span><strong id="systemProjectId">—</strong><small>Conectado</small></article>
 <article><span>Usuários</span><strong id="systemUsersCount">0</strong><small>Perfis</small></article>
 <article><span>Membros</span><strong id="systemMembersCount">0</strong><small>Ativos</small></article>
@@ -1138,7 +1088,7 @@
 <article class="settings-card about-enterprise-card">
 <img alt="77 TEAM" src="assets/logo-77-team-vertical.webp"/>
 <h2>77 TEAM Manager</h2>
-<strong>Versão 20.0 Enterprise</strong>
+<strong>Versão 30.1 Dashboard Revolution</strong>
 <p>Plataforma de gestão de membros, presenças, personagens, metas, eventos e inteligência administrativa da 77 TEAM.</p>
 <div class="version-history"><span>v7.0 Player Center</span><span>v7.1 Central de Personagens</span><span>v13.2 Central de Histórico</span><span>v14 Menu por Permissões</span></div>
 </article>
@@ -1148,7 +1098,7 @@
 </section>
 <section class="page page-animate owner-only advanced-page" id="atualizacoes">
 <div class="page-head"><div><h2>🚀 Atualizações</h2><p>Central de implantação do 77 TEAM Manager.</p></div></div>
-<div class="advanced-grid"><article class="panel"><div class="panel-head"><h3>Versão do sistema</h3></div><div class="panel-body advanced-card"><strong>20.0</strong><p id="updateStatusText">Sistema atualizado e verificado.</p><div class="version-details"><span>Base estável: 16.0</span><span>Compilação: 17/07/2026</span></div><button class="btn primary" id="checkUpdatesButton" type="button">Verificar versão instalada</button></div></article><article class="panel"><div class="panel-head"><h3>Novidades da V20.0</h3></div><div class="panel-body"><ul class="release-notes"><li>DEV, Liderança e Staff podem aprovar ou rejeitar solicitações conforme a hierarquia.</li><li>DEV pode atribuir DEV, Liderança, Staff e cargos de membros.</li><li>Regras do Firestore revisadas para aprovação e alteração de cargos.</li><li>Auditoria de aprovações, rejeições e mudanças de cargo.</li></ul></div></article><article class="panel"><div class="panel-head"><h3>Implantação automática</h3></div><div class="panel-body"><p>Para instalar versões com um clique, conecte uma Cloud Function protegida ao GitHub Actions. Tokens nunca devem ficar no navegador.</p><span class="service-chip warning">Integração externa não configurada</span></div></article></div>
+<div class="advanced-grid"><article class="panel"><div class="panel-head"><h3>Versão do sistema</h3></div><div class="panel-body advanced-card"><strong>30.1 Dashboard Revolution</strong><p id="updateStatusText">Sistema atualizado e verificado.</p><div class="version-details"><span>Base preservada: 21.2.4</span><span>Compilação: 20/07/2026</span></div><button class="btn primary" id="checkUpdatesButton" type="button">Verificar versão instalada</button></div></article><article class="panel"><div class="panel-head"><h3>Dashboard Revolution V30.1</h3></div><div class="panel-body"><ul class="release-notes"><li>DEV, Liderança e Staff podem aprovar ou rejeitar solicitações conforme a hierarquia.</li><li>DEV pode atribuir DEV, Liderança, Staff e cargos de membros.</li><li>Regras do Firestore revisadas para aprovação e alteração de cargos.</li><li>Auditoria de aprovações, rejeições e mudanças de cargo.</li></ul></div></article><article class="panel"><div class="panel-head"><h3>Implantação automática</h3></div><div class="panel-body"><p>Para instalar versões com um clique, conecte uma Cloud Function protegida ao GitHub Actions. Tokens nunca devem ficar no navegador.</p><span class="service-chip warning">Integração externa não configurada</span></div></article></div>
 </section>
 <section class="page page-animate owner-only advanced-page" id="backup"><div class="page-head"><div><h2>💾 Backup e restauração</h2><p>Exporte os dados carregados no painel e prepare uma restauração controlada.</p></div></div><div class="advanced-grid"><article class="panel"><div class="panel-head"><h3>Novo backup</h3></div><div class="panel-body"><p>Gera um arquivo JSON com os dados atualmente disponíveis para o DEV.</p><button class="btn primary" id="createBackupButton" type="button">Gerar backup JSON</button></div></article><article class="panel"><div class="panel-head"><h3>Restauração</h3></div><div class="panel-body"><p>Por segurança, a restauração automática exige backend administrativo. O arquivo pode ser validado aqui antes da implantação.</p><input accept="application/json" id="restoreBackupFile" type="file"/><p class="muted" id="restoreBackupInfo"></p></div></article></div></section>
 <section class="page page-animate owner-only advanced-page" id="logs-sistema"><div class="page-head"><div><h2>📋 Logs do sistema</h2><p>Registros de auditoria e eventos operacionais.</p></div></div><article class="panel"><div class="table-wrap"><table><thead><tr><th>Data</th><th>Usuário</th><th>Ação</th><th>Detalhes</th></tr></thead><tbody id="advancedLogsRows"></tbody></table></div></article></section>
@@ -1161,7 +1111,7 @@
 <section class="page page-animate owner-only advanced-page" id="estatisticas-sistema"><div class="page-head"><div><h2>📈 Estatísticas do sistema</h2><p>Indicadores técnicos e administrativos.</p></div></div><div class="cards" id="systemStatsGrid"></div></section>
 <section class="page page-animate owner-only" id="permissoes-cargos">
 <div class="panel">
-<div class="panel-head"><div><h3>Cargos e permissões</h3><p>Matriz oficial e centralizada da V21.2 Stable.</p></div></div>
+<div class="panel-head"><div><h3>Cargos e permissões</h3><p>Matriz oficial centralizada — V30.1 Dashboard Revolution.</p></div></div>
 <div class="panel-body">
 <div class="role-color-legend">
 <span class="role-badge role-dev">DEV</span><span class="role-badge role-leadership">Liderança</span><span class="role-badge role-staff">Staff</span><span class="role-badge role-member">Membro</span>
@@ -1183,7 +1133,7 @@
 <div><span>DESENVOLVIDO POR</span><h3>PrimeTools Labs</h3><p>Tecnologia • Soluções • Resultados</p></div>
 </div>
 <div class="about-v152-meta">
-<div><span>Versão</span><strong>20.0</strong></div>
+<div><span>Versão</span><strong>30.1 Dashboard Revolution</strong></div>
 <div><span>Tecnologias</span><strong>HTML5, CSS3, JavaScript e Firebase</strong></div>
 <div><span>Licença</span><strong>Uso exclusivo da 77 TEAM</strong></div>
 </div>
@@ -1300,5 +1250,6 @@
 <div class="toast" id="toast"></div>
 <script src="js/ui.js?v=20.7"></script>
 <script src="js/main.js?v=20.7" type="module"></script>
+<script type="module" src="js/foundation.js"></script>
 </body>
 </html>

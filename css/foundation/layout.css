@@ -1,0 +1,11 @@
+html,body{min-height:100%;background:var(--v30-bg)}
+body{color:var(--v30-text);background-image:radial-gradient(circle at 85% 0,rgba(239,52,52,.08),transparent 28%),linear-gradient(180deg,#070a0f,#090d14)}
+.app-shell,.app-layout,.dashboard-layout{min-height:100vh}
+.sidebar{position:fixed!important;inset:0 auto 0 0!important;width:var(--v30-sidebar)!important;height:100vh!important;overflow-y:auto!important;z-index:1000;background:linear-gradient(180deg,#080b10,#0b1017)!important;border-right:1px solid var(--v30-border)!important}
+.topbar,.app-topbar,header.topbar{position:fixed!important;top:0!important;left:var(--v30-sidebar)!important;right:0!important;height:var(--v30-topbar)!important;z-index:900!important;background:rgba(7,10,15,.9)!important;backdrop-filter:blur(14px);border-bottom:1px solid var(--v30-border)!important}
+.main,.main-content,.content-area{margin-left:var(--v30-sidebar)!important;padding-top:var(--v30-topbar)!important;min-height:100vh!important}
+.page{padding:22px!important}
+.panel,.card,.stat-card,.dashboard-card{border:1px solid var(--v30-border)!important;border-radius:var(--v30-radius)!important;background:linear-gradient(180deg,rgba(17,24,36,.98),rgba(11,16,23,.98))!important;box-shadow:none!important}
+.panel:hover,.card:hover,.dashboard-card:hover{border-color:rgba(239,52,52,.28)!important}
+.page-head h1,.page-head h2,.page-head h3{letter-spacing:-.02em}
+.sidebar::-webkit-scrollbar{width:6px}.sidebar::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:10px}

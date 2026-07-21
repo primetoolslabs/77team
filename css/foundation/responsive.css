@@ -1,0 +1,2 @@
+@media(max-width:900px){:root{--v30-sidebar:0px;--v30-topbar:64px}.sidebar{transform:translateX(-100%);width:280px!important;transition:transform .25s ease}.sidebar.open,.sidebar.mobile-open{transform:translateX(0)}.topbar,.app-topbar,header.topbar{left:0!important}.main,.main-content,.content-area{margin-left:0!important}.page{padding:14px!important}}
+@media(max-width:560px){.panel,.card,.dashboard-card{border-radius:10px!important}.page{padding:10px!important}.dashboard-grid,.stats-grid,.cards-grid{grid-template-columns:1fr!important}}
