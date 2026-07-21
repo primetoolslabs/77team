@@ -1,4 +1,4 @@
-# 77 TEAM Manager — V22.5 Stable
+# 77 TEAM Manager — V22.5.1 Stable
 
 ## Purple Edition
 
@@ -1010,3 +1010,11 @@ Publique `firestore.rules` e `storage.rules` desta versão para habilitar as men
 - Tela de login refeita com grid responsivo e sem coluna lateral, cards de versão ou ícones sociais.
 - Logos limitadas por CSS para impedir sobreposição e distorção.
 - IDs originais de autenticação, visitante, cadastro e manutenção preservados.
+
+
+## V22.5.1 Stable — Login Modelo Exato
+
+- Fundo oficial fornecido aplicado em tela cheia.
+- Logo oficial fornecida centralizada acima do painel.
+- Painel, proporções, bordas e paleta ajustados ao modelo aprovado.
+- Toda a lógica funcional da base preservada.
