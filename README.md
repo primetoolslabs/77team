@@ -1,4 +1,16 @@
-# 77 TEAM Manager — V22.4.1 Hotfix
+# 77 TEAM Manager — V22.5 Stable
+
+## Purple Edition
+
+- Base funcional preservada da V21.2.4 Stable.
+- Tela de login reconstruída com identidade roxa, prata e dourada.
+- Logo oficial integrada ao topo do painel.
+- Fundo de fantasia em tela cheia.
+- Botão principal roxo com efeito de brilho.
+- Login, Firebase, visitante, cadastro, permissões e módulos mantidos.
+- Layout responsivo para desktop e celular.
+
+---
 
 Correção visual da tela de login para aproximá-la do modelo aprovado.
 
