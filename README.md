@@ -1,4 +1,13 @@
-# 77 TEAM Manager — V22.0 UI Foundation
+# 77 TEAM Manager — V22.0.1 Hotfix
+
+## Login Rebuild
+
+- Base original: V21.2.4 Stable.
+- Tela de login reconstruída em grid de três colunas.
+- Correção de sobreposição, desalinhamento e elementos fora de ordem.
+- IDs, autenticação, Firebase, visitante e cadastro de membro preservados.
+- Layout responsivo para desktop, tablet e celular.
+
 
 Base original: **V21.2.4 Stable**. Esta versão preserva a autenticação, Firebase, permissões e funcionalidades existentes, adicionando uma nova tela de login com identidade de fantasia oriental original.
 
