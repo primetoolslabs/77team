@@ -866,10 +866,6 @@ function render(){
       .map(x=>`${x.date}|${x.slot}`)
   ).size;
   animateNumber("kMonthEvents",monthEvents);
-  setText("dashboardWelcomeName",state.profile?.name||state.user?.displayName||state.user?.email?.split("@")[0]||"Visitante");
-  setText("dashboardPendingRequests",state.users.filter(u=>String(u.status||"").toLowerCase()==="pending").length);
-  setText("dashboardOpenSupport",state.supportMessages.filter(m=>!m.resolved&&!m.closed).length);
-  setText("dashboardNotificationsCount",state.notifications.length);
 
   const rank=visibleMembers()
     .map(m=>({...m,...stats(m.name)}))
@@ -888,8 +884,7 @@ function render(){
     <td>${roleBadge(a.role)}</td>
     <td>${a.date||"—"}</td>
     <td>${a.slot||a.kind||"—"}</td>
-    <td><span class="status-online"><i></i>Presente</span></td>
-  </tr>`).join("")||'<tr><td colspan="5">Nenhuma presença registrada.</td></tr>';
+  </tr>`).join("")||'<tr><td colspan="4">Nenhuma presença registrada.</td></tr>';
 
   $("#topFiveRows").innerHTML=rank.slice(0,5).map((r,i)=>`<tr>
     <td><span class="rank-position rank-${i+1}">${i<3?["🥇","🥈","🥉"][i]:i+1}</span></td>
@@ -906,20 +901,14 @@ function render(){
     String(m.role||"").toLowerCase().includes(dashboardSearch)
   );
 
-  $("#dashboardMemberRows").innerHTML=dashboardMembers.slice(0,8).map(m=>{
-    const progression=progressionFor(m);
-    return `<tr>
-      <td><span class="member-avatar">${(m.name||"?").slice(0,1).toUpperCase()}</span><strong>${m.name}</strong></td>
-      <td>${memberDisplayRoleBadge(m)}</td>
-      <td>${m.clan||"—"}</td>
-      <td>${progression.level||0}</td>
-      <td>${Number(progression.totalXp||0).toLocaleString("pt-BR")}</td>
-      <td>${m.present}</td>
-      <td><strong class="ranking-points">${m.rate}%</strong></td>
-      <td><span class="online-status"><i></i>Ativo</span></td>
-      <td><button class="btn small" data-view-member="${m.id}">Ver perfil</button></td>
-    </tr>`;
-  }).join("")||'<tr><td colspan="9">Nenhum membro encontrado.</td></tr>';
+  $("#dashboardMemberRows").innerHTML=dashboardMembers.map(m=>`<tr>
+    <td><span class="member-avatar">${(m.name||"?").slice(0,1).toUpperCase()}</span><strong>${m.name}</strong></td>
+    <td>${memberDisplayRoleBadge(m)}</td>
+    <td>${m.clan||"—"}</td>
+    <td>${m.present}</td>
+    <td><strong class="ranking-points">${m.rate}%</strong></td>
+    <td><span class="online-status"><i></i>Ativo</span></td>
+  </tr>`).join("")||'<tr><td colspan="6">Nenhum membro encontrado.</td></tr>';
 
   $("#memberRows").innerHTML=visibleMembers().map(member=>{
     const progression=progressionFor(member);
@@ -978,8 +967,8 @@ function renderAdvancedCenter(){
   const showLogin=byId("maintenanceShowLogin"); if(showLogin)showLogin.checked=maintenance.showLogin!==false; const showApp=byId("maintenanceShowApp"); if(showApp)showApp.checked=maintenance.showApp!==false; updateMaintenancePreview(); applyMaintenanceNotice();
 }
 function downloadJson(filename,data){const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
-on("checkUpdatesButton","click",()=>{setText("updateStatusText","V31.1 Interface Reconstruction instalada. Compatibilidade preservada com a base V30.1.0.");toast("Verificação local concluída.")});
-on("createBackupButton","click",()=>{if(!owner())return;downloadJson(`77-team-backup-${new Date().toISOString().slice(0,10)}.json`,{version:"31.1-interface-reconstruction",baseVersion:"30.1.0",exportedAt:new Date().toISOString(),members:state.members,attendance:state.attendance,users:state.users,events:state.events,notifications:state.sentNotifications,audit:state.audit,settings:state.settings});toast("Backup JSON gerado.")});
+on("checkUpdatesButton","click",()=>{setText("updateStatusText","Versão 21.2.4 instalada e verificada. Base estável: V21.0.1.");toast("Verificação local concluída.")});
+on("createBackupButton","click",()=>{if(!owner())return;downloadJson(`77-team-backup-${new Date().toISOString().slice(0,10)}.json`,{version:"21.2.4",baseVersion:"21.0.1",exportedAt:new Date().toISOString(),members:state.members,attendance:state.attendance,users:state.users,events:state.events,notifications:state.sentNotifications,audit:state.audit,settings:state.settings});toast("Backup JSON gerado.")});
 on("restoreBackupFile","change",async e=>{const file=e.target.files?.[0];if(!file)return;try{const data=JSON.parse(await file.text());setText("restoreBackupInfo",`Arquivo válido: versão ${data.version||"não informada"}, exportado em ${data.exportedAt||"data não informada"}.`)}catch{setText("restoreBackupInfo","Arquivo inválido ou corrompido.")}});
 function maintenanceFormData(){return {enabled:byId("maintenanceModeToggle")?.checked===true,title:byId("maintenanceTitle")?.value.trim()||"Sistema em manutenção",message:byId("maintenanceMessage")?.value.trim()||"Estamos realizando melhorias. Algumas funções podem apresentar instabilidade.",imageUrl:byId("maintenanceImageUrl")?.value.trim()||"",expectedEnd:byId("maintenanceExpectedEnd")?.value||"",showLogin:byId("maintenanceShowLogin")?.checked!==false,showApp:byId("maintenanceShowApp")?.checked!==false}}
 function formatMaintenanceEnd(value){if(!value)return "";const d=new Date(value);return Number.isNaN(d.getTime())?"":`Previsão de término: ${d.toLocaleString("pt-BR")}`}
