@@ -1,3 +1,7 @@
+# 77 TEAM Manager — V22.0 UI Foundation
+
+Base original: **V21.2.4 Stable**. Esta versão preserva a autenticação, Firebase, permissões e funcionalidades existentes, adicionando uma nova tela de login com identidade de fantasia oriental original.
+
 # 77 TEAM Manager — V21.2 🟢 Stable
 
 - Modo manutenção informativo em **Avançado**.

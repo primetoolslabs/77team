@@ -5,10 +5,10 @@
 <meta charset="utf-8"/>
 <meta content="width=device-width,initial-scale=1,viewport-fit=cover" name="viewport"/>
 <meta content="#09070f" name="theme-color"/>
-<title>77 TEAM Manager 21.1</title>
+<title>77 TEAM Manager V22.0</title>
 <link href="manifest.json" rel="manifest"/>
 <link href="icons/icon-192.png" rel="icon"/>
-<link href="css/style.css?v=21.1" rel="stylesheet"/>
+<link href="css/style.css?v=22.0" rel="stylesheet"/>
 </head>
 <body>
 <div class="loading" id="loading">
@@ -29,29 +29,81 @@
 </form>
 </div>
 </section>
-<section class="screen center hidden" id="authScreen">
-<div class="auth-card">
-<img alt="77 TEAM" class="auth-logo" src="assets/logo-77-team-v14-3-2.webp?v=20.2"/>
-<h1>77 TEAM MANAGER</h1>
-<p>Gestão de presença</p>
-<div class="maintenance-login-notice hidden" id="maintenanceLoginNotice" role="status" aria-live="polite"><img class="maintenance-login-image hidden" id="maintenanceLoginImage" alt="Aviso de manutenção"/><div class="maintenance-notice-copy"><strong id="maintenanceLoginTitle">🚧 Sistema em manutenção</strong><p id="maintenanceLoginMessage"></p><small id="maintenanceLoginEnd" class="hidden"></small></div></div>
-<form class="stack" id="loginForm">
-<label>E-mail<input id="loginEmail" required="" type="email"/></label>
-<label>Senha<input id="loginPassword" minlength="6" required="" type="password"/></label>
-<button class="btn primary" type="submit">Entrar</button>
-</form>
-<button class="btn full" id="guestButton" type="button">Entrar como visitante</button>
-<button class="btn full" id="toggleSignup" type="button">Criar conta de membro</button>
-<div class="subbox hidden" id="signupBox">
-<h3>Cadastro de membro</h3>
-<p>O clã e o cargo serão definidos pela Staff.</p>
-<form class="stack" id="signupForm">
-<label>Nickname<input id="signupName" required=""/></label>
-<label>E-mail<input id="signupEmail" required="" type="email"/></label>
-<label>Senha<input id="signupPassword" minlength="6" required="" type="password"/></label>
-<button class="btn primary" type="submit">Enviar cadastro</button>
-</form>
-</div>
+<section class="screen center hidden mir4-login-screen" id="authScreen">
+<div class="login-atmosphere" aria-hidden="true"></div>
+<div class="mir4-login-shell">
+  <header class="mir4-login-brand">
+    <img alt="77 TEAM" class="auth-logo" src="assets/logo-77-team-v14-3-2.webp?v=22.0"/>
+    <div><strong>77 TEAM MANAGER</strong><span>Painel de controle da comunidade</span></div>
+  </header>
+
+  <div class="mir4-login-intro">
+    <span class="mir4-eyebrow">PORTAL DA COMUNIDADE</span>
+    <h1>Bem-vindo de volta, guerreiro!</h1>
+    <p>Acesse sua conta para gerenciar membros, presenças, eventos e o progresso do clã.</p>
+  </div>
+
+  <div class="mir4-login-layout">
+    <aside class="mir4-login-feature" aria-label="Destaques do sistema">
+      <span class="feature-kicker">77 TEAM</span>
+      <h2>Juntos somos mais fortes.</h2>
+      <p>Uma central criada para organizar a comunidade, fortalecer o clã e acompanhar cada conquista.</p>
+      <div class="feature-stats">
+        <div><strong>24/7</strong><span>Acesso seguro</span></div>
+        <div><strong>100%</strong><span>Base preservada</span></div>
+        <div><strong>V22</strong><span>Nova experiência</span></div>
+      </div>
+    </aside>
+
+    <main class="auth-card mir4-auth-card">
+      <div class="auth-emblem"><img alt="Emblema 77 TEAM" src="assets/logo-77-team-cobra.webp"/></div>
+      <span class="auth-overline">ACESSO AO SISTEMA</span>
+      <h2>Entre na sua conta</h2>
+      <p class="auth-subtitle">Use o mesmo acesso da versão V21.2.4 Stable.</p>
+      <div class="maintenance-login-notice hidden" id="maintenanceLoginNotice" role="status" aria-live="polite"><img class="maintenance-login-image hidden" id="maintenanceLoginImage" alt="Aviso de manutenção"/><div class="maintenance-notice-copy"><strong id="maintenanceLoginTitle">🚧 Sistema em manutenção</strong><p id="maintenanceLoginMessage"></p><small id="maintenanceLoginEnd" class="hidden"></small></div></div>
+      <form class="stack mir4-login-form" id="loginForm">
+        <label for="loginEmail">E-mail
+          <span class="mir4-input-wrap"><span aria-hidden="true">✦</span><input id="loginEmail" autocomplete="email" placeholder="seuemail@exemplo.com" required="" type="email"/></span>
+        </label>
+        <label for="loginPassword">Senha
+          <span class="mir4-input-wrap"><span aria-hidden="true">◆</span><input id="loginPassword" autocomplete="current-password" minlength="6" placeholder="Digite sua senha" required="" type="password"/><button aria-label="Mostrar senha" class="password-visibility" id="toggleLoginPassword" type="button">◉</button></span>
+        </label>
+        <label class="remember-access"><input id="rememberLoginAccess" type="checkbox"/><span>Lembrar meu e-mail neste dispositivo</span></label>
+        <button class="btn primary mir4-login-submit" type="submit"><span>ENTRAR NO SISTEMA</span><b aria-hidden="true">›</b></button>
+      </form>
+      <div class="auth-divider"><span>ou acesse rapidamente</span></div>
+      <div class="mir4-secondary-actions">
+        <button class="btn full" id="guestButton" type="button"><span>♙</span> Entrar como visitante</button>
+        <button class="btn full" id="toggleSignup" type="button"><span>＋</span> Criar conta de membro</button>
+      </div>
+      <div class="subbox hidden" id="signupBox">
+        <h3>Cadastro de membro</h3>
+        <p>O clã e o cargo serão definidos pela Staff.</p>
+        <form class="stack" id="signupForm">
+          <label>Nickname<input id="signupName" required=""/></label>
+          <label>E-mail<input id="signupEmail" required="" type="email"/></label>
+          <label>Senha<input id="signupPassword" minlength="6" required="" type="password"/></label>
+          <button class="btn primary" type="submit">Enviar cadastro</button>
+        </form>
+      </div>
+    </main>
+
+    <aside class="mir4-system-panel" aria-label="Informações do sistema">
+      <article>
+        <span class="system-card-title">NOVIDADES DA VERSÃO</span>
+        <strong>V22.0 UI Foundation</strong>
+        <ul><li>Nova experiência de login</li><li>Visual inspirado em fantasia oriental</li><li>Funcionalidades antigas preservadas</li></ul>
+      </article>
+      <article>
+        <span class="system-card-title system-online">STATUS DO SISTEMA</span>
+        <div class="system-row"><span>Firebase</span><b>Conectado</b></div>
+        <div class="system-row"><span>Autenticação</span><b>Operacional</b></div>
+        <div class="system-row"><span>Base V21.2.4</span><b>Preservada</b></div>
+      </article>
+    </aside>
+  </div>
+
+  <footer class="mir4-login-footer"><span>🛡️ Segurança</span><span>⚡ Desempenho</span><span>♟ Gestão de comunidade</span><small>© 2026 77 TEAM Manager • Desenvolvido por PrimeTools Labs</small></footer>
 </div>
 </section>
 <div class="app hidden" id="app">
@@ -1298,7 +1350,8 @@
 </div>
 <div class="global-search-results hidden" id="globalSearchResults"></div>
 <div class="toast" id="toast"></div>
-<script src="js/ui.js?v=20.7"></script>
-<script src="js/main.js?v=20.7" type="module"></script>
+<script src="js/ui.js?v=22.0"></script>
+<script src="js/login-ui.js?v=22.0"></script>
+<script src="js/main.js?v=22.0" type="module"></script>
 </body>
 </html>
