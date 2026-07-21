@@ -1,16 +1,3 @@
-# 77 TEAM Manager — V22.0.1 Hotfix
-
-## Login Rebuild
-
-- Base original: V21.2.4 Stable.
-- Tela de login reconstruída em grid de três colunas.
-- Correção de sobreposição, desalinhamento e elementos fora de ordem.
-- IDs, autenticação, Firebase, visitante e cadastro de membro preservados.
-- Layout responsivo para desktop, tablet e celular.
-
-
-Base original: **V21.2.4 Stable**. Esta versão preserva a autenticação, Firebase, permissões e funcionalidades existentes, adicionando uma nova tela de login com identidade de fantasia oriental original.
-
 # 77 TEAM Manager — V21.2 🟢 Stable
 
 - Modo manutenção informativo em **Avançado**.
@@ -974,3 +961,11 @@ Publique `firestore.rules` e `storage.rules` desta versão para habilitar as men
 - O cargo do clã continua separado em `memberRole`/`members.role`.
 - Liderança passa a aparecer com destaque vermelho conforme solicitado.
 - A mudança é refletida imediatamente após salvar, sem depender de recarregar a página.
+
+## V22.1 — Login Rebuild
+
+- Base original: V21.2.4 Stable.
+- Tela de login reconstruída sem a coluna de novidades/status/segurança.
+- Removidos painel de versão, slogan inferior, barra de benefícios e ícones sociais.
+- Mantidos os IDs e eventos do login, visitante, cadastro, manutenção e Firebase.
+- Layout responsivo com CSS Grid/Flexbox e fallback para celular.

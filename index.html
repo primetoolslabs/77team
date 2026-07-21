@@ -5,10 +5,10 @@
 <meta charset="utf-8"/>
 <meta content="width=device-width,initial-scale=1,viewport-fit=cover" name="viewport"/>
 <meta content="#09070f" name="theme-color"/>
-<title>77 TEAM Manager V22.0</title>
+<title>77 TEAM Manager V22.1</title>
 <link href="manifest.json" rel="manifest"/>
 <link href="icons/icon-192.png" rel="icon"/>
-<link href="css/style.css?v=22.0" rel="stylesheet"/>
+<link href="css/style.css?v=22.1" rel="stylesheet"/>
 </head>
 <body>
 <div class="loading" id="loading">
@@ -29,83 +29,57 @@
 </form>
 </div>
 </section>
-<section class="screen hidden mir4-login-screen login-rebuild" id="authScreen">
-  <div class="login-atmosphere" aria-hidden="true"></div>
-  <div class="login-rebuild-shell">
-    <header class="login-rebuild-topbar">
-      <div class="login-version"><span class="login-shield">77</span><div><strong>V22.0.1 HOTFIX</strong><small>BASE V21.2.4 PRESERVADA</small></div></div>
-      <div class="login-top-brand"><img alt="77 TEAM" src="assets/logo-77-team-v14-3-2.webp?v=22.0.1"><span>77 TEAM MANAGER</span></div>
-    </header>
+<section class="screen hidden login-v221" id="authScreen">
+  <div class="login-v221-overlay"></div>
+  <div class="login-v221-layout">
+    <aside class="login-v221-brand" aria-label="Identidade 77 TEAM">
+      <img src="assets/logo-77-team-v14-3-2.webp?v=22.1" alt="77 TEAM" class="login-v221-wordmark"/>
+      <div class="login-v221-brand-copy">
+        <strong>77 TEAM</strong>
+        <span>MANAGER</span>
+        <small>PAINEL DE CONTROLE DA COMUNIDADE</small>
+      </div>
+    </aside>
 
-    <div class="login-rebuild-grid">
-      <aside class="login-art-panel" aria-label="Identidade 77 TEAM">
-        <div class="login-brand-lockup">
-          <img alt="77 TEAM" src="assets/logo-77-team-v14-3-2.webp?v=22.0.1">
-          <strong>77 TEAM</strong>
-          <span>MANAGER NEXT</span>
-          <small>PAINEL DE CONTROLE DA COMUNIDADE</small>
-        </div>
-        <div class="login-motto">
-          <span>77 TEAM</span>
-          <h2>Juntos somos<br><b>mais fortes!</b></h2>
-          <p>Disciplina • União • Respeito • Foco</p>
-        </div>
-      </aside>
+    <main class="login-v221-card" aria-labelledby="loginTitle">
+      <img src="assets/logo-77-team-vertical.webp?v=22.1" alt="Escudo 77 TEAM" class="login-v221-shield"/>
+      <div class="login-v221-heading">
+        <h1 id="loginTitle">BEM-VINDO DE VOLTA,<br><em>GUERREIRO!</em></h1>
+        <p>Acesse sua conta para gerenciar seu clã, presenças, eventos e membros.</p>
+      </div>
 
-      <main class="auth-card login-main-card">
-        <div class="login-card-emblem"><img alt="Emblema 77 TEAM" src="assets/logo-77-team-cobra.webp"></div>
-        <div class="login-card-heading">
-          <span>ACESSO AO SISTEMA</span>
-          <h1>Bem-vindo de volta, <b>guerreiro!</b></h1>
-          <p>Acesse sua conta para gerenciar o clã, presenças, eventos e membros.</p>
-        </div>
+      <div class="maintenance-login-notice hidden" id="maintenanceLoginNotice" role="status" aria-live="polite">
+        <img class="maintenance-login-image hidden" id="maintenanceLoginImage" alt="Aviso de manutenção"/>
+        <div class="maintenance-notice-copy"><strong id="maintenanceLoginTitle">🚧 Sistema em manutenção</strong><p id="maintenanceLoginMessage"></p><small id="maintenanceLoginEnd" class="hidden"></small></div>
+      </div>
 
-        <div class="maintenance-login-notice hidden" id="maintenanceLoginNotice" role="status" aria-live="polite"><img class="maintenance-login-image hidden" id="maintenanceLoginImage" alt="Aviso de manutenção"/><div class="maintenance-notice-copy"><strong id="maintenanceLoginTitle">🚧 Sistema em manutenção</strong><p id="maintenanceLoginMessage"></p><small id="maintenanceLoginEnd" class="hidden"></small></div></div>
+      <form class="login-v221-form" id="loginForm">
+        <label for="loginEmail">USUÁRIO OU E-MAIL</label>
+        <div class="login-v221-field"><span aria-hidden="true">♙</span><input id="loginEmail" required type="email" autocomplete="username" placeholder="Digite seu usuário ou e-mail"/></div>
+        <label for="loginPassword">SENHA</label>
+        <div class="login-v221-field"><span aria-hidden="true">▣</span><input id="loginPassword" minlength="6" required type="password" autocomplete="current-password" placeholder="Digite sua senha"/><button id="toggleLoginPassword" type="button" aria-label="Mostrar senha">◉</button></div>
+        <div class="login-v221-options"><label class="login-v221-remember"><input id="rememberLoginEmail" type="checkbox"/> <span>Lembrar meu acesso</span></label><span>Acesso protegido</span></div>
+        <button class="login-v221-submit" type="submit">ENTRAR NO SISTEMA <b>→</b></button>
+      </form>
 
-        <form class="stack login-rebuild-form" id="loginForm">
-          <label for="loginEmail">USUÁRIO OU E-MAIL
-            <span class="login-field"><span aria-hidden="true">♙</span><input id="loginEmail" autocomplete="email" placeholder="Digite seu usuário ou e-mail" required type="email"></span>
-          </label>
-          <label for="loginPassword">SENHA
-            <span class="login-field"><span aria-hidden="true">▣</span><input id="loginPassword" autocomplete="current-password" minlength="6" placeholder="Digite sua senha" required type="password"><button aria-label="Mostrar senha" class="password-visibility" id="toggleLoginPassword" type="button">◉</button></span>
-          </label>
-          <div class="login-options"><label class="remember-access"><input id="rememberLoginAccess" type="checkbox"><span>Lembrar meu acesso</span></label><span class="login-help">Acesso protegido</span></div>
-          <button class="btn primary login-rebuild-submit" type="submit"><span>ENTRAR NO SISTEMA</span><b aria-hidden="true">→</b></button>
+      <div class="login-v221-divider"><span>OU ACESSE RAPIDAMENTE</span></div>
+      <div class="login-v221-actions">
+        <button class="login-v221-secondary" id="guestButton" type="button">♟ Entrar como visitante</button>
+        <button class="login-v221-secondary" id="toggleSignup" type="button">＋ Criar conta de membro</button>
+      </div>
+      <div class="subbox hidden login-v221-signup" id="signupBox">
+        <h3>Cadastro de membro</h3><p>O clã e o cargo serão definidos pela Staff.</p>
+        <form class="stack" id="signupForm">
+          <label>Nickname<input id="signupName" required/></label>
+          <label>E-mail<input id="signupEmail" required type="email"/></label>
+          <label>Senha<input id="signupPassword" minlength="6" required type="password"/></label>
+          <button class="btn primary" type="submit">Enviar cadastro</button>
         </form>
-
-        <div class="auth-divider"><span>ou acesse rapidamente</span></div>
-        <div class="login-secondary-actions">
-          <button class="btn full" id="guestButton" type="button"><span>♟</span> Entrar como visitante</button>
-          <button class="btn full" id="toggleSignup" type="button"><span>＋</span> Criar conta de membro</button>
-        </div>
-        <div class="subbox hidden" id="signupBox">
-          <h3>Cadastro de membro</h3><p>O clã e o cargo serão definidos pela Staff.</p>
-          <form class="stack" id="signupForm">
-            <label>Nickname<input id="signupName" required></label>
-            <label>E-mail<input id="signupEmail" required type="email"></label>
-            <label>Senha<input id="signupPassword" minlength="6" required type="password"></label>
-            <button class="btn primary" type="submit">Enviar cadastro</button>
-          </form>
-        </div>
-        <div class="login-security-note"><span>🛡️</span><div><strong>Seus dados protegidos</strong><small>Autenticação segura e base original preservada.</small></div></div>
-      </main>
-
-      <aside class="login-info-column" aria-label="Informações do sistema">
-        <article class="login-info-card">
-          <h2>▤ <span>Novidades da versão</span></h2>
-          <strong class="login-release">V22.0.1 UI LOGIN REBUILD <em>HOTFIX</em></strong>
-          <ul><li>Layout reconstruído em três colunas</li><li>Elementos sem sobreposição</li><li>Login original totalmente preservado</li><li>Responsividade revisada</li></ul>
-        </article>
-        <article class="login-info-card status-card">
-          <h2>▣ <span>Status do sistema</span></h2>
-          <div><span>Firebase</span><b>Conectado</b></div><div><span>Autenticação</span><b>Operacional</b></div><div><span>Base de dados</span><b>Preservada</b></div><div><span>Sistema</span><b>Online</b></div>
-        </article>
-        <article class="login-info-card security-card"><h2>🛡 <span>Segurança</span></h2><p>Base funcional V21.2.4 mantida sem alterações na autenticação, permissões ou Firebase.</p></article>
-      </aside>
-    </div>
-
-    <footer class="login-rebuild-footer"><div><span>🛡️ <b>Acesso seguro</b></span><span>⚡ <b>Desempenho</b></span><span>♟ <b>Gestão completa</b></span></div><small>© 2026 77 TEAM Manager • Desenvolvido por <b>PrimeTools Labs</b></small></footer>
+      </div>
+      <div class="login-v221-secure"><span>🛡️</span><div><strong>SEUS DADOS PROTEGIDOS</strong><small>Autenticação segura e base original preservada.</small></div></div>
+    </main>
   </div>
+  <footer class="login-v221-footer">© 2026 77 TEAM Manager <span>• Desenvolvido por <b>PrimeTools Labs</b></span></footer>
 </section>
 <div class="app hidden" id="app">
 <aside class="sidebar sidebar-v13" id="sidebar">
@@ -1351,8 +1325,20 @@
 </div>
 <div class="global-search-results hidden" id="globalSearchResults"></div>
 <div class="toast" id="toast"></div>
-<script src="js/ui.js?v=22.0.1"></script>
-<script src="js/login-ui.js?v=22.0.1"></script>
-<script src="js/main.js?v=22.0.1" type="module"></script>
+<script src="js/ui.js?v=20.7"></script>
+<script src="js/main.js?v=20.7" type="module"></script>
+
+<script>
+(function(){
+  const email=document.getElementById('loginEmail');
+  const remember=document.getElementById('rememberLoginEmail');
+  const password=document.getElementById('loginPassword');
+  const toggle=document.getElementById('toggleLoginPassword');
+  try { const saved=localStorage.getItem('77team.rememberedEmail'); if(saved&&email){email.value=saved;if(remember)remember.checked=true;} } catch(e){}
+  if(toggle&&password) toggle.addEventListener('click',()=>{ const visible=password.type==='text'; password.type=visible?'password':'text'; toggle.textContent=visible?'◉':'◎'; toggle.setAttribute('aria-label',visible?'Mostrar senha':'Ocultar senha'); });
+  const form=document.getElementById('loginForm');
+  if(form) form.addEventListener('submit',()=>{ try { if(remember&&remember.checked&&email) localStorage.setItem('77team.rememberedEmail',email.value.trim()); else localStorage.removeItem('77team.rememberedEmail'); } catch(e){} });
+})();
+</script>
 </body>
 </html>
