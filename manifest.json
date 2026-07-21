@@ -1,6 +1,6 @@
 {
-  "name": "77 TEAM Manager V30 Foundation",
-  "short_name": "77 TEAM V30",
+  "name": "77 TEAM Manager Next — V31.1",
+  "short_name": "77 TEAM Next",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
@@ -18,7 +18,7 @@
       "type": "image/png"
     }
   ],
-  "description": "77 TEAM Manager — V30.1 Dashboard Revolution",
-  "version": "20.6",
-  "version_name": "20.6"
+  "description": "77 TEAM Manager Next — V31.1 Interface Reconstruction",
+  "version": "31.1.0",
+  "version_name": "31.1.0"
 }

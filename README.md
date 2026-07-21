@@ -1,23 +1,24 @@
-# 77 TEAM Manager — V30.1 Dashboard Revolution 🟢 Stable
+# 77 TEAM Manager Next — V31.1 Interface Reconstruction 🟢 Stable
 
-Primeira migração visual real da série V30, construída sobre a V30.0 Foundation e preservando a base funcional da V21.2.4.
+Reconstrução completa da camada visual do 77 TEAM Manager, seguindo o layout de referência aprovado.
 
-## Entregue nesta versão
-- Dashboard redesenhado com identidade visual escura, vermelha e dourada.
-- Cabeçalho de boas-vindas e status do sistema.
-- Seis indicadores rápidos: membros, presenças, eventos, solicitações, atendimentos e notificações.
-- Grade principal com participação semanal, próximos eventos, avisos e ranking.
-- Meta semanal, estatísticas gerais, top clãs e atendimentos.
-- Atalhos visuais para Operação, Gestão, Administração e DEV Center.
-- Lista de membros e presenças recentes integradas aos dados atuais.
+## Principais entregas
+
+- Sidebar fixa com todas as categorias e módulos.
+- Topbar compacta com busca, notificações, tema e perfil.
+- Dashboard em formato de centro de comando.
+- Painel lateral para presenças, calendário e usuários online.
+- Cards operacionais, rankings, metas, eventos e avisos.
+- Design System escuro com destaques vermelho, dourado, verde, azul e roxo.
 - Layout responsivo para desktop, tablet e celular.
-- Permissões, Firebase, login, banco de dados e módulos existentes preservados.
+- Lógica Firebase, autenticação, permissões e registros preservados.
 
-## Referência visual
-A imagem aprovada está em `docs/v30.1-dashboard-reference.png`.
+## Inicialização
 
-## Observação
-A V30.1 migra a tela **Visão Geral**. As demais telas continuam funcionais no visual anterior e serão migradas nas próximas versões para reduzir regressões.
+Hospede os arquivos em um servidor HTTP ou no GitHub Pages. Configure `js/firebase-config.js` com os dados do projeto Firebase.
 
-## Próxima etapa
-V30.2 — Navigation Experience: menu lateral, TopBar, busca global e central de notificações.
+## Documentação
+
+- `docs/CHANGELOG-V31.1.md`
+- `docs/ARCHITECTURE-V31.md`
+- `docs/v31-interface-reference.png`
