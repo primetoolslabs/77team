@@ -1,3 +1,13 @@
+# 77 TEAM Manager — V22.4.1 Hotfix
+
+Correção visual da tela de login para aproximá-la do modelo aprovado.
+
+- Fundo em tela cheia baseado no conceito aprovado.
+- Painel central redimensionado e reposicionado.
+- Logo integrada ao topo do painel.
+- Espaçamentos, proporções e rodapé corrigidos.
+- Autenticação, Firebase, visitante, cadastro, permissões e módulos preservados da V21.2.4 Stable.
+
 
 ## V22.4 — Login com logo integrada
 
