@@ -5279,3 +5279,84 @@ body[data-access-role="leadership"] #configuracoes .settings-content:before{cont
   .login-v224-card .login-v222-heading strong{font-size:27px!important}
   .login-v222-footer{font-size:9px!important}
 }
+
+
+/* ===== V22.5.2 HOTFIX — AJUSTE FINAL DO LOGIN ===== */
+#authScreen.login-v222{
+  box-sizing:border-box!important;
+  align-items:flex-start!important;
+  justify-content:center!important;
+  padding:20px 18px 58px!important;
+  overflow-y:auto!important;
+  background-image:linear-gradient(180deg,rgba(0,0,0,.08),rgba(0,0,0,.30)),url('../assets/login-purple-bg-exact.webp')!important;
+  background-position:center center!important;
+  background-size:cover!important;
+  background-repeat:no-repeat!important;
+  background-attachment:fixed!important;
+}
+#authScreen.login-v222::before{
+  background:radial-gradient(circle at 50% 28%,rgba(120,24,190,.08),rgba(0,0,0,.06) 40%,rgba(0,0,0,.24) 100%)!important;
+}
+#authScreen.login-v222::after{display:none!important}
+.login-v224-shell{
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:center!important;
+  width:min(650px,calc(100vw - 36px))!important;
+  margin:0 auto!important;
+}
+.login-v224-card-logo{
+  position:relative!important;
+  inset:auto!important;
+  left:auto!important;
+  top:auto!important;
+  width:min(780px,118vw)!important;
+  max-width:none!important;
+  height:auto!important;
+  max-height:285px!important;
+  margin:0 auto -34px!important;
+  transform:none!important;
+  object-fit:contain!important;
+  filter:drop-shadow(0 0 22px rgba(137,42,225,.72)) drop-shadow(0 10px 22px rgba(0,0,0,.78))!important;
+  flex:0 0 auto!important;
+}
+.login-v224-card{
+  padding:42px 38px 24px!important;
+  min-height:0!important;
+  width:100%!important;
+}
+.login-v224-card .login-v222-heading{padding-bottom:18px!important}
+.login-v224-card .login-v222-form{margin-top:18px!important}
+.login-v222-footer{
+  position:relative!important;
+  left:auto!important;
+  right:auto!important;
+  bottom:auto!important;
+  margin:14px 0 0!important;
+  padding:0 8px!important;
+  line-height:1.35!important;
+}
+@media (max-height:940px) and (min-width:701px){
+  #authScreen.login-v222{padding-top:8px!important}
+  .login-v224-card-logo{width:min(690px,104vw)!important;max-height:225px!important;margin-bottom:-30px!important}
+  .login-v224-card{padding:34px 34px 18px!important}
+  .login-v224-card .login-v222-heading span{font-size:23px!important}
+  .login-v224-card .login-v222-heading strong{font-size:33px!important}
+  .login-v224-card .login-v222-input{height:48px!important}
+  .login-v224-card .login-v222-submit{height:50px!important}
+  .login-v224-card .login-v222-safe{margin-top:9px!important;padding:8px 12px!important}
+}
+@media (max-width:700px){
+  #authScreen.login-v222{padding:10px 10px 38px!important;background-attachment:scroll!important}
+  .login-v224-shell{width:min(610px,100%)!important}
+  .login-v224-card-logo{width:112%!important;max-height:190px!important;margin-bottom:-24px!important}
+  .login-v224-card{padding:32px 20px 20px!important}
+  .login-v224-card .login-v222-actions{grid-template-columns:1fr!important}
+  .login-v222-footer{font-size:10px!important}
+}
+@media (max-width:420px){
+  .login-v224-card-logo{width:118%!important;max-height:150px!important;margin-bottom:-18px!important}
+  .login-v224-card{padding:26px 14px 17px!important}
+  .login-v224-card .login-v222-heading span{font-size:18px!important}
+  .login-v224-card .login-v222-heading strong{font-size:26px!important}
+}

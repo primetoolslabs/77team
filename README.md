@@ -1,4 +1,4 @@
-# 77 TEAM Manager — V22.5.1 Stable
+# 77 TEAM Manager — V22.5.2 Stable
 
 ## Purple Edition
 
@@ -1012,9 +1012,17 @@ Publique `firestore.rules` e `storage.rules` desta versão para habilitar as men
 - IDs originais de autenticação, visitante, cadastro e manutenção preservados.
 
 
-## V22.5.1 Stable — Login Modelo Exato
+## V22.5.2 Hotfix — Ajuste Final do Login
 
 - Fundo oficial fornecido aplicado em tela cheia.
 - Logo oficial fornecida centralizada acima do painel.
 - Painel, proporções, bordas e paleta ajustados ao modelo aprovado.
 - Toda a lógica funcional da base preservada.
+
+
+## V22.5.2 Hotfix
+- Logo movida para fora do painel para evitar corte.
+- Fundo roxo corrigido para preencher a tela.
+- Painel reposicionado e compactado para resoluções 1366×768 e 1920×1080.
+- Rodapé passa a acompanhar o conteúdo, evitando sobreposição.
+- Toda a lógica funcional anterior foi preservada.
