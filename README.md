@@ -962,10 +962,8 @@ Publique `firestore.rules` e `storage.rules` desta versão para habilitar as men
 - Liderança passa a aparecer com destaque vermelho conforme solicitado.
 - A mudança é refletida imediatamente após salvar, sem depender de recarregar a página.
 
-## V22.1 — Login Rebuild
-
-- Base original: V21.2.4 Stable.
-- Tela de login reconstruída sem a coluna de novidades/status/segurança.
-- Removidos painel de versão, slogan inferior, barra de benefícios e ícones sociais.
-- Mantidos os IDs e eventos do login, visitante, cadastro, manutenção e Firebase.
-- Layout responsivo com CSS Grid/Flexbox e fallback para celular.
+## V22.2 — Login Clean Rebuild
+- Base funcional: V21.2.4 Stable.
+- Tela de login refeita com grid responsivo e sem coluna lateral, cards de versão ou ícones sociais.
+- Logos limitadas por CSS para impedir sobreposição e distorção.
+- IDs originais de autenticação, visitante, cadastro e manutenção preservados.

@@ -5,10 +5,10 @@
 <meta charset="utf-8"/>
 <meta content="width=device-width,initial-scale=1,viewport-fit=cover" name="viewport"/>
 <meta content="#09070f" name="theme-color"/>
-<title>77 TEAM Manager V22.1</title>
+<title>77 TEAM Manager V22.2</title>
 <link href="manifest.json" rel="manifest"/>
 <link href="icons/icon-192.png" rel="icon"/>
-<link href="css/style.css?v=22.1" rel="stylesheet"/>
+<link href="css/style.css?v=22.2" rel="stylesheet"/>
 </head>
 <body>
 <div class="loading" id="loading">
@@ -29,57 +29,45 @@
 </form>
 </div>
 </section>
-<section class="screen hidden login-v221" id="authScreen">
-  <div class="login-v221-overlay"></div>
-  <div class="login-v221-layout">
-    <aside class="login-v221-brand" aria-label="Identidade 77 TEAM">
-      <img src="assets/logo-77-team-v14-3-2.webp?v=22.1" alt="77 TEAM" class="login-v221-wordmark"/>
-      <div class="login-v221-brand-copy">
-        <strong>77 TEAM</strong>
-        <span>MANAGER</span>
-        <small>PAINEL DE CONTROLE DA COMUNIDADE</small>
-      </div>
-    </aside>
-
-    <main class="login-v221-card" aria-labelledby="loginTitle">
-      <img src="assets/logo-77-team-vertical.webp?v=22.1" alt="Escudo 77 TEAM" class="login-v221-shield"/>
-      <div class="login-v221-heading">
-        <h1 id="loginTitle">BEM-VINDO DE VOLTA,<br><em>GUERREIRO!</em></h1>
-        <p>Acesse sua conta para gerenciar seu clã, presenças, eventos e membros.</p>
-      </div>
-
-      <div class="maintenance-login-notice hidden" id="maintenanceLoginNotice" role="status" aria-live="polite">
-        <img class="maintenance-login-image hidden" id="maintenanceLoginImage" alt="Aviso de manutenção"/>
-        <div class="maintenance-notice-copy"><strong id="maintenanceLoginTitle">🚧 Sistema em manutenção</strong><p id="maintenanceLoginMessage"></p><small id="maintenanceLoginEnd" class="hidden"></small></div>
-      </div>
-
-      <form class="login-v221-form" id="loginForm">
-        <label for="loginEmail">USUÁRIO OU E-MAIL</label>
-        <div class="login-v221-field"><span aria-hidden="true">♙</span><input id="loginEmail" required type="email" autocomplete="username" placeholder="Digite seu usuário ou e-mail"/></div>
-        <label for="loginPassword">SENHA</label>
-        <div class="login-v221-field"><span aria-hidden="true">▣</span><input id="loginPassword" minlength="6" required type="password" autocomplete="current-password" placeholder="Digite sua senha"/><button id="toggleLoginPassword" type="button" aria-label="Mostrar senha">◉</button></div>
-        <div class="login-v221-options"><label class="login-v221-remember"><input id="rememberLoginEmail" type="checkbox"/> <span>Lembrar meu acesso</span></label><span>Acesso protegido</span></div>
-        <button class="login-v221-submit" type="submit">ENTRAR NO SISTEMA <b>→</b></button>
-      </form>
-
-      <div class="login-v221-divider"><span>OU ACESSE RAPIDAMENTE</span></div>
-      <div class="login-v221-actions">
-        <button class="login-v221-secondary" id="guestButton" type="button">♟ Entrar como visitante</button>
-        <button class="login-v221-secondary" id="toggleSignup" type="button">＋ Criar conta de membro</button>
-      </div>
-      <div class="subbox hidden login-v221-signup" id="signupBox">
-        <h3>Cadastro de membro</h3><p>O clã e o cargo serão definidos pela Staff.</p>
-        <form class="stack" id="signupForm">
-          <label>Nickname<input id="signupName" required/></label>
-          <label>E-mail<input id="signupEmail" required type="email"/></label>
-          <label>Senha<input id="signupPassword" minlength="6" required type="password"/></label>
-          <button class="btn primary" type="submit">Enviar cadastro</button>
-        </form>
-      </div>
-      <div class="login-v221-secure"><span>🛡️</span><div><strong>SEUS DADOS PROTEGIDOS</strong><small>Autenticação segura e base original preservada.</small></div></div>
-    </main>
-  </div>
-  <footer class="login-v221-footer">© 2026 77 TEAM Manager <span>• Desenvolvido por <b>PrimeTools Labs</b></span></footer>
+<section class="screen hidden login-v222" id="authScreen">
+<div class="login-v222-shell">
+<aside aria-label="Identidade 77 TEAM" class="login-v222-brand">
+<img alt="77 TEAM" class="login-v222-brand-logo" src="assets/logo-77-team-v14-3-2.webp?v=22.2"/>
+<h1>77 TEAM</h1>
+<p class="login-v222-manager">MANAGER</p>
+<p class="login-v222-subtitle">PAINEL DE CONTROLE DA COMUNIDADE</p>
+<div class="login-v222-divider"></div>
+<p class="login-v222-copy">Gerencie membros, presenças, eventos e o progresso do clã em um único lugar.</p>
+</aside>
+<main aria-labelledby="loginTitle" class="login-v222-card">
+<img alt="77 TEAM" class="login-v222-card-logo" src="assets/logo-77-team-v14-3-2.webp?v=22.2"/>
+<div class="login-v222-heading">
+<span>Bem-vindo de volta,</span>
+<strong id="loginTitle">GUERREIRO!</strong>
+<p>Acesse sua conta para continuar.</p>
+</div>
+<div aria-live="polite" class="maintenance-login-notice hidden" id="maintenanceLoginNotice" role="status"><img alt="Aviso de manutenção" class="maintenance-login-image hidden" id="maintenanceLoginImage"/><div class="maintenance-notice-copy"><strong id="maintenanceLoginTitle">🚧 Sistema em manutenção</strong><p id="maintenanceLoginMessage"></p><small class="hidden" id="maintenanceLoginEnd"></small></div></div>
+<form class="login-v222-form" id="loginForm">
+<label for="loginEmail">USUÁRIO OU E-MAIL</label>
+<div class="login-v222-input"><span>♙</span><input id="loginEmail" placeholder="Digite seu usuário ou e-mail" required="" type="email"/></div>
+<label for="loginPassword">SENHA</label>
+<div class="login-v222-input"><span>▣</span><input id="loginPassword" minlength="6" placeholder="Digite sua senha" required="" type="password"/></div>
+<label class="login-v222-remember"><input id="rememberLoginV222" type="checkbox"/> <span>Lembrar meu acesso</span></label>
+<button class="login-v222-submit" type="submit">ENTRAR NO SISTEMA <span>→</span></button>
+</form>
+<div class="login-v222-quick"><span>OU ACESSE RAPIDAMENTE</span></div>
+<div class="login-v222-actions">
+<button class="login-v222-secondary" id="guestButton" type="button">♟ Entrar como visitante</button>
+<button class="login-v222-secondary" id="toggleSignup" type="button">＋ Criar conta de membro</button>
+</div>
+<div class="subbox hidden login-v222-signup" id="signupBox">
+<h3>Cadastro de membro</h3><p>O clã e o cargo serão definidos pela Staff.</p>
+<form class="stack" id="signupForm"><label>Nickname<input id="signupName" required=""/></label><label>E-mail<input id="signupEmail" required="" type="email"/></label><label>Senha<input id="signupPassword" minlength="6" required="" type="password"/></label><button class="btn primary" type="submit">Enviar cadastro</button></form>
+</div>
+<div class="login-v222-safe"><strong>🛡 SEUS DADOS PROTEGIDOS</strong><span>Autenticação segura e base original preservada.</span></div>
+</main>
+</div>
+<footer class="login-v222-footer">© 2026 77 TEAM Manager • Desenvolvido por <strong>PrimeTools Labs</strong></footer>
 </section>
 <div class="app hidden" id="app">
 <aside class="sidebar sidebar-v13" id="sidebar">
@@ -95,10 +83,10 @@
 </div>
 </div>
 <nav aria-label="Menu principal" class="sidebar-nav-v13 main-category-nav" id="nav">
-<button class="main-category-link active" data-page="dashboard" data-category="home" type="button"><span class="category-icon">🏠</span><span class="nav-group-title">HOME</span><span class="category-arrow">›</span></button>
-<button class="main-category-link editor-only" data-page="presencas" data-category="staff" type="button"><span class="category-icon">👥</span><span class="nav-group-title">STAFF</span><span class="category-arrow">›</span></button>
-<button class="main-category-link admin-only" data-page="staff" data-category="administracao" type="button"><span class="category-icon">🛡️</span><span class="nav-group-title">ADMINISTRAÇÃO</span><span class="category-arrow">›</span></button>
-<button class="main-category-link owner-only" data-page="atualizacoes" data-category="avancado" type="button"><span class="category-icon">🚀</span><span class="nav-group-title">AVANÇADO</span><span class="category-arrow">›</span></button>
+<button class="main-category-link active" data-category="home" data-page="dashboard" type="button"><span class="category-icon">🏠</span><span class="nav-group-title">HOME</span><span class="category-arrow">›</span></button>
+<button class="main-category-link editor-only" data-category="staff" data-page="presencas" type="button"><span class="category-icon">👥</span><span class="nav-group-title">STAFF</span><span class="category-arrow">›</span></button>
+<button class="main-category-link admin-only" data-category="administracao" data-page="staff" type="button"><span class="category-icon">🛡️</span><span class="nav-group-title">ADMINISTRAÇÃO</span><span class="category-arrow">›</span></button>
+<button class="main-category-link owner-only" data-category="avancado" data-page="atualizacoes" type="button"><span class="category-icon">🚀</span><span class="nav-group-title">AVANÇADO</span><span class="category-arrow">›</span></button>
 </nav>
 <div class="sidebar-v13-footer">
 <button class="sidebar-about-v152" data-page-jump="sobre" type="button"><span class="menu-icon">ℹ️</span><span class="menu-label">Sobre</span></button>
@@ -136,13 +124,13 @@
 <button class="hidden" id="logoutButton" type="button">Sair</button>
 </div>
 </header>
-<div class="maintenance-app-banner hidden" id="maintenanceAppBanner" role="status" aria-live="polite"><div><strong id="maintenanceAppTitle">🚧 Sistema em manutenção</strong><span id="maintenanceAppMessage"></span><small id="maintenanceAppEnd" class="hidden"></small></div><button id="closeMaintenanceBanner" type="button" aria-label="Fechar aviso">✕</button></div>
-<aside class="module-navigation" id="moduleNavigation" aria-label="Menu da categoria">
-  <div class="module-navigation-head">
-    <span id="moduleCategoryIcon">🏠</span>
-    <div><strong id="moduleCategoryTitle">HOME</strong><small>Navegação da categoria</small></div>
-  </div>
-  <nav class="module-navigation-list" id="moduleNavigationList"></nav>
+<div aria-live="polite" class="maintenance-app-banner hidden" id="maintenanceAppBanner" role="status"><div><strong id="maintenanceAppTitle">🚧 Sistema em manutenção</strong><span id="maintenanceAppMessage"></span><small class="hidden" id="maintenanceAppEnd"></small></div><button aria-label="Fechar aviso" id="closeMaintenanceBanner" type="button">✕</button></div>
+<aside aria-label="Menu da categoria" class="module-navigation" id="moduleNavigation">
+<div class="module-navigation-head">
+<span id="moduleCategoryIcon">🏠</span>
+<div><strong id="moduleCategoryTitle">HOME</strong><small>Navegação da categoria</small></div>
+</div>
+<nav class="module-navigation-list" id="moduleNavigationList"></nav>
 </aside>
 <div class="module-breadcrumb" id="moduleBreadcrumb">HOME &gt; Visão Geral</div>
 <section class="page active dashboard-enterprise" id="dashboard">
@@ -335,10 +323,10 @@
 <article class="panel records-panel">
 <div class="panel-head records-panel-head"><div><h3 id="recordsPanelTitle">Consulta Geral</h3><p>Os arquivos respeitam todos os filtros aplicados.</p></div><div class="records-export-actions"><button class="btn" id="recordsPdf" type="button">📄 PDF</button><button class="btn" id="recordsExcel" type="button">📊 Excel</button><button class="btn" id="recordsCsv" type="button">📋 CSV</button><button class="btn" id="recordsPrint" type="button">🖨️ Imprimir</button></div></div>
 <div class="records-filter-grid">
-<input id="recordsSearch" type="search" placeholder="Buscar membro, clã ou responsável...">
+<input id="recordsSearch" placeholder="Buscar membro, clã ou responsável..." type="search"/>
 <select id="recordsMember"><option value="">Todos os membros</option></select>
-<input id="recordsDateFrom" type="date" title="Data inicial">
-<input id="recordsDateTo" type="date" title="Data final">
+<input id="recordsDateFrom" title="Data inicial" type="date"/>
+<input id="recordsDateTo" title="Data final" type="date"/>
 <select id="recordsKind"><option value="">Todos os eventos</option><option value="worldboss">WorldBoss</option><option value="purgatorio">Purgatório</option><option value="eventos">Eventos</option></select>
 <select id="recordsSlot"><option value="">Todos os horários</option></select>
 <select id="recordsStatus"><option value="">Todos os status</option><option value="1">🟢 Presente</option><option value="3">🟡 Justificado</option><option value="-1">🔴 Ausente</option></select>
@@ -370,9 +358,9 @@
 </div>
 </div>
 <div class="history-filter-grid">
-<input id="historySearch" placeholder="Buscar nickname..." type="search"/>
-<input id="historyDateFrom" type="date"/>
-<input id="historyDateTo" type="date"/>
+<input id="historySearch" placeholder="Buscar nickname..." type="search">
+<input id="historyDateFrom" type="date">
+<input id="historyDateTo" type="date">
 <select id="historyRoleFilter"><option value="">Todos os cargos</option></select>
 <select id="historyClanFilter"><option value="">Todos os clãs</option></select>
 <select id="historyKindFilter">
@@ -390,7 +378,7 @@
 <option value="">PDF individual</option>
 </select>
 <button class="btn" id="downloadHistoryIndividualPdf" type="button">Gerar individual</button>
-</div>
+</input></input></input></div>
 <div class="history-charts" id="historyCharts">
 <article>
 <h4>Participação por tipo</h4>
@@ -521,7 +509,7 @@
 <div class="first-access-copy"><span class="profile-eyebrow">PRIMEIRO ACESSO</span><h3>Bem-vindo ao 77 TEAM Manager</h3><p>Complete seu nickname e os dados principais do personagem para liberar todas as áreas do sistema.</p></div>
 <div class="first-access-progress"><div><strong>Progresso do cadastro</strong><span id="firstAccessProgressText">0/5 etapas concluídas</span></div><div class="first-access-progress-bar"><i id="firstAccessProgressFill"></i></div></div>
 <ul class="first-access-checklist" id="firstAccessChecklist"></ul>
-<div class="first-access-actions"><button class="btn" id="firstAccessGoCharacter" type="button">Preencher personagem</button><button class="btn primary" disabled id="finishFirstAccessButton" type="button">Concluir primeiro acesso</button></div>
+<div class="first-access-actions"><button class="btn" id="firstAccessGoCharacter" type="button">Preencher personagem</button><button class="btn primary" disabled="" id="finishFirstAccessButton" type="button">Concluir primeiro acesso</button></div>
 </section><section class="profile-tab-panel active" data-profile-panel="overview"><div class="profile-tab-heading"><h3>Resumo do perfil</h3><p>Confira sua identidade, conquistas e desempenho.</p></div><article class="panel player-identity-card">
 <div class="player-identity-bg"></div>
 <div class="player-identity-content">
@@ -622,9 +610,6 @@
 </article></section><section class="profile-tab-panel" data-profile-panel="account"><div class="profile-tab-heading"><h3>Dados da conta</h3><p>Altere seu nickname e sua foto de perfil.</p></div><article class="panel account-settings-panel">
 <div class="panel-head"><h3>Conta</h3></div>
 <div class="panel-body account-tabs">
-
-
-
 <section>
 <h4>Nickname</h4>
 <form class="stack" id="profileNicknameForm">
@@ -750,15 +735,13 @@
 </article>
 </div>
 </section>
-
 <section class="page page-animate editor-only" id="rt-presenca">
-  <div class="page-title"><div><h2>📋 RT Presença</h2><p>Registro completo de cada presença finalizada, sem alterar o Histórico existente.</p></div><span class="badge" id="rtPresenceCount">0 registros</span></div>
-  <article class="panel">
-    <div class="panel-head"><h3>Presenças finalizadas</h3><div class="rt-filters"><input id="rtSearch" type="search" placeholder="Buscar RT, tipo ou responsável..."><select id="rtKindFilter"><option value="">Todos os tipos</option><option value="worldboss">WorldBoss</option><option value="purgatorio">Purgatório</option><option value="eventos">Eventos</option></select><input id="rtDateFilter" type="date"></div></div>
-    <div class="panel-body"><div id="rtPresenceList" class="rt-list"></div></div>
-  </article>
+<div class="page-title"><div><h2>📋 RT Presença</h2><p>Registro completo de cada presença finalizada, sem alterar o Histórico existente.</p></div><span class="badge" id="rtPresenceCount">0 registros</span></div>
+<article class="panel">
+<div class="panel-head"><h3>Presenças finalizadas</h3><div class="rt-filters"><input id="rtSearch" placeholder="Buscar RT, tipo ou responsável..." type="search"/><select id="rtKindFilter"><option value="">Todos os tipos</option><option value="worldboss">WorldBoss</option><option value="purgatorio">Purgatório</option><option value="eventos">Eventos</option></select><input id="rtDateFilter" type="date"/></div></div>
+<div class="panel-body"><div class="rt-list" id="rtPresenceList"></div></div>
+</article>
 </section>
-
 <section class="page page-animate" id="estatisticas">
 <div class="cards">
 <article class="card"><span>Presenças</span><strong id="statsPresenceTotal">0</strong></article>
@@ -1182,7 +1165,7 @@
 <section class="page page-animate owner-only advanced-page" id="status-firebase"><div class="page-head"><div><h2>📊 Status do Firebase</h2><p>Diagnóstico da conexão utilizada pelo painel.</p></div></div><div class="advanced-grid" id="firebaseStatusCards"></div></section>
 <section class="page page-animate owner-only advanced-page" id="status-github"><div class="page-head"><div><h2>🌐 Status do GitHub</h2><p>Preparado para integração segura com GitHub Actions.</p></div></div><article class="panel"><div class="panel-body advanced-card"><span class="service-light warning"></span><strong>Não configurado</strong><p>Informe o repositório e configure a Cloud Function para consultar workflows sem expor tokens.</p></div></article></section>
 <section class="page page-animate owner-only advanced-page" id="sessoes"><div class="page-head"><div><h2>👥 Sessões de usuários conectados</h2><p>Sessões registradas pelo aplicativo.</p></div></div><article class="panel"><div class="panel-body" id="activeSessionsList"></div></article></section>
-<section class="page page-animate owner-only advanced-page" id="manutencao"><div class="page-head"><div><h2>🚧 Modo manutenção</h2><p>Publique um aviso informativo sem bloquear o acesso dos usuários.</p></div></div><div class="maintenance-settings-grid"><article class="panel"><div class="panel-head"><h3>Configuração do aviso</h3><span class="maintenance-status-chip" id="maintenanceStatusChip">Sistema online</span></div><div class="panel-body stack"><label class="toggle-row"><span><strong>Ativar aviso de manutenção</strong><small>Todos continuam podendo entrar e usar o sistema.</small></span><input id="maintenanceModeToggle" type="checkbox"/></label><label>Título<input id="maintenanceTitle" maxlength="80" placeholder="Sistema em manutenção"/></label><label>Mensagem<textarea id="maintenanceMessage" maxlength="500" placeholder="Estamos realizando melhorias. Algumas funções podem apresentar instabilidade." rows="5"></textarea></label><label>URL da imagem (opcional)<input id="maintenanceImageUrl" type="url" placeholder="https://.../banner.jpg"/></label><label>Previsão de término (opcional)<input id="maintenanceExpectedEnd" type="datetime-local"/></label><div class="maintenance-display-options"><label><input id="maintenanceShowLogin" type="checkbox" checked/> Mostrar na tela de login</label><label><input id="maintenanceShowApp" type="checkbox" checked/> Mostrar dentro do sistema</label></div><div class="button-row"><button class="btn" id="previewMaintenanceButton" type="button">👁️ Visualizar</button><button class="btn primary" id="saveMaintenanceButton" type="button">💾 Salvar alterações</button></div></div></article><article class="panel"><div class="panel-head"><h3>Prévia</h3></div><div class="panel-body"><div class="maintenance-preview" id="maintenancePreview"><img class="hidden" id="maintenancePreviewImage" alt="Prévia do aviso"/><strong id="maintenancePreviewTitle">🚧 Sistema em manutenção</strong><p id="maintenancePreviewMessage">Estamos realizando melhorias. Algumas funções podem apresentar instabilidade.</p><small id="maintenancePreviewEnd" class="hidden"></small><span>O acesso permanece liberado para todos.</span></div></div></article></div></section>
+<section class="page page-animate owner-only advanced-page" id="manutencao"><div class="page-head"><div><h2>🚧 Modo manutenção</h2><p>Publique um aviso informativo sem bloquear o acesso dos usuários.</p></div></div><div class="maintenance-settings-grid"><article class="panel"><div class="panel-head"><h3>Configuração do aviso</h3><span class="maintenance-status-chip" id="maintenanceStatusChip">Sistema online</span></div><div class="panel-body stack"><label class="toggle-row"><span><strong>Ativar aviso de manutenção</strong><small>Todos continuam podendo entrar e usar o sistema.</small></span><input id="maintenanceModeToggle" type="checkbox"/></label><label>Título<input id="maintenanceTitle" maxlength="80" placeholder="Sistema em manutenção"/></label><label>Mensagem<textarea id="maintenanceMessage" maxlength="500" placeholder="Estamos realizando melhorias. Algumas funções podem apresentar instabilidade." rows="5"></textarea></label><label>URL da imagem (opcional)<input id="maintenanceImageUrl" placeholder="https://.../banner.jpg" type="url"/></label><label>Previsão de término (opcional)<input id="maintenanceExpectedEnd" type="datetime-local"/></label><div class="maintenance-display-options"><label><input checked="" id="maintenanceShowLogin" type="checkbox"/> Mostrar na tela de login</label><label><input checked="" id="maintenanceShowApp" type="checkbox"/> Mostrar dentro do sistema</label></div><div class="button-row"><button class="btn" id="previewMaintenanceButton" type="button">👁️ Visualizar</button><button class="btn primary" id="saveMaintenanceButton" type="button">💾 Salvar alterações</button></div></div></article><article class="panel"><div class="panel-head"><h3>Prévia</h3></div><div class="panel-body"><div class="maintenance-preview" id="maintenancePreview"><img alt="Prévia do aviso" class="hidden" id="maintenancePreviewImage"/><strong id="maintenancePreviewTitle">🚧 Sistema em manutenção</strong><p id="maintenancePreviewMessage">Estamos realizando melhorias. Algumas funções podem apresentar instabilidade.</p><small class="hidden" id="maintenancePreviewEnd"></small><span>O acesso permanece liberado para todos.</span></div></div></article></div></section>
 <section class="page page-animate owner-only advanced-page" id="status-servicos"><div class="page-head"><div><h2>🟢 Status dos serviços</h2><p>Visão consolidada dos componentes do sistema.</p></div></div><div class="advanced-grid" id="servicesStatusGrid"></div></section>
 <section class="page page-animate owner-only advanced-page" id="limpeza-cache"><div class="page-head"><div><h2>🧹 Limpeza de cache</h2><p>Atualize arquivos locais e Service Workers do navegador.</p></div></div><article class="panel"><div class="panel-body advanced-card"><strong>Cache da aplicação</strong><p>Remove caches do site e força o recarregamento da versão atual.</p><button class="btn danger" id="clearCacheButton" type="button">Limpar cache e recarregar</button></div></article></section>
 <section class="page page-animate owner-only advanced-page" id="estatisticas-sistema"><div class="page-head"><div><h2>📈 Estatísticas do sistema</h2><p>Indicadores técnicos e administrativos.</p></div></div><div class="cards" id="systemStatsGrid"></div></section>
@@ -1253,18 +1236,18 @@
 </div>
 <div class="drawer-body">
 <form class="responsible-character-form" id="responsibleCharacterForm">
-<label>Classe<input id="responsibleCharacterClass" required type="text"></label>
+<label>Classe<input id="responsibleCharacterClass" required="" type="text"/></label>
 <div class="responsible-character-grid">
-<label>Power<input id="responsibleCharacterPower" min="0" type="number"></label>
-<label>Level<input id="responsibleCharacterLevel" min="0" type="number"></label>
-<label>Codex<input id="responsibleCharacterCodex" min="0" type="number"></label>
-<label>Mandalla<input id="responsibleCharacterMandalla" min="0" type="number"></label>
-<label>Chi 1<input id="responsibleCharacterChi1" min="0" type="number"></label>
-<label>Chi 2<input id="responsibleCharacterChi2" min="0" type="number"></label>
-<label>Chi 3<input id="responsibleCharacterChi3" min="0" type="number"></label>
-<label>Postura do Sapo<input id="responsibleCharacterFrogPosture" min="0" type="number"></label>
-<label>Constituição<input id="responsibleCharacterConstitution" min="0" type="number"></label>
-<label>Treino Ermo<input id="responsibleCharacterWildernessTraining" min="0" type="number"></label>
+<label>Power<input id="responsibleCharacterPower" min="0" type="number"/></label>
+<label>Level<input id="responsibleCharacterLevel" min="0" type="number"/></label>
+<label>Codex<input id="responsibleCharacterCodex" min="0" type="number"/></label>
+<label>Mandalla<input id="responsibleCharacterMandalla" min="0" type="number"/></label>
+<label>Chi 1<input id="responsibleCharacterChi1" min="0" type="number"/></label>
+<label>Chi 2<input id="responsibleCharacterChi2" min="0" type="number"/></label>
+<label>Chi 3<input id="responsibleCharacterChi3" min="0" type="number"/></label>
+<label>Postura do Sapo<input id="responsibleCharacterFrogPosture" min="0" type="number"/></label>
+<label>Constituição<input id="responsibleCharacterConstitution" min="0" type="number"/></label>
+<label>Treino Ermo<input id="responsibleCharacterWildernessTraining" min="0" type="number"/></label>
 </div>
 <button class="btn primary full" type="submit">Salvar alterações</button>
 </form>
@@ -1308,37 +1291,23 @@
 </form>
 </div>
 </div>
-
-<div class="modal hidden presence-modal-v207" id="presenceModal" aria-modal="true" role="dialog">
-  <div class="modal-card presence-modal-card-v207">
-    <div class="drawer-head"><div><h3>➕ Registrar Presença</h3><small>O registro será enviado ao Histórico e ao RT Presença.</small></div><button id="closePresenceModal" type="button">×</button></div>
-    <div class="presence-horizontal-form">
-      <label>👤 Usuário<input id="presenceModalUser" list="presenceMemberOptions" placeholder="Digite ou selecione o nickname" autocomplete="off"><datalist id="presenceMemberOptions"></datalist></label>
-      <label>🎯 Evento<select id="presenceModalKind"><option value="worldboss">WorldBoss</option><option value="purgatorio">Purgatório</option><option value="eventos">Eventos</option></select></label>
-      <label>🕒 Horário/Atividade<select id="presenceModalSlot"></select></label>
-      <label>📅 Data<input id="presenceModalDate" type="date"></label>
-      <fieldset class="presence-status-field"><legend>📌 Status</legend><div class="presence-status-buttons"><button type="button" class="active" data-presence-status-choice="1">🟢 Presente</button><button type="button" data-presence-status-choice="3">🟡 Justificado</button><button type="button" data-presence-status-choice="-1">🔴 Ausente</button></div></fieldset>
-    </div>
-    <label class="presence-note-horizontal">📝 Observação<textarea id="presenceModalNote" placeholder="Obrigatória para presença justificada"></textarea></label>
-    <div class="presence-modal-actions"><button class="btn" id="cancelPresenceModal" type="button">Cancelar</button><button class="btn primary" id="savePresenceModal" type="button">💾 Salvar Presença</button></div>
-  </div>
+<div aria-modal="true" class="modal hidden presence-modal-v207" id="presenceModal" role="dialog">
+<div class="modal-card presence-modal-card-v207">
+<div class="drawer-head"><div><h3>➕ Registrar Presença</h3><small>O registro será enviado ao Histórico e ao RT Presença.</small></div><button id="closePresenceModal" type="button">×</button></div>
+<div class="presence-horizontal-form">
+<label>👤 Usuário<input autocomplete="off" id="presenceModalUser" list="presenceMemberOptions" placeholder="Digite ou selecione o nickname"/><datalist id="presenceMemberOptions"></datalist></label>
+<label>🎯 Evento<select id="presenceModalKind"><option value="worldboss">WorldBoss</option><option value="purgatorio">Purgatório</option><option value="eventos">Eventos</option></select></label>
+<label>🕒 Horário/Atividade<select id="presenceModalSlot"></select></label>
+<label>📅 Data<input id="presenceModalDate" type="date"/></label>
+<fieldset class="presence-status-field"><legend>📌 Status</legend><div class="presence-status-buttons"><button class="active" data-presence-status-choice="1" type="button">🟢 Presente</button><button data-presence-status-choice="3" type="button">🟡 Justificado</button><button data-presence-status-choice="-1" type="button">🔴 Ausente</button></div></fieldset>
+</div>
+<label class="presence-note-horizontal">📝 Observação<textarea id="presenceModalNote" placeholder="Obrigatória para presença justificada"></textarea></label>
+<div class="presence-modal-actions"><button class="btn" id="cancelPresenceModal" type="button">Cancelar</button><button class="btn primary" id="savePresenceModal" type="button">💾 Salvar Presença</button></div>
+</div>
 </div>
 <div class="global-search-results hidden" id="globalSearchResults"></div>
 <div class="toast" id="toast"></div>
 <script src="js/ui.js?v=20.7"></script>
 <script src="js/main.js?v=20.7" type="module"></script>
-
-<script>
-(function(){
-  const email=document.getElementById('loginEmail');
-  const remember=document.getElementById('rememberLoginEmail');
-  const password=document.getElementById('loginPassword');
-  const toggle=document.getElementById('toggleLoginPassword');
-  try { const saved=localStorage.getItem('77team.rememberedEmail'); if(saved&&email){email.value=saved;if(remember)remember.checked=true;} } catch(e){}
-  if(toggle&&password) toggle.addEventListener('click',()=>{ const visible=password.type==='text'; password.type=visible?'password':'text'; toggle.textContent=visible?'◉':'◎'; toggle.setAttribute('aria-label',visible?'Mostrar senha':'Ocultar senha'); });
-  const form=document.getElementById('loginForm');
-  if(form) form.addEventListener('submit',()=>{ try { if(remember&&remember.checked&&email) localStorage.setItem('77team.rememberedEmail',email.value.trim()); else localStorage.removeItem('77team.rememberedEmail'); } catch(e){} });
-})();
-</script>
 </body>
 </html>
