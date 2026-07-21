@@ -1,3 +1,16 @@
+# 77 TEAM Manager V22.3 — Visual Identity
+
+Base funcional: **V21.2.4 Stable**.
+
+## Alterações
+- Nova identidade visual oficial com logo 77 TEAM Manager em roxo, prata e dourado.
+- Logo aplicada na tela de login sem alterar a autenticação.
+- Paleta roxa integrada aos campos, botões e efeitos de foco.
+- Layout responsivo preservado.
+- Firebase, permissões, módulos e funcionalidades da base original mantidos.
+
+---
+
 # 77 TEAM Manager — V21.2 🟢 Stable
 
 - Modo manutenção informativo em **Avançado**.

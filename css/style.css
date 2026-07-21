@@ -4752,3 +4752,71 @@ body[data-access-role="leadership"] #configuracoes .settings-content:before{cont
 #authScreen.login-v222.hidden{display:none!important}
 @media(max-width:900px){#authScreen.login-v222{padding-top:90px;background-position:70% center}.login-v222-shell{grid-template-columns:1fr;max-width:560px;gap:78px}.login-v222-brand{text-align:center}.login-v222-brand-logo{margin-left:auto;margin-right:auto;width:150px}.login-v222-brand h1{font-size:54px}.login-v222-manager{font-size:30px}.login-v222-subtitle{font-size:10px}.login-v222-divider{margin-left:auto;margin-right:auto}.login-v222-copy{margin-left:auto;margin-right:auto}.login-v222-footer{position:relative;margin-top:28px;bottom:auto}.login-v222-card{padding-left:24px;padding-right:24px}}
 @media(max-width:520px){#authScreen.login-v222{padding:92px 14px 28px}.login-v222-brand h1{font-size:42px}.login-v222-manager{font-size:24px}.login-v222-card{padding:82px 18px 20px}.login-v222-card-logo{width:112px;height:112px;top:-56px}.login-v222-heading span{font-size:20px}.login-v222-heading strong{font-size:29px}.login-v222-actions{grid-template-columns:1fr}.login-v222-footer{font-size:10px}}
+
+/* ===== V22.3 VISUAL IDENTITY ===== */
+#authScreen.login-v222{
+  background-position:center;
+  padding:30px 24px 66px;
+}
+#authScreen.login-v222::before{
+  background:linear-gradient(90deg,rgba(2,4,8,.82) 0%,rgba(2,4,8,.58) 42%,rgba(2,4,8,.78) 100%),radial-gradient(circle at 43% 42%,rgba(111,22,169,.20),transparent 48%);
+}
+.login-v222-shell{
+  width:min(1320px,100%);
+  grid-template-columns:minmax(360px,570px) minmax(440px,560px);
+  gap:clamp(36px,5vw,84px);
+}
+.login-v222-brand{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+}
+.login-v222-brand-logo{
+  width:min(100%,620px);
+  max-height:540px;
+  margin:0;
+  object-fit:contain;
+  filter:drop-shadow(0 0 32px rgba(135,45,210,.42));
+  border-radius:8px;
+}
+.login-v223-identity-note{
+  margin:18px 0 0;
+  color:#d9aa42;
+  font-size:11px;
+  font-weight:800;
+  letter-spacing:.20em;
+}
+.login-v222-card{
+  border-color:rgba(218,169,68,.78);
+  box-shadow:0 24px 90px rgba(0,0,0,.72),0 0 32px rgba(115,34,181,.13),inset 0 0 0 1px rgba(255,255,255,.025);
+}
+.login-v222-card-logo{
+  background:transparent;
+  border-radius:0;
+  padding:0;
+  object-fit:contain;
+  filter:drop-shadow(0 0 25px rgba(139,44,207,.7));
+}
+.login-v222-input:focus-within{
+  border-color:#9c4dcc;
+  box-shadow:0 0 0 3px rgba(126,34,206,.14);
+}
+.login-v222-submit{
+  background:linear-gradient(90deg,#5d147f,#8e22b7 55%,#5c127d);
+  border-color:#b75ee1;
+  box-shadow:0 10px 28px rgba(117,28,164,.28);
+}
+.login-v222-submit span{color:#f0c45c}
+.login-v222-secondary:hover{border-color:#9d54c3;background:rgba(91,28,121,.22)}
+.login-v222-footer strong{color:#b964df}
+@media(max-width:900px){
+  .login-v222-shell{grid-template-columns:1fr;max-width:590px;gap:72px}
+  .login-v222-brand-logo{width:min(100%,520px);max-height:none}
+  .login-v223-identity-note{margin-top:10px}
+}
+@media(max-width:520px){
+  .login-v222-brand-logo{width:100%}
+  .login-v223-identity-note{font-size:9px;letter-spacing:.12em}
+}
