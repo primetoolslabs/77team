@@ -4820,3 +4820,47 @@ body[data-access-role="leadership"] #configuracoes .settings-content:before{cont
   .login-v222-brand-logo{width:100%}
   .login-v223-identity-note{font-size:9px;letter-spacing:.12em}
 }
+
+/* ===== V22.4 LOGO INTEGRADA AO LOGIN ===== */
+#authScreen.login-v222{
+  padding:42px 20px 72px;
+  background-position:center;
+}
+#authScreen.login-v222::before{
+  background:linear-gradient(rgba(2,4,8,.56),rgba(2,4,8,.72)),radial-gradient(circle at 50% 36%,rgba(116,34,178,.22),transparent 46%);
+}
+.login-v224-shell{
+  width:min(620px,100%);
+  grid-template-columns:minmax(0,1fr)!important;
+  gap:0!important;
+}
+.login-v224-card{
+  width:100%;
+  padding:210px 38px 30px;
+  border-color:rgba(218,169,68,.82);
+}
+.login-v224-card-logo{
+  top:24px;
+  left:50%;
+  width:min(82%,430px);
+  height:166px;
+  transform:translateX(-50%);
+  border-radius:0;
+  background:transparent;
+  padding:0;
+  object-fit:contain;
+  filter:drop-shadow(0 0 30px rgba(134,45,205,.62));
+}
+.login-v224-card .login-v222-heading{
+  padding-top:0;
+}
+@media(max-width:900px){
+  #authScreen.login-v222{padding-top:30px}
+  .login-v224-shell{max-width:620px;gap:0!important}
+  .login-v224-card{padding-top:200px}
+}
+@media(max-width:520px){
+  #authScreen.login-v222{padding:24px 12px 34px}
+  .login-v224-card{padding:164px 18px 22px}
+  .login-v224-card-logo{top:18px;width:88%;height:130px}
+}

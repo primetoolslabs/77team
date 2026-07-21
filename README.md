@@ -1,3 +1,11 @@
+
+## V22.4 — Login com logo integrada
+
+- Remove a logo lateral da tela de acesso.
+- Substitui a logo pequena do topo pela identidade completa 77 TEAM Manager.
+- Centraliza todo o login em uma única coluna responsiva.
+- Mantém intactos Firebase, autenticação, permissões, cadastro e acesso como visitante.
+
 # 77 TEAM Manager V22.3 — Visual Identity
 
 Base funcional: **V21.2.4 Stable**.
