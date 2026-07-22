@@ -137,7 +137,7 @@ function selectedCargoValue(member,user){
 const HOME_PAGES=new Set(["dashboard","meu-perfil","membros","historico","ranking","calendario","estatisticas","sobre"]);
 const STAFF_PAGES=new Set(["staff-hub","presencas","registros","worldboss","purgatorio","eventos","personagens","metas","solicitacoes","notificacoes","atendimento","chat"]);
 const ADMIN_PAGES=new Set(["staff","configuracoes","auditoria"]);
-const ADVANCED_PAGES=new Set(["atualizacoes","backup","logs-sistema","status-firebase","status-github","sessoes","manutencao","status-servicos","limpeza-cache","estatisticas-sistema","permissoes-cargos"]);
+const ADVANCED_PAGES=new Set(["atualizacoes","backup","logs-sistema","status-firebase","status-github","sessoes","manutencao","status-servicos","limpeza-cache","estatisticas-sistema","personalizar-login","permissoes-cargos"]);
 
 const ROLE_PAGE_PERMISSIONS=Object.freeze({
   dev:{home:true,staff:true,admin:true,advanced:true},
@@ -220,7 +220,7 @@ async function decideInitialScreen(){
 decideInitialScreen();
 
 // Aviso público informativo; nunca bloqueia a autenticação.
-onSnapshot(doc(db,"settings","app"),snapshot=>{const publicSettings=snapshot.exists()?snapshot.data():{};state.settings={...state.settings,...publicSettings};applyMaintenanceNotice()},error=>console.warn("Aviso de manutenção indisponível:",error));
+onSnapshot(doc(db,"settings","app"),snapshot=>{const publicSettings=snapshot.exists()?snapshot.data():{};state.settings={...state.settings,...publicSettings};applyMaintenanceNotice();applyLoginCustomization()},error=>console.warn("Aviso de manutenção indisponível:",error));
 
 $("#setupForm").onsubmit=async e=>{
   e.preventDefault();
@@ -461,7 +461,7 @@ function subscribeAll(){
     const chatQuery=editor()?collection(db,"chatMessages"):query(collection(db,"chatMessages"),where("ownerUid","==",state.user.uid));
     state.unsubs.push(onSnapshot(chatQuery,s=>{state.chatMessages=s.docs.map(d=>({id:d.id,...d.data()}));renderPrivateChat();},error=>console.error("Falha ao carregar chat privado:",error)));
   }
-  state.unsubs.push(onSnapshot(doc(db,"settings","app"),s=>{state.settings=s.exists()?s.data():{};loadSettingsForm();renderGoals();render()}));
+  state.unsubs.push(onSnapshot(doc(db,"settings","app"),s=>{state.settings=s.exists()?s.data():{};loadSettingsForm();applyLoginCustomization();loadLoginCustomizationForm();renderGoals();render()}));
 }
 async function audit(action,details){if(!state.user||!editor())return;try{await addDoc(collection(db,"audit"),{userId:state.user.uid,userName:state.profile.name,action,details,createdAt:serverTimestamp()})}catch{}}
 
@@ -1259,6 +1259,97 @@ $("#eventForm").onsubmit=async event=>{
 
 
 
+
+
+/* V22.6.3 — Personalização do login pelo DEV */
+const LOGIN_DEFAULTS={
+  backgroundUrl:"assets/login-purple-storm-v22-6-2.png?v=22.6.3",
+  logoUrl:"assets/logo-77-team-manager-oficial.png?v=22.6.3",
+  backgroundPosition:"center center",
+  logoWidth:620
+};
+let pendingLoginBackground=null;
+let pendingLoginLogo=null;
+let removeLoginBackgroundRequested=false;
+let removeLoginLogoRequested=false;
+let loginBackgroundPreviewUrl="";
+let loginLogoPreviewUrl="";
+
+function loginCustomization(){return state.settings?.loginCustomization||{}}
+function applyLoginCustomization(){
+  const cfg=loginCustomization();
+  const screen=byId("authScreen");
+  const logo=byId("loginTopImage");
+  const bg=cfg.backgroundUrl||LOGIN_DEFAULTS.backgroundUrl;
+  if(screen){
+    screen.style.setProperty("--login-custom-background",`url("${String(bg).replace(/"/g,"%22")}")`);
+    screen.style.setProperty("--login-background-position",cfg.backgroundPosition||LOGIN_DEFAULTS.backgroundPosition);
+  }
+  if(logo){
+    logo.src=cfg.logoUrl||LOGIN_DEFAULTS.logoUrl;
+    logo.style.setProperty("--login-logo-width",`${Number(cfg.logoWidth)||LOGIN_DEFAULTS.logoWidth}px`);
+  }
+}
+function revokePreview(url){if(url?.startsWith("blob:"))URL.revokeObjectURL(url)}
+function loadLoginCustomizationForm(){
+  const cfg=loginCustomization();
+  setValue("loginBackgroundPosition",cfg.backgroundPosition||LOGIN_DEFAULTS.backgroundPosition);
+  setValue("loginLogoWidth",String(Number(cfg.logoWidth)||LOGIN_DEFAULTS.logoWidth));
+  const bg=cfg.backgroundUrl||LOGIN_DEFAULTS.backgroundUrl;
+  const logo=cfg.logoUrl||LOGIN_DEFAULTS.logoUrl;
+  const bgPreview=byId("loginBackgroundPreview");
+  if(bgPreview)bgPreview.style.backgroundImage=`url("${bg}")`;
+  const logoPreview=byId("loginLogoPreview");if(logoPreview)logoPreview.src=logo;
+  refreshLoginCustomizationPreview();
+}
+async function optimizeLoginImage(file,type){
+  if(!file||!/^image\/(jpeg|png|webp)$/.test(file.type))throw new Error("Selecione uma imagem JPG, PNG ou WebP.");
+  if(file.size>15*1024*1024)throw new Error("A imagem deve ter no máximo 15 MB antes do ajuste.");
+  const bitmap=await createImageBitmap(file);
+  const maxW=type==="background"?1920:1000,maxH=type==="background"?1080:400;
+  const scale=Math.min(1,maxW/bitmap.width,maxH/bitmap.height);
+  const width=Math.max(1,Math.round(bitmap.width*scale)),height=Math.max(1,Math.round(bitmap.height*scale));
+  const canvas=document.createElement("canvas");canvas.width=width;canvas.height=height;
+  const ctx=canvas.getContext("2d",{alpha:type!=="background"});ctx.drawImage(bitmap,0,0,width,height);bitmap.close?.();
+  const mime=file.type==="image/png"&&type==="logo"?"image/png":"image/webp";
+  const quality=type==="background"?.86:.92;
+  const blob=await new Promise((resolve,reject)=>canvas.toBlob(value=>value?resolve(value):reject(new Error("Não foi possível processar a imagem.")),mime,quality));
+  return {blob,width,height,extension:mime==="image/png"?"png":"webp",mime};
+}
+function refreshLoginCustomizationPreview(){
+  const cfg=loginCustomization();
+  const bg=removeLoginBackgroundRequested?LOGIN_DEFAULTS.backgroundUrl:(loginBackgroundPreviewUrl||cfg.backgroundUrl||LOGIN_DEFAULTS.backgroundUrl);
+  const logo=removeLoginLogoRequested?LOGIN_DEFAULTS.logoUrl:(loginLogoPreviewUrl||cfg.logoUrl||LOGIN_DEFAULTS.logoUrl);
+  const preview=byId("loginLivePreview");
+  if(preview){preview.style.backgroundImage=`linear-gradient(rgba(0,0,0,.22),rgba(0,0,0,.38)),url("${bg}")`;preview.style.backgroundPosition=byId("loginBackgroundPosition")?.value||LOGIN_DEFAULTS.backgroundPosition}
+  const previewLogo=byId("loginLivePreviewLogo");if(previewLogo){previewLogo.src=logo;previewLogo.style.width=`min(${Number(byId("loginLogoWidth")?.value)||LOGIN_DEFAULTS.logoWidth}px,82%)`}
+}
+on("loginBackgroundFile","change",async event=>{try{const file=event.target.files?.[0];if(!file)return;pendingLoginBackground=await optimizeLoginImage(file,"background");removeLoginBackgroundRequested=false;revokePreview(loginBackgroundPreviewUrl);loginBackgroundPreviewUrl=URL.createObjectURL(pendingLoginBackground.blob);const el=byId("loginBackgroundPreview");if(el)el.style.backgroundImage=`url("${loginBackgroundPreviewUrl}")`;refreshLoginCustomizationPreview();setText("loginCustomizationStatus",`Fundo ajustado para ${pendingLoginBackground.width} × ${pendingLoginBackground.height}. Clique em Salvar alterações.`)}catch(error){toast(error.message)}});
+on("loginLogoFile","change",async event=>{try{const file=event.target.files?.[0];if(!file)return;pendingLoginLogo=await optimizeLoginImage(file,"logo");removeLoginLogoRequested=false;revokePreview(loginLogoPreviewUrl);loginLogoPreviewUrl=URL.createObjectURL(pendingLoginLogo.blob);const el=byId("loginLogoPreview");if(el)el.src=loginLogoPreviewUrl;refreshLoginCustomizationPreview();setText("loginCustomizationStatus",`Imagem do topo ajustada para ${pendingLoginLogo.width} × ${pendingLoginLogo.height}. Clique em Salvar alterações.`)}catch(error){toast(error.message)}});
+on("loginBackgroundPosition","change",refreshLoginCustomizationPreview);on("loginLogoWidth","change",refreshLoginCustomizationPreview);on("refreshLoginPreview","click",()=>{refreshLoginCustomizationPreview();toast("Prévia atualizada.")});
+on("removeLoginBackground","click",()=>{pendingLoginBackground=null;removeLoginBackgroundRequested=true;revokePreview(loginBackgroundPreviewUrl);loginBackgroundPreviewUrl="";const el=byId("loginBackgroundPreview");if(el)el.style.backgroundImage=`url("${LOGIN_DEFAULTS.backgroundUrl}")`;refreshLoginCustomizationPreview();setText("loginCustomizationStatus","O fundo padrão será restaurado ao salvar.")});
+on("removeLoginLogo","click",()=>{pendingLoginLogo=null;removeLoginLogoRequested=true;revokePreview(loginLogoPreviewUrl);loginLogoPreviewUrl="";const el=byId("loginLogoPreview");if(el)el.src=LOGIN_DEFAULTS.logoUrl;refreshLoginCustomizationPreview();setText("loginCustomizationStatus","A logo padrão será restaurada ao salvar.")});
+async function uploadLoginAsset(processed,type){
+  const path=`login-customization/${type}-${Date.now()}.${processed.extension}`;
+  const ref=storageRef(storage,path);const snap=await uploadBytes(ref,processed.blob,{contentType:processed.mime,cacheControl:"public,max-age=3600"});
+  return {url:await getDownloadURL(snap.ref),path};
+}
+on("saveLoginCustomization","click",async()=>{
+  if(!owner())return toast("Somente o DEV pode personalizar a tela de login.");
+  const button=byId("saveLoginCustomization");if(button)button.disabled=true;
+  try{
+    const previous=loginCustomization();
+    const next={...previous,backgroundPosition:byId("loginBackgroundPosition")?.value||LOGIN_DEFAULTS.backgroundPosition,logoWidth:Number(byId("loginLogoWidth")?.value)||LOGIN_DEFAULTS.logoWidth,updatedAt:new Date().toISOString(),updatedBy:state.user.uid};
+    if(pendingLoginBackground){const asset=await uploadLoginAsset(pendingLoginBackground,"background");next.backgroundUrl=asset.url;next.backgroundPath=asset.path}
+    else if(removeLoginBackgroundRequested){delete next.backgroundUrl;delete next.backgroundPath}
+    if(pendingLoginLogo){const asset=await uploadLoginAsset(pendingLoginLogo,"logo");next.logoUrl=asset.url;next.logoPath=asset.path}
+    else if(removeLoginLogoRequested){delete next.logoUrl;delete next.logoPath}
+    await setDoc(doc(db,"settings","app"),{loginCustomization:next},{merge:true});
+    const oldPaths=[];if((pendingLoginBackground||removeLoginBackgroundRequested)&&previous.backgroundPath&&previous.backgroundPath!==next.backgroundPath)oldPaths.push(previous.backgroundPath);if((pendingLoginLogo||removeLoginLogoRequested)&&previous.logoPath&&previous.logoPath!==next.logoPath)oldPaths.push(previous.logoPath);
+    await Promise.all(oldPaths.map(async path=>{try{await deleteObject(storageRef(storage,path))}catch(error){console.warn("Imagem anterior não removida:",error)}}));
+    state.settings={...state.settings,loginCustomization:next};pendingLoginBackground=pendingLoginLogo=null;removeLoginBackgroundRequested=removeLoginLogoRequested=false;revokePreview(loginBackgroundPreviewUrl);revokePreview(loginLogoPreviewUrl);loginBackgroundPreviewUrl=loginLogoPreviewUrl="";applyLoginCustomization();loadLoginCustomizationForm();await audit("personalização do login atualizada","Fundo e/ou imagem do topo modificados");toast("Tela de login atualizada com sucesso.");setText("loginCustomizationStatus","Alterações publicadas e aplicadas automaticamente.")
+  }catch(error){toast(errMsg(error));setText("loginCustomizationStatus",`Falha ao salvar: ${error.message||error}`)}finally{if(button)button.disabled=false}
+});
 
 window.addEventListener("error",event=>{
   console.error("77 TEAM Manager:",event.error||event.message);

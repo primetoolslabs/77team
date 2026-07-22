@@ -5288,7 +5288,7 @@ body[data-access-role="leadership"] #configuracoes .settings-content:before{cont
   justify-content:center!important;
   padding:20px 18px 58px!important;
   overflow-y:auto!important;
-  background-image:linear-gradient(180deg,rgba(0,0,0,.08),rgba(0,0,0,.30)),url('../assets/login-purple-bg-exact.webp')!important;
+  background-image:linear-gradient(180deg,rgba(0,0,0,.08),rgba(0,0,0,.30)),var(--login-custom-background,url('../assets/login-purple-storm-v22-6-2.png?v=22.6.3'))!important;
   background-position:center center!important;
   background-size:cover!important;
   background-repeat:no-repeat!important;
@@ -5366,3 +5366,13 @@ body[data-access-role="leadership"] #configuracoes .settings-content:before{cont
 .account-settings-panel textarea{min-height:100px;resize:vertical;}
 .account-settings-panel label{display:grid;gap:7px;color:var(--muted,#b9b3c8);font-size:.9rem;}
 @media(max-width:520px){.login-v224-card-logo{width:96vw!important;max-height:170px!important;}}
+
+
+/* V22.6.3 Stable — fundo organizado e Personalizar Login */
+#authScreen.login-v222{background-position:var(--login-background-position,center center)!important;background-size:cover!important;background-repeat:no-repeat!important;}
+.login-v224-shell{min-height:calc(100vh - 78px);justify-content:center!important;}
+.login-v224-card-logo{width:min(var(--login-logo-width,620px),92vw)!important;}
+.login-v224-card{background:linear-gradient(145deg,rgba(5,3,12,.92),rgba(8,4,16,.86))!important;backdrop-filter:blur(8px);box-shadow:0 22px 65px rgba(0,0,0,.66),0 0 32px rgba(128,35,204,.16)!important;}
+.login-customizer-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin-bottom:18px}.login-customizer-card .panel-body{height:100%}.login-image-preview{min-height:230px;border:1px solid rgba(162,74,225,.35);border-radius:14px;background-color:#07050d;background-position:center;background-repeat:no-repeat;display:grid;place-items:center;overflow:hidden}.login-image-preview.background-preview{background-size:cover}.login-image-preview.logo-preview{background-image:linear-gradient(45deg,#090710 25%,#11101a 25%,#11101a 50%,#090710 50%,#090710 75%,#11101a 75%);background-size:24px 24px}.login-image-preview.logo-preview img{width:min(92%,620px);max-height:220px;object-fit:contain}.login-live-preview{min-height:430px;border-radius:16px;border:1px solid rgba(174,85,237,.42);background-size:cover;background-repeat:no-repeat;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:30px;overflow:hidden}.login-live-preview>img{max-height:145px;object-fit:contain;filter:drop-shadow(0 0 14px rgba(151,54,225,.65));margin-bottom:-15px;z-index:2}.login-live-preview-card{width:min(440px,92%);padding:38px 28px 30px;border:1px solid rgba(239,191,42,.65);border-radius:8px;background:rgba(4,2,10,.88);backdrop-filter:blur(7px);text-align:center;display:grid;gap:12px;color:#fff}.login-live-preview-card strong{font-size:22px}.login-live-preview-card em{font-style:normal;color:#ff3c43}.login-live-preview-card span{color:#c6bfd0}.login-customizer-save{margin-bottom:24px}
+@media(max-width:900px){.login-customizer-grid{grid-template-columns:1fr}.login-live-preview{min-height:360px;padding:18px}}
+@media(max-width:700px){.login-v224-shell{min-height:auto}.login-image-preview{min-height:180px}.login-live-preview{min-height:300px}.login-live-preview-card{padding:30px 18px 22px}}

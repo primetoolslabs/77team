@@ -1057,3 +1057,7 @@ Publique `firestore.rules` e `storage.rules` desta versão para habilitar as men
 - O usuário pode cadastrar um novo personagem novamente usando o mesmo login e e-mail.
 - Permissões: DEV exclui qualquer personagem (exceto outro DEV), Liderança exclui Staff e membros, Staff exclui membros, e cada usuário exclui o próprio personagem.
 - A ação exige confirmação e é registrada na auditoria.
+
+
+## V22.6.3 Stable — Personalização do Login
+Nova página exclusiva do DEV em AVANÇADO para alterar o fundo e a imagem do topo da tela de login. As imagens são ajustadas automaticamente, pré-visualizadas e armazenadas no Firebase Storage. Publique também `storage.rules`.

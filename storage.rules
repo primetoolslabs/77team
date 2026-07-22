@@ -6,6 +6,11 @@ service firebase.storage {
     function active(){ return signedIn() && profile().active == true && profile().status == 'approved'; }
     function editor(){ return active() && profile().role in ['dev','owner','leadership','lideranca','staff']; }
     function validImage(){ return request.resource.size < 5 * 1024 * 1024 && request.resource.contentType.matches('image/(png|jpeg|webp)'); }
+
+    match /login-customization/{fileName} {
+      allow read: if true;
+      allow create, update, delete: if signedIn() && profile().active == true && profile().status == 'approved' && profile().role in ['dev','owner'];
+    }
     match /support/{ownerUid}/{ticketId}/{fileName} {
       allow read: if active() && (request.auth.uid == ownerUid || editor());
       allow create, update: if active() && (request.auth.uid == ownerUid || editor()) && validImage();
