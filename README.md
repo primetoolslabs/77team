@@ -1,4 +1,4 @@
-# 77 TEAM Manager V22.6.6 Hotfix
+# 77 TEAM Manager V22.7.0 Stable
 
 Correção do salvamento do próprio perfil e das informações do personagem, incluindo compatibilidade com perfis legados. Publique o `firestore.rules` incluído nesta versão.
 
@@ -1069,3 +1069,12 @@ Nova página exclusiva do DEV em AVANÇADO para alterar o fundo e a imagem do to
 
 ## V22.6.6 — Matriz configurável de permissões
 Acesse **AVANÇADO > Cargos e permissões** para configurar permissões individuais por cargo.
+
+
+## V22.7.0 Stable — Autoedição segura
+
+- Correção estrutural das regras de autoedição do próprio perfil e personagem.
+- O próprio usuário pode atualizar somente campos pessoais e do personagem.
+- Cargos, status, ativação, UID e permissões administrativas permanecem protegidos.
+- Regras administrativas de DEV, Liderança e Staff foram preservadas.
+- A publicação do novo `firestore.rules` no projeto Firebase `team-f78cd` é obrigatória.

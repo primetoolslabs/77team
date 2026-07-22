@@ -53,7 +53,23 @@ service cloud.firestore {
         (dev() && (isDevRole(accessRoleOf(request.resource.data)) || isLeadershipRole(accessRoleOf(request.resource.data)) || isStaffRole(accessRoleOf(request.resource.data))) && request.resource.data.active == true && request.resource.data.status == 'approved')
       );
 
-      allow update: if dev()
+      // V22.7.0 — autoedição segura e direta do próprio perfil/personagem.
+      // Esta condição é avaliada antes das regras administrativas e permite ao
+      // usuário alterar somente os campos pessoais listados abaixo. Campos de
+      // cargo, status, ativação, UID e permissões não entram na lista e, por
+      // isso, permanecem protegidos automaticamente.
+      allow update: if (
+          signedIn()
+          && request.auth.uid == uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'name','displayName','nickname','discord','whatsapp','birthDate','bio',
+            'email','avatarDataUrl','updatedAt',
+            'character','characterUpdatedAt','characterUpdatedBy',
+            'characterDeletedAt','characterDeletedBy',
+            'firstLogin','profileCompleted','profileCompletedAt'
+          ])
+        )
+        || dev()
         || (
           leadership() && pendingMember() && approvalFields()
           && (isMemberRole(accessRoleOf(request.resource.data)) || isStaffRole(accessRoleOf(request.resource.data)))
@@ -90,57 +106,20 @@ service cloud.firestore {
         || (
           editor()
           && resource.data.get('status','approved') == 'approved' && resource.data.get('active',true) == true
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['character','characterUpdatedAt','characterUpdatedBy'])
-          && request.resource.data.character is map
-          && request.resource.data.character.keys().hasOnly(['className','power','level','codex','mandalla','chi1','chi2','chi3','frogPosture','constitution','wildernessTraining'])
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['character','characterUpdatedAt','characterUpdatedBy','updatedAt'])
           && request.resource.data.characterUpdatedBy == request.auth.uid
         )
         || (
           editor()
           && resource.data.keys().hasAny(['character'])
           && !request.resource.data.keys().hasAny(['character'])
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['character','characterUpdatedAt','characterUpdatedBy','characterDeletedAt','characterDeletedBy'])
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['character','characterUpdatedAt','characterUpdatedBy','characterDeletedAt','characterDeletedBy','updatedAt'])
           && request.resource.data.characterDeletedBy == request.auth.uid
           && (
             dev()
             || (leadership() && (isMemberRole(accessRoleOf(resource.data)) || isStaffRole(accessRoleOf(resource.data))))
             || (staff() && isMemberRole(accessRoleOf(resource.data)))
           )
-        )
-        || (
-          signedIn() && request.auth.uid == uid
-          && resource.data.keys().hasAny(['character'])
-          && !request.resource.data.keys().hasAny(['character'])
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['character','characterUpdatedAt','characterUpdatedBy','characterDeletedAt','characterDeletedBy'])
-          && request.resource.data.characterDeletedBy == request.auth.uid
-          && accessRoleOf(request.resource.data) == accessRoleOf(resource.data)
-          && request.resource.data.get('active',resource.data.get('active',true)) == resource.data.get('active',true)
-          && request.resource.data.get('status',resource.data.get('status','approved')) == resource.data.get('status','approved')
-          && request.resource.data.get('email',resource.data.get('email','')) == resource.data.get('email','')
-        )
-        || (
-          // O usuário autenticado pode criar ou atualizar somente os dados do próprio personagem.
-          // Como affectedKeys() limita os campos modificados, cargos, status, e-mail e
-          // permissões permanecem automaticamente protegidos, inclusive em perfis legados.
-          signedIn() && request.auth.uid == uid
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['character','characterUpdatedAt','characterUpdatedBy','updatedAt'])
-          && request.resource.data.character is map
-          && request.resource.data.character.keys().hasOnly(['className','power','level','codex','mandalla','chi1','chi2','chi3','frogPosture','constitution','wildernessTraining'])
-          && request.resource.data.characterUpdatedBy == request.auth.uid
-        )
-        || (
-          signedIn() && request.auth.uid == uid
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name','displayName','discord','whatsapp','birthDate','bio','email','avatarDataUrl','updatedAt','character','characterUpdatedAt','characterUpdatedBy','firstLogin','profileCompleted','profileCompletedAt'])
-          && accessRoleOf(request.resource.data) == accessRoleOf(resource.data)
-          && request.resource.data.get('role','member') == resource.data.get('role','member')
-          && request.resource.data.get('accessRole', resource.data.get('accessRole', resource.data.get('role','member'))) == resource.data.get('accessRole', resource.data.get('role','member'))
-          && request.resource.data.get('active',resource.data.get('active',true)) == resource.data.get('active',true)
-          && request.resource.data.get('status',resource.data.get('status','approved')) == resource.data.get('status','approved')
-          && request.resource.data.get('email', resource.data.get('email','')) is string
-          && (!request.resource.data.keys().hasAny(['character']) || (
-            request.resource.data.character is map
-            && request.resource.data.character.keys().hasOnly(['className','power','level','codex','mandalla','chi1','chi2','chi3','frogPosture','constitution','wildernessTraining'])
-          ))
         );
       allow delete: if dev() && uid != request.auth.uid;
     }

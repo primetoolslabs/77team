@@ -1296,7 +1296,7 @@ $("#eventForm").onsubmit=async event=>{
 
 
 
-/* V22.6.6 — Personalização do login pelo DEV */
+/* V22.7.0 — Personalização do login pelo DEV */
 const LOGIN_DEFAULTS={
   backgroundUrl:"assets/login-purple-storm-v22-6-2.png?v=22.6.3",
   logoUrl:"assets/logo-77-team-manager-oficial.png?v=22.6.3",
@@ -1647,7 +1647,7 @@ on("profileNicknameForm","submit",async event=>{
   }catch(error){
     console.error("Falha ao salvar o próprio perfil:",error);
     toast(error?.code==="permission-denied"
-      ? "Permissão negada ao salvar o perfil. Publique o firestore.rules da V22.6.6 no Firebase."
+      ? "Permissão negada ao salvar o perfil. Publique o firestore.rules da V22.7.0 no Firebase e confirme o projeto team-f78cd."
       : (error.message||"Não foi possível atualizar o perfil."));
   }
 });
@@ -1941,7 +1941,7 @@ on("characterForm","submit",async event=>{
   }catch(error){
     console.error("Falha ao salvar o próprio personagem:",error);
     toast(error?.code==="permission-denied"
-      ? "Permissão negada ao salvar o personagem. Publique o firestore.rules da V22.6.6 no Firebase."
+      ? "Permissão negada ao salvar o personagem. Publique o firestore.rules da V22.7.0 no Firebase e confirme o projeto team-f78cd."
       : (error.message||"Não foi possível salvar o personagem."));
   }
 });
@@ -4430,7 +4430,7 @@ on("recordsClear","click",()=>{["recordsSearch","recordsMember","recordsDateFrom
 
 // V20.9 — Hub STAFF integrado ao menu e aos módulos operacionais.
 
-// V22.6.6 — matriz configurável de permissões
+// V22.7.0 — matriz configurável de permissões
 on("saveRolePermissions","click",saveConfigurableRolePermissions);
 on("resetRolePermissions","click",()=>{
   if(!owner())return toast("Somente o DEV pode alterar permissões.");
