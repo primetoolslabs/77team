@@ -139,6 +139,41 @@ const STAFF_PAGES=new Set(["staff-hub","presencas","registros","worldboss","purg
 const ADMIN_PAGES=new Set(["staff","configuracoes","auditoria"]);
 const ADVANCED_PAGES=new Set(["atualizacoes","backup","logs-sistema","status-firebase","status-github","sessoes","manutencao","status-servicos","limpeza-cache","estatisticas-sistema","personalizar-login","permissoes-cargos"]);
 
+const ROLE_PERMISSION_DEFINITIONS=Object.freeze([
+  {group:"Acesso às áreas",key:"access_home",label:"Acessar HOME",defaults:{dev:true,leadership:true,staff:true,member:true,guest:true}},
+  {group:"Acesso às áreas",key:"access_staff",label:"Acessar STAFF",defaults:{dev:true,leadership:true,staff:true,member:false,guest:false}},
+  {group:"Acesso às áreas",key:"access_admin",label:"Acessar ADMINISTRAÇÃO",defaults:{dev:true,leadership:true,staff:false,member:false,guest:false}},
+  {group:"Acesso às áreas",key:"access_advanced",label:"Acessar AVANÇADO",defaults:{dev:true,leadership:false,staff:false,member:false,guest:false}},
+  {group:"Presenças",key:"presence_register",label:"Registrar presença",defaults:{dev:true,leadership:true,staff:true,member:false,guest:false}},
+  {group:"Presenças",key:"presence_edit",label:"Editar presença",defaults:{dev:true,leadership:true,staff:true,member:false,guest:false}},
+  {group:"Presenças",key:"presence_delete",label:"Excluir presença",defaults:{dev:true,leadership:false,staff:false,member:false,guest:false}},
+  {group:"Presenças",key:"presence_finalize",label:"Finalizar RT",defaults:{dev:true,leadership:true,staff:true,member:false,guest:false}},
+  {group:"Solicitações e cargos",key:"requests_approve",label:"Aprovar solicitações",defaults:{dev:true,leadership:true,staff:true,member:false,guest:false}},
+  {group:"Solicitações e cargos",key:"requests_reject",label:"Rejeitar solicitações",defaults:{dev:true,leadership:true,staff:true,member:false,guest:false}},
+  {group:"Solicitações e cargos",key:"roles_change",label:"Alterar cargos permitidos pela hierarquia",defaults:{dev:true,leadership:true,staff:true,member:false,guest:false}},
+  {group:"Personagens",key:"character_view",label:"Visualizar personagens",defaults:{dev:true,leadership:true,staff:true,member:true,guest:false}},
+  {group:"Personagens",key:"character_edit",label:"Editar personagens permitidos",defaults:{dev:true,leadership:true,staff:true,member:true,guest:false}},
+  {group:"Personagens",key:"character_delete",label:"Excluir personagens permitidos",defaults:{dev:true,leadership:true,staff:true,member:true,guest:false}},
+  {group:"Comunicação",key:"notifications_send",label:"Enviar notificações",defaults:{dev:true,leadership:true,staff:true,member:false,guest:false}},
+  {group:"Comunicação",key:"support_manage",label:"Gerenciar atendimento e chat",defaults:{dev:true,leadership:true,staff:true,member:false,guest:false}},
+  {group:"Administração",key:"audit_view",label:"Visualizar Auditoria",defaults:{dev:true,leadership:true,staff:false,member:false,guest:false}},
+  {group:"Administração",key:"settings_view",label:"Visualizar Configurações",defaults:{dev:true,leadership:true,staff:false,member:false,guest:false}},
+  {group:"Administração",key:"settings_edit",label:"Alterar Configurações",defaults:{dev:true,leadership:false,staff:false,member:false,guest:false}},
+  {group:"Avançado",key:"login_customize",label:"Personalizar tela de login",defaults:{dev:true,leadership:false,staff:false,member:false,guest:false}}
+]);
+function defaultRolePermissions(){
+  const result={};
+  ROLE_PERMISSION_DEFINITIONS.forEach(item=>{result[item.key]={...item.defaults};});
+  return result;
+}
+function configuredRolePermissions(){return state.settings?.rolePermissions||defaultRolePermissions();}
+function permissionEnabled(key,role=currentAccessRole()){
+  if(role==="dev")return true;
+  const item=ROLE_PERMISSION_DEFINITIONS.find(entry=>entry.key===key);
+  const configured=configuredRolePermissions()?.[key];
+  return configured?.[role] ?? item?.defaults?.[role] ?? false;
+}
+
 const ROLE_PAGE_PERMISSIONS=Object.freeze({
   dev:{home:true,staff:true,admin:true,advanced:true},
   leadership:{home:true,staff:true,admin:true,advanced:false},
@@ -156,7 +191,7 @@ function pageArea(page){
 function canOpenPage(page){
   if(state.onboardingRequired&&!state.guest)return page==="meu-perfil"||page==="sobre";
   const area=pageArea(page);
-  return ROLE_PAGE_PERMISSIONS[currentAccessRole()]?.[area]===true;
+  return permissionEnabled(`access_${area}`);
 }
 function permissionMessage(page){
   const area=pageArea(page);
@@ -1261,7 +1296,7 @@ $("#eventForm").onsubmit=async event=>{
 
 
 
-/* V22.6.3 — Personalização do login pelo DEV */
+/* V22.6.4 — Personalização do login pelo DEV */
 const LOGIN_DEFAULTS={
   backgroundUrl:"assets/login-purple-storm-v22-6-2.png?v=22.6.3",
   logoUrl:"assets/logo-77-team-manager-oficial.png?v=22.6.3",
@@ -1738,19 +1773,40 @@ function applyRestrictedVisibility(){
 function renderRolePermissionMatrix(){
   const host=byId("rolePermissionMatrix");
   if(!host)return;
-  const rows=[
-    ["HOME",true,true,true,true],
-    ["STAFF",true,true,true,false],
-    ["ADMINISTRAÇÃO",true,true,false,false],
-    ["AVANÇADO",true,false,false,false],
-    ["Aprovar membros",true,true,true,false],
-    ["Alterar cargos",true,true,"Somente membros",false],
-    ["Auditoria",true,"Somente leitura",false,false],
-    ["Configurações",true,"Somente leitura",false,false]
-  ];
-  const cell=value=>value===true?'<span class="permission-ok">✓ Permitido</span>':value===false?'<span class="permission-no">✕ Bloqueado</span>':`<span class="permission-limited">${escapeHtml(value)}</span>`;
-  host.innerHTML=rows.map(row=>`<tr><th>${row[0]}</th>${row.slice(1).map(cellValue=>`<td>${cell(cellValue)}</td>`).join("")}</tr>`).join("");
+  const roles=["dev","leadership","staff","member","guest"];
+  const configured=configuredRolePermissions();
+  let currentGroup="";
+  host.innerHTML=ROLE_PERMISSION_DEFINITIONS.map(item=>{
+    const groupRow=item.group!==currentGroup?`<tr class="permission-group-row"><th colspan="6">${escapeHtml(item.group)}</th></tr>`:"";
+    currentGroup=item.group;
+    const cells=roles.map(role=>{
+      const checked=role==="dev"?true:(configured?.[item.key]?.[role] ?? item.defaults[role]);
+      return `<td><label class="permission-switch" title="${escapeHtml(accessRoleLabel(role))}"><input data-role-permission="${item.key}" data-permission-role="${role}" type="checkbox" ${checked?"checked":""} ${role==="dev"?"disabled":""}><span></span></label></td>`;
+    }).join("");
+    return `${groupRow}<tr data-permission-row data-search="${escapeHtml((item.group+" "+item.label).toLowerCase())}"><th><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.key)}</small></th>${cells}</tr>`;
+  }).join("");
 }
+function collectRolePermissions(){
+  const result=defaultRolePermissions();
+  document.querySelectorAll("[data-role-permission]").forEach(input=>{
+    const key=input.dataset.rolePermission, role=input.dataset.permissionRole;
+    if(result[key])result[key][role]=role==="dev"?true:input.checked;
+  });
+  return result;
+}
+async function saveConfigurableRolePermissions(){
+  if(!owner())return toast("Somente o DEV pode alterar permissões.");
+  const button=byId("saveRolePermissions"); if(button)button.disabled=true;
+  try{
+    const rolePermissions=collectRolePermissions();
+    await setDoc(doc(db,"settings","app"),{rolePermissions,updatedAt:serverTimestamp(),updatedBy:state.user.uid},{merge:true});
+    state.settings={...state.settings,rolePermissions};
+    setText("rolePermissionStatus","Permissões salvas com sucesso.");
+    applyPermissions(); render(); toast("Matriz de permissões atualizada.");
+  }catch(error){toast(errMsg(error));setText("rolePermissionStatus","Não foi possível salvar.");}
+  finally{if(button)button.disabled=false;}
+}
+
 function numberOrZero(value){
   const number=Number(value);
   return Number.isFinite(number)&&number>=0?number:0;
@@ -4363,3 +4419,16 @@ document.addEventListener("click",event=>{const mode=event.target.closest("[data
 on("recordsClear","click",()=>{["recordsSearch","recordsMember","recordsDateFrom","recordsDateTo","recordsKind","recordsSlot","recordsStatus","recordsClan"].forEach(id=>setValue(id,""));renderRecordsCenter()});on("recordsCsv","click",downloadRecordsCsv);on("recordsExcel","click",downloadRecordsExcel);on("recordsPrint","click",()=>printRecords(true));on("recordsPdf","click",()=>printRecords(true));
 
 // V20.9 — Hub STAFF integrado ao menu e aos módulos operacionais.
+
+// V22.6.4 — matriz configurável de permissões
+on("saveRolePermissions","click",saveConfigurableRolePermissions);
+on("resetRolePermissions","click",()=>{
+  if(!owner())return toast("Somente o DEV pode alterar permissões.");
+  state.settings={...state.settings,rolePermissions:defaultRolePermissions()};
+  renderRolePermissionMatrix();
+  setText("rolePermissionStatus","Padrão restaurado localmente. Clique em Salvar permissões.");
+});
+on("rolePermissionSearch","input",event=>{
+  const term=String(event.target.value||"").trim().toLowerCase();
+  document.querySelectorAll("[data-permission-row]").forEach(row=>row.classList.toggle("hidden",term&&!row.dataset.search.includes(term)));
+});

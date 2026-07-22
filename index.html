@@ -5,10 +5,10 @@
 <meta charset="utf-8"/>
 <meta content="width=device-width,initial-scale=1,viewport-fit=cover" name="viewport"/>
 <meta content="#09070f" name="theme-color"/>
-<title>77 TEAM Manager V22.6.3 Stable</title>
+<title>77 TEAM Manager V22.6.4 Stable</title>
 <link href="manifest.json" rel="manifest"/>
 <link href="icons/icon-192.png" rel="icon"/>
-<link href="css/style.css?v=22.6.3" rel="stylesheet"/>
+<link href="css/style.css?v=22.6.4" rel="stylesheet"/>
 </head>
 <body>
 <div class="loading" id="loading">
@@ -31,7 +31,7 @@
 </section>
 <section class="screen hidden login-v222" id="authScreen">
 <div class="login-v222-shell login-v224-shell">
-<img alt="77 TEAM Manager" class="login-v222-card-logo login-v224-card-logo" id="loginTopImage" src="assets/logo-77-team-manager-oficial.png?v=22.6.3"/>
+<img alt="77 TEAM Manager" class="login-v222-card-logo login-v224-card-logo" id="loginTopImage" src="assets/logo-77-team-manager-oficial.png?v=22.6.4"/>
 <main aria-labelledby="loginTitle" class="login-v222-card login-v224-card">
 <div class="login-v222-heading">
 <span>Bem-vindo de volta,</span>
@@ -59,7 +59,7 @@
 <div class="login-v222-safe"><strong>🛡 SEUS DADOS PROTEGIDOS</strong><span>Autenticação segura e base original preservada.</span></div>
 </main>
 </div>
-<footer class="login-v222-footer">© 2026 77 TEAM Manager • V22.6.3 Stable • Desenvolvido por <strong>PrimeTools Labs</strong></footer>
+<footer class="login-v222-footer">© 2026 77 TEAM Manager • V22.6.4 Stable • Desenvolvido por <strong>PrimeTools Labs</strong></footer>
 </section>
 <div class="app hidden" id="app">
 <aside class="sidebar sidebar-v13" id="sidebar">
@@ -1185,7 +1185,7 @@
     <article class="panel login-customizer-card">
       <div class="panel-head"><h3>Imagem do topo (logo)</h3><span class="service-chip">Preferencialmente PNG/WebP</span></div>
       <div class="panel-body stack">
-        <div class="login-image-preview logo-preview"><img alt="Prévia da imagem do topo" id="loginLogoPreview" src="assets/logo-77-team-manager-oficial.png?v=22.6.3"/></div>
+        <div class="login-image-preview logo-preview"><img alt="Prévia da imagem do topo" id="loginLogoPreview" src="assets/logo-77-team-manager-oficial.png?v=22.6.4"/></div>
         <p class="muted">Ajuste automático para até 1000 × 400, sem distorcer e preservando transparência.</p>
         <input accept="image/jpeg,image/png,image/webp" id="loginLogoFile" type="file"/>
         <label>Largura na tela
@@ -1198,7 +1198,7 @@
   <article class="panel login-customizer-save">
     <div class="panel-head"><h3>Pré-visualização e publicação</h3></div>
     <div class="panel-body stack">
-      <div class="login-live-preview" id="loginLivePreview"><img alt="Logo" id="loginLivePreviewLogo" src="assets/logo-77-team-manager-oficial.png?v=22.6.3"/><div class="login-live-preview-card"><strong>BEM-VINDO DE VOLTA,<br/><em>GUERREIRO!</em></strong><span>Prévia da tela de login</span></div></div>
+      <div class="login-live-preview" id="loginLivePreview"><img alt="Logo" id="loginLivePreviewLogo" src="assets/logo-77-team-manager-oficial.png?v=22.6.4"/><div class="login-live-preview-card"><strong>BEM-VINDO DE VOLTA,<br/><em>GUERREIRO!</em></strong><span>Prévia da tela de login</span></div></div>
       <div class="button-row"><button class="btn" id="refreshLoginPreview" type="button">👁 Atualizar prévia</button><button class="btn primary" id="saveLoginCustomization" type="button">💾 Salvar alterações</button></div>
       <p class="muted" id="loginCustomizationStatus">Somente o DEV pode publicar estas alterações.</p>
     </div>
@@ -1207,15 +1207,15 @@
 <section class="page page-animate owner-only advanced-page" id="status-servicos"><div class="page-head"><div><h2>🟢 Status dos serviços</h2><p>Visão consolidada dos componentes do sistema.</p></div></div><div class="advanced-grid" id="servicesStatusGrid"></div></section>
 <section class="page page-animate owner-only advanced-page" id="limpeza-cache"><div class="page-head"><div><h2>🧹 Limpeza de cache</h2><p>Atualize arquivos locais e Service Workers do navegador.</p></div></div><article class="panel"><div class="panel-body advanced-card"><strong>Cache da aplicação</strong><p>Remove caches do site e força o recarregamento da versão atual.</p><button class="btn danger" id="clearCacheButton" type="button">Limpar cache e recarregar</button></div></article></section>
 <section class="page page-animate owner-only advanced-page" id="estatisticas-sistema"><div class="page-head"><div><h2>📈 Estatísticas do sistema</h2><p>Indicadores técnicos e administrativos.</p></div></div><div class="cards" id="systemStatsGrid"></div></section>
-<section class="page page-animate owner-only" id="permissoes-cargos">
-<div class="panel">
-<div class="panel-head"><div><h3>Cargos e permissões</h3><p>Matriz oficial e centralizada da V21.2 Stable.</p></div></div>
+<section class="page page-animate owner-only advanced-page" id="permissoes-cargos">
+<div class="page-head"><div><h2>🔐 Matriz configurável de permissões</h2><p>O DEV pode ativar ou desativar permissões individualmente para cada cargo.</p></div></div>
+<div class="panel permission-config-panel">
+<div class="panel-head"><div><h3>Cargos e permissões</h3><p>As alterações entram em vigor para a interface assim que forem salvas.</p></div><div class="button-row"><button class="btn" id="resetRolePermissions" type="button">↺ Restaurar padrão</button><button class="btn primary" id="saveRolePermissions" type="button">💾 Salvar permissões</button></div></div>
 <div class="panel-body">
-<div class="role-color-legend">
-<span class="role-badge role-dev">DEV</span><span class="role-badge role-leadership">Liderança</span><span class="role-badge role-staff">Staff</span><span class="role-badge role-member">Membro</span>
-</div>
-<div class="table-wrap"><table class="permission-matrix"><thead><tr><th>Área/Ação</th><th>DEV</th><th>Liderança</th><th>Staff</th><th>Membro</th></tr></thead><tbody id="rolePermissionMatrix"></tbody></table></div>
-<p class="permission-note">As permissões críticas também devem ser publicadas pelas regras <strong>firestore.rules</strong> incluídas nesta versão.</p>
+<div class="role-color-legend"><span class="role-badge role-dev">DEV</span><span class="role-badge role-leadership">Liderança</span><span class="role-badge role-staff">Staff</span><span class="role-badge role-member">Membro</span><span class="role-badge role-guest">Visitante</span></div>
+<div class="permission-search-row"><input id="rolePermissionSearch" type="search" placeholder="Pesquisar área ou ação..."/><span id="rolePermissionStatus">Configuração atual carregada.</span></div>
+<div class="table-wrap"><table class="permission-matrix configurable-permission-matrix"><thead><tr><th>Área/Ação</th><th>DEV</th><th>Liderança</th><th>Staff</th><th>Membro</th><th>Visitante</th></tr></thead><tbody id="rolePermissionMatrix"></tbody></table></div>
+<p class="permission-note"><strong>Segurança:</strong> o DEV permanece com acesso total e não pode ser bloqueado. A hierarquia crítica de cargos e as regras do Firebase continuam limitando ações sensíveis.</p>
 </div></div>
 </section>
 <section class="page page-animate" id="sobre">

@@ -1059,5 +1059,9 @@ Publique `firestore.rules` e `storage.rules` desta versão para habilitar as men
 - A ação exige confirmação e é registrada na auditoria.
 
 
-## V22.6.3 Stable — Personalização do Login
+## V22.6.4 Stable — Personalização do Login
 Nova página exclusiva do DEV em AVANÇADO para alterar o fundo e a imagem do topo da tela de login. As imagens são ajustadas automaticamente, pré-visualizadas e armazenadas no Firebase Storage. Publique também `storage.rules`.
+
+
+## V22.6.4 — Matriz configurável de permissões
+Acesse **AVANÇADO > Cargos e permissões** para configurar permissões individuais por cargo.
