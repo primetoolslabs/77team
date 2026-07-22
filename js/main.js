@@ -1296,7 +1296,7 @@ $("#eventForm").onsubmit=async event=>{
 
 
 
-/* V22.6.4 — Personalização do login pelo DEV */
+/* V22.6.5 — Personalização do login pelo DEV */
 const LOGIN_DEFAULTS={
   backgroundUrl:"assets/login-purple-storm-v22-6-2.png?v=22.6.3",
   logoUrl:"assets/logo-77-team-manager-oficial.png?v=22.6.3",
@@ -1644,7 +1644,12 @@ on("profileNicknameForm","submit",async event=>{
     Object.assign(state.profile,{name,displayName,discord,whatsapp,birthDate,bio});
     applyPermissions();updateFirstAccessUI();renderOwnProfile();renderCharacterProfile();renderCharactersTable();renderCharacterCenter();renderHistoryCenter();renderGoals();renderSystemHealth();renderStaffCommandCenter();applyRestrictedVisibility();
     toast("Perfil completo atualizado.");
-  }catch(error){toast(error.message||"Não foi possível atualizar o perfil.")}
+  }catch(error){
+    console.error("Falha ao salvar o próprio perfil:",error);
+    toast(error?.code==="permission-denied"
+      ? "Permissão negada ao salvar o perfil. Publique o firestore.rules da V22.6.5 no Firebase."
+      : (error.message||"Não foi possível atualizar o perfil."));
+  }
 });
 on("profileAvatarForm","submit",async event=>{
   event.preventDefault();
@@ -1918,7 +1923,9 @@ on("characterForm","submit",async event=>{
       doc(db,"users",state.user.uid),
       {
         character,
-        characterUpdatedAt:serverTimestamp()
+        characterUpdatedAt:serverTimestamp(),
+        characterUpdatedBy:state.user.uid,
+        updatedAt:serverTimestamp()
       }
     );
 
@@ -1932,7 +1939,10 @@ on("characterForm","submit",async event=>{
       toast("Informações do personagem salvas.");
     }
   }catch(error){
-    toast(error.message||"Não foi possível salvar o personagem.");
+    console.error("Falha ao salvar o próprio personagem:",error);
+    toast(error?.code==="permission-denied"
+      ? "Permissão negada ao salvar o personagem. Publique o firestore.rules da V22.6.5 no Firebase."
+      : (error.message||"Não foi possível salvar o personagem."));
   }
 });
 
@@ -4420,7 +4430,7 @@ on("recordsClear","click",()=>{["recordsSearch","recordsMember","recordsDateFrom
 
 // V20.9 — Hub STAFF integrado ao menu e aos módulos operacionais.
 
-// V22.6.4 — matriz configurável de permissões
+// V22.6.5 — matriz configurável de permissões
 on("saveRolePermissions","click",saveConfigurableRolePermissions);
 on("resetRolePermissions","click",()=>{
   if(!owner())return toast("Somente o DEV pode alterar permissões.");
