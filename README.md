@@ -1,4 +1,4 @@
-# 77 TEAM Manager V22.7.1 Stable
+# 77 TEAM Manager V22.7.2 Hotfix
 
 Correção do salvamento do próprio perfil e das informações do personagem, incluindo compatibilidade com perfis legados. Publique o `firestore.rules` incluído nesta versão.
 
@@ -1085,3 +1085,12 @@ Acesse **AVANÇADO > Cargos e permissões** para configurar permissões individu
 - Correção da aplicação do fundo e da imagem do topo em Personalizar Login.
 - Cache local de segurança para manter a personalização durante o carregamento.
 - Funcionalidades e lógica da V22.7.0 preservadas.
+
+
+## V22.7.2 Hotfix — Fundo da tela de login
+
+- Corrigida a aplicação da imagem de fundo padrão e personalizada na tela de login.
+- Caminhos locais agora são convertidos para URL absoluta, compatível com GitHub Pages.
+- A propriedade de fundo é aplicada com prioridade para não ser sobrescrita pelo CSS legado.
+- Adicionado fallback automático para a imagem padrão quando uma URL remota falhar.
+- Layout, autenticação, Firebase, permissões e demais funcionalidades da V22.7.0 foram preservados.

@@ -1296,7 +1296,7 @@ $("#eventForm").onsubmit=async event=>{
 
 
 
-/* V22.7.1 — Personalização do login pelo DEV */
+/* V22.7.2 — correção definitiva do fundo personalizado do login */
 const LOGIN_DEFAULTS={
   backgroundUrl:"assets/login-purple-storm-v22-6-2.png?v=22.6.3",
   logoUrl:"assets/logo-77-team-manager-oficial.png?v=22.6.3",
@@ -1320,23 +1320,42 @@ function loginCustomization(){
   const remote=state.settings?.loginCustomization||{};
   return Object.keys(remote).length?remote:readCachedLoginCustomization();
 }
+function resolveLoginAssetUrl(value,fallback){
+  const candidate=String(value||fallback||"").trim();
+  if(!candidate)return "";
+  if(/^(https?:|blob:|data:)/i.test(candidate))return candidate;
+  try{return new URL(candidate,document.baseURI).href}catch{return candidate}
+}
+function setLoginBackground(screen,url,position){
+  if(!screen)return;
+  const safe=String(url||"").replace(/"/g,"%22");
+  const image=`linear-gradient(180deg,rgba(0,0,0,.16),rgba(0,0,0,.40)),url("${safe}")`;
+  screen.style.setProperty("--login-custom-background",`url("${safe}")`);
+  screen.style.setProperty("--login-background-position",position);
+  // O CSS antigo possui !important; por isso a aplicação inline também precisa de prioridade.
+  screen.style.setProperty("background-image",image,"important");
+  screen.style.setProperty("background-position",position,"important");
+  screen.style.setProperty("background-size","cover","important");
+  screen.style.setProperty("background-repeat","no-repeat","important");
+}
 function applyLoginCustomization(){
   const cfg=loginCustomization();
   const screen=byId("authScreen");
   const logo=byId("loginTopImage");
-  const bg=cfg.backgroundUrl||LOGIN_DEFAULTS.backgroundUrl;
+  const defaultBg=resolveLoginAssetUrl(LOGIN_DEFAULTS.backgroundUrl,LOGIN_DEFAULTS.backgroundUrl);
+  const bg=resolveLoginAssetUrl(cfg.backgroundUrl,defaultBg);
   const position=cfg.backgroundPosition||LOGIN_DEFAULTS.backgroundPosition;
-  if(screen){
-    screen.style.setProperty("--login-custom-background",`url("${String(bg).replace(/"/g,"%22")}")`);
-    screen.style.setProperty("--login-background-position",position);
-    screen.style.backgroundImage=`linear-gradient(180deg,rgba(0,0,0,.16),rgba(0,0,0,.40)),url("${String(bg).replace(/"/g,"%22")}")`;
-    screen.style.backgroundPosition=position;
-    screen.style.backgroundSize="cover";
-    screen.style.backgroundRepeat="no-repeat";
+  setLoginBackground(screen,bg,position);
+  // Valida a imagem e restaura o fundo local caso a URL salva esteja indisponível.
+  if(bg){
+    const probe=new Image();
+    probe.onerror=()=>{if(bg!==defaultBg)setLoginBackground(screen,defaultBg,position)};
+    probe.src=bg;
   }
   if(logo){
-    const nextLogo=cfg.logoUrl||LOGIN_DEFAULTS.logoUrl;
+    const nextLogo=resolveLoginAssetUrl(cfg.logoUrl,LOGIN_DEFAULTS.logoUrl);
     if(logo.src!==nextLogo)logo.src=nextLogo;
+    logo.onerror=()=>{logo.onerror=null;logo.src=resolveLoginAssetUrl(LOGIN_DEFAULTS.logoUrl,LOGIN_DEFAULTS.logoUrl)};
     logo.style.setProperty("--login-logo-width",`${Number(cfg.logoWidth)||LOGIN_DEFAULTS.logoWidth}px`);
   }
   cacheLoginCustomization(cfg);
@@ -1346,8 +1365,8 @@ function loadLoginCustomizationForm(){
   const cfg=loginCustomization();
   setValue("loginBackgroundPosition",cfg.backgroundPosition||LOGIN_DEFAULTS.backgroundPosition);
   setValue("loginLogoWidth",String(Number(cfg.logoWidth)||LOGIN_DEFAULTS.logoWidth));
-  const bg=cfg.backgroundUrl||LOGIN_DEFAULTS.backgroundUrl;
-  const logo=cfg.logoUrl||LOGIN_DEFAULTS.logoUrl;
+  const bg=resolveLoginAssetUrl(cfg.backgroundUrl,LOGIN_DEFAULTS.backgroundUrl);
+  const logo=resolveLoginAssetUrl(cfg.logoUrl,LOGIN_DEFAULTS.logoUrl);
   const bgPreview=byId("loginBackgroundPreview");
   if(bgPreview)bgPreview.style.backgroundImage=`url("${bg}")`;
   const logoPreview=byId("loginLogoPreview");if(logoPreview)logoPreview.src=logo;
@@ -1369,8 +1388,8 @@ async function optimizeLoginImage(file,type){
 }
 function refreshLoginCustomizationPreview(){
   const cfg=loginCustomization();
-  const bg=removeLoginBackgroundRequested?LOGIN_DEFAULTS.backgroundUrl:(loginBackgroundPreviewUrl||cfg.backgroundUrl||LOGIN_DEFAULTS.backgroundUrl);
-  const logo=removeLoginLogoRequested?LOGIN_DEFAULTS.logoUrl:(loginLogoPreviewUrl||cfg.logoUrl||LOGIN_DEFAULTS.logoUrl);
+  const bg=removeLoginBackgroundRequested?resolveLoginAssetUrl(LOGIN_DEFAULTS.backgroundUrl,LOGIN_DEFAULTS.backgroundUrl):(loginBackgroundPreviewUrl||resolveLoginAssetUrl(cfg.backgroundUrl,LOGIN_DEFAULTS.backgroundUrl));
+  const logo=removeLoginLogoRequested?resolveLoginAssetUrl(LOGIN_DEFAULTS.logoUrl,LOGIN_DEFAULTS.logoUrl):(loginLogoPreviewUrl||resolveLoginAssetUrl(cfg.logoUrl,LOGIN_DEFAULTS.logoUrl));
   const preview=byId("loginLivePreview");
   if(preview){preview.style.backgroundImage=`linear-gradient(rgba(0,0,0,.22),rgba(0,0,0,.38)),url("${bg}")`;preview.style.backgroundPosition=byId("loginBackgroundPosition")?.value||LOGIN_DEFAULTS.backgroundPosition}
   const previewLogo=byId("loginLivePreviewLogo");if(previewLogo){previewLogo.src=logo;previewLogo.style.width=`min(${Number(byId("loginLogoWidth")?.value)||LOGIN_DEFAULTS.logoWidth}px,82%)`}
@@ -1663,7 +1682,7 @@ on("profileNicknameForm","submit",async event=>{
   }catch(error){
     console.error("Falha ao salvar o próprio perfil:",error);
     toast(error?.code==="permission-denied"
-      ? "Permissão negada ao salvar o perfil. Publique o firestore.rules da V22.7.1 no Firebase e confirme o projeto team-f78cd."
+      ? "Permissão negada ao salvar o perfil. Publique o firestore.rules da V22.7.2 no Firebase e confirme o projeto team-f78cd."
       : (error.message||"Não foi possível atualizar o perfil."));
   }
 });
@@ -1957,7 +1976,7 @@ on("characterForm","submit",async event=>{
   }catch(error){
     console.error("Falha ao salvar o próprio personagem:",error);
     toast(error?.code==="permission-denied"
-      ? "Permissão negada ao salvar o personagem. Publique o firestore.rules da V22.7.1 no Firebase e confirme o projeto team-f78cd."
+      ? "Permissão negada ao salvar o personagem. Publique o firestore.rules da V22.7.2 no Firebase e confirme o projeto team-f78cd."
       : (error.message||"Não foi possível salvar o personagem."));
   }
 });
@@ -4446,7 +4465,7 @@ on("recordsClear","click",()=>{["recordsSearch","recordsMember","recordsDateFrom
 
 // V20.9 — Hub STAFF integrado ao menu e aos módulos operacionais.
 
-// V22.7.1 — matriz configurável de permissões
+// V22.7.2 — matriz configurável de permissões preservada
 on("saveRolePermissions","click",saveConfigurableRolePermissions);
 on("resetRolePermissions","click",()=>{
   if(!owner())return toast("Somente o DEV pode alterar permissões.");

@@ -5461,3 +5461,10 @@ body[data-access-role="leadership"] #configuracoes .settings-content:before{cont
   .login-v224-card{padding:24px 12px 15px!important}
   .login-v224-card .login-v222-heading strong{font-size:24px!important}
 }
+
+
+/* V22.7.2 Hotfix — fundo do login com fallback local confiável */
+#authScreen.login-v222{
+  background-color:#020006!important;
+  background-image:linear-gradient(180deg,rgba(0,0,0,.16),rgba(0,0,0,.40)),url('../assets/login-purple-storm-v22-6-2.png?v=22.7.2')!important;
+}
