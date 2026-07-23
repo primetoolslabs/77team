@@ -1,3 +1,11 @@
+# 77 TEAM Manager V22.7.3 Stable
+
+Atualização exclusivamente visual sobre a base oficial V22.7.2 Hotfix. A nova logo foi aplicada somente dentro do painel, sem alterar a tela de login, funcionalidades, lógica, permissões ou integração com Firebase.
+
+Consulte `CHANGELOG-V22.7.3.md`.
+
+---
+
 # 77 TEAM Manager V22.7.2 Hotfix
 
 Correção do salvamento do próprio perfil e das informações do personagem, incluindo compatibilidade com perfis legados. Publique o `firestore.rules` incluído nesta versão.
