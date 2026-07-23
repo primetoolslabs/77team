@@ -5380,3 +5380,84 @@ body[data-access-role="leadership"] #configuracoes .settings-content:before{cont
 
 /* V22.7.0 Stable — matriz configurável de permissões */
 .permission-config-panel .panel-head{align-items:flex-start;gap:18px;flex-wrap:wrap}.permission-search-row{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:16px 0}.permission-search-row input{width:min(420px,100%)}.permission-search-row span{color:var(--muted,#aaa);font-size:.86rem}.configurable-permission-matrix th:first-child{min-width:320px}.configurable-permission-matrix th small{display:block;margin-top:4px;color:var(--muted,#8f899a);font-weight:400;font-family:monospace}.permission-group-row th{background:rgba(134,45,200,.16);color:#dba8ff;text-transform:uppercase;letter-spacing:.08em;font-size:.78rem;text-align:left!important}.permission-switch{display:inline-flex;align-items:center;justify-content:center;cursor:pointer}.permission-switch input{position:absolute;opacity:0;pointer-events:none}.permission-switch span{width:42px;height:23px;border-radius:999px;background:#332c3d;border:1px solid #55485f;position:relative;transition:.2s}.permission-switch span:after{content:"";position:absolute;width:17px;height:17px;border-radius:50%;left:2px;top:2px;background:#91899b;transition:.2s}.permission-switch input:checked+span{background:linear-gradient(90deg,#7617b7,#b536f1);border-color:#c064ef;box-shadow:0 0 12px rgba(171,57,234,.25)}.permission-switch input:checked+span:after{left:21px;background:#fff}.permission-switch input:disabled+span{opacity:.62;cursor:not-allowed}.role-guest{background:#34313a!important;color:#ddd!important}@media(max-width:760px){.permission-search-row{align-items:stretch;flex-direction:column}.configurable-permission-matrix th:first-child{min-width:230px}}
+
+
+/* V22.7.1 Stable — revisão da tela de login e aplicação confiável da personalização */
+#authScreen.login-v222{
+  min-height:100dvh!important;
+  width:100%!important;
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:center!important;
+  justify-content:center!important;
+  padding:clamp(14px,2.2vh,28px) 16px!important;
+  overflow-x:hidden!important;
+  overflow-y:auto!important;
+  background-position:var(--login-background-position,center center)!important;
+  background-size:cover!important;
+  background-repeat:no-repeat!important;
+  background-attachment:fixed!important;
+}
+#authScreen.login-v222.hidden{display:none!important}
+#authScreen.login-v222::before{
+  content:""!important;
+  position:fixed!important;
+  inset:0!important;
+  pointer-events:none!important;
+  background:linear-gradient(180deg,rgba(1,0,5,.20),rgba(1,0,5,.44))!important;
+}
+.login-v224-shell{
+  position:relative!important;
+  z-index:1!important;
+  width:min(640px,calc(100vw - 32px))!important;
+  min-height:auto!important;
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:center!important;
+  justify-content:center!important;
+  margin:auto!important;
+}
+.login-v224-card-logo{
+  width:min(var(--login-logo-width,620px),94vw)!important;
+  max-height:clamp(145px,25vh,250px)!important;
+  margin:0 auto clamp(-30px,-3vh,-18px)!important;
+  object-fit:contain!important;
+  z-index:2!important;
+}
+.login-v224-card{
+  width:100%!important;
+  padding:clamp(28px,4vh,42px) clamp(18px,4vw,38px) clamp(18px,3vh,26px)!important;
+  border-radius:12px!important;
+  background:linear-gradient(145deg,rgba(4,2,10,.94),rgba(8,4,17,.88))!important;
+  backdrop-filter:blur(10px)!important;
+  -webkit-backdrop-filter:blur(10px)!important;
+}
+.login-v222-footer{
+  position:relative!important;
+  z-index:1!important;
+  width:100%!important;
+  margin:14px auto 0!important;
+  text-align:center!important;
+  padding:0 10px!important;
+}
+@media(max-width:700px){
+  #authScreen.login-v222{
+    justify-content:flex-start!important;
+    padding:10px 10px 24px!important;
+    background-attachment:scroll!important;
+  }
+  .login-v224-shell{width:100%!important;margin:auto 0!important}
+  .login-v224-card-logo{width:min(var(--login-logo-width,620px),108vw)!important;max-height:155px!important;margin-bottom:-18px!important}
+  .login-v224-card{padding:28px 16px 18px!important;border-radius:10px!important}
+  .login-v224-card .login-v222-heading{padding-bottom:14px!important}
+  .login-v224-card .login-v222-heading span{font-size:18px!important}
+  .login-v224-card .login-v222-heading strong{font-size:27px!important}
+  .login-v224-card .login-v222-input{height:48px!important}
+  .login-v224-card .login-v222-actions{grid-template-columns:1fr!important;gap:8px!important}
+  .login-v222-footer{font-size:9px!important;margin-top:10px!important}
+}
+@media(max-width:390px){
+  .login-v224-card-logo{max-height:132px!important}
+  .login-v224-card{padding:24px 12px 15px!important}
+  .login-v224-card .login-v222-heading strong{font-size:24px!important}
+}

@@ -1296,7 +1296,7 @@ $("#eventForm").onsubmit=async event=>{
 
 
 
-/* V22.7.0 — Personalização do login pelo DEV */
+/* V22.7.1 — Personalização do login pelo DEV */
 const LOGIN_DEFAULTS={
   backgroundUrl:"assets/login-purple-storm-v22-6-2.png?v=22.6.3",
   logoUrl:"assets/logo-77-team-manager-oficial.png?v=22.6.3",
@@ -1310,20 +1310,36 @@ let removeLoginLogoRequested=false;
 let loginBackgroundPreviewUrl="";
 let loginLogoPreviewUrl="";
 
-function loginCustomization(){return state.settings?.loginCustomization||{}}
+function readCachedLoginCustomization(){
+  try{return JSON.parse(localStorage.getItem("77team-login-customization")||"{}")||{}}catch{return {}}
+}
+function cacheLoginCustomization(cfg){
+  try{localStorage.setItem("77team-login-customization",JSON.stringify(cfg||{}))}catch{}
+}
+function loginCustomization(){
+  const remote=state.settings?.loginCustomization||{};
+  return Object.keys(remote).length?remote:readCachedLoginCustomization();
+}
 function applyLoginCustomization(){
   const cfg=loginCustomization();
   const screen=byId("authScreen");
   const logo=byId("loginTopImage");
   const bg=cfg.backgroundUrl||LOGIN_DEFAULTS.backgroundUrl;
+  const position=cfg.backgroundPosition||LOGIN_DEFAULTS.backgroundPosition;
   if(screen){
     screen.style.setProperty("--login-custom-background",`url("${String(bg).replace(/"/g,"%22")}")`);
-    screen.style.setProperty("--login-background-position",cfg.backgroundPosition||LOGIN_DEFAULTS.backgroundPosition);
+    screen.style.setProperty("--login-background-position",position);
+    screen.style.backgroundImage=`linear-gradient(180deg,rgba(0,0,0,.16),rgba(0,0,0,.40)),url("${String(bg).replace(/"/g,"%22")}")`;
+    screen.style.backgroundPosition=position;
+    screen.style.backgroundSize="cover";
+    screen.style.backgroundRepeat="no-repeat";
   }
   if(logo){
-    logo.src=cfg.logoUrl||LOGIN_DEFAULTS.logoUrl;
+    const nextLogo=cfg.logoUrl||LOGIN_DEFAULTS.logoUrl;
+    if(logo.src!==nextLogo)logo.src=nextLogo;
     logo.style.setProperty("--login-logo-width",`${Number(cfg.logoWidth)||LOGIN_DEFAULTS.logoWidth}px`);
   }
+  cacheLoginCustomization(cfg);
 }
 function revokePreview(url){if(url?.startsWith("blob:"))URL.revokeObjectURL(url)}
 function loadLoginCustomizationForm(){
@@ -1382,7 +1398,7 @@ on("saveLoginCustomization","click",async()=>{
     await setDoc(doc(db,"settings","app"),{loginCustomization:next},{merge:true});
     const oldPaths=[];if((pendingLoginBackground||removeLoginBackgroundRequested)&&previous.backgroundPath&&previous.backgroundPath!==next.backgroundPath)oldPaths.push(previous.backgroundPath);if((pendingLoginLogo||removeLoginLogoRequested)&&previous.logoPath&&previous.logoPath!==next.logoPath)oldPaths.push(previous.logoPath);
     await Promise.all(oldPaths.map(async path=>{try{await deleteObject(storageRef(storage,path))}catch(error){console.warn("Imagem anterior não removida:",error)}}));
-    state.settings={...state.settings,loginCustomization:next};pendingLoginBackground=pendingLoginLogo=null;removeLoginBackgroundRequested=removeLoginLogoRequested=false;revokePreview(loginBackgroundPreviewUrl);revokePreview(loginLogoPreviewUrl);loginBackgroundPreviewUrl=loginLogoPreviewUrl="";applyLoginCustomization();loadLoginCustomizationForm();await audit("personalização do login atualizada","Fundo e/ou imagem do topo modificados");toast("Tela de login atualizada com sucesso.");setText("loginCustomizationStatus","Alterações publicadas e aplicadas automaticamente.")
+    state.settings={...state.settings,loginCustomization:next};cacheLoginCustomization(next);pendingLoginBackground=pendingLoginLogo=null;removeLoginBackgroundRequested=removeLoginLogoRequested=false;revokePreview(loginBackgroundPreviewUrl);revokePreview(loginLogoPreviewUrl);loginBackgroundPreviewUrl=loginLogoPreviewUrl="";applyLoginCustomization();loadLoginCustomizationForm();await audit("personalização do login atualizada","Fundo e/ou imagem do topo modificados");toast("Tela de login atualizada com sucesso.");setText("loginCustomizationStatus","Alterações publicadas e aplicadas automaticamente.")
   }catch(error){toast(errMsg(error));setText("loginCustomizationStatus",`Falha ao salvar: ${error.message||error}`)}finally{if(button)button.disabled=false}
 });
 
@@ -1647,7 +1663,7 @@ on("profileNicknameForm","submit",async event=>{
   }catch(error){
     console.error("Falha ao salvar o próprio perfil:",error);
     toast(error?.code==="permission-denied"
-      ? "Permissão negada ao salvar o perfil. Publique o firestore.rules da V22.7.0 no Firebase e confirme o projeto team-f78cd."
+      ? "Permissão negada ao salvar o perfil. Publique o firestore.rules da V22.7.1 no Firebase e confirme o projeto team-f78cd."
       : (error.message||"Não foi possível atualizar o perfil."));
   }
 });
@@ -1941,7 +1957,7 @@ on("characterForm","submit",async event=>{
   }catch(error){
     console.error("Falha ao salvar o próprio personagem:",error);
     toast(error?.code==="permission-denied"
-      ? "Permissão negada ao salvar o personagem. Publique o firestore.rules da V22.7.0 no Firebase e confirme o projeto team-f78cd."
+      ? "Permissão negada ao salvar o personagem. Publique o firestore.rules da V22.7.1 no Firebase e confirme o projeto team-f78cd."
       : (error.message||"Não foi possível salvar o personagem."));
   }
 });
@@ -4430,7 +4446,7 @@ on("recordsClear","click",()=>{["recordsSearch","recordsMember","recordsDateFrom
 
 // V20.9 — Hub STAFF integrado ao menu e aos módulos operacionais.
 
-// V22.7.0 — matriz configurável de permissões
+// V22.7.1 — matriz configurável de permissões
 on("saveRolePermissions","click",saveConfigurableRolePermissions);
 on("resetRolePermissions","click",()=>{
   if(!owner())return toast("Somente o DEV pode alterar permissões.");
