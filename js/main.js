@@ -35,7 +35,7 @@ const REQUEST_ACCESS_OPTIONS={
 };
 const TYPES={worldboss:["10H","12H","20H","22H","00H"],purgatorio:["06H","12H","18H","00H"],eventos:["Guerra de Vale","Defesa de Crista","Evento de Vale","Saque de Castelo"]};
 
-const state={user:null,profile:null,guest:false,onboardingRequired:false,members:[],attendance:[],rtPresence:[],users:[],audit:[],events:[],notifications:[],sentNotifications:[],notificationReads:[],settings:{},xpLogs:[],supportMessages:[],selectedSupportOwnerUid:"",selectedSupportTicketId:"",supportView:"active",chatMessages:[],selectedChatOwnerUid:"",selectedChatId:"",chatView:"active",chatSearch:"",editingCharacterUserId:"",presenceFilters:{},unsubs:[]};
+const state={user:null,profile:null,guest:false,onboardingRequired:false,members:[],attendance:[],rtPresence:[],users:[],audit:[],events:[],notifications:[],sentNotifications:[],notificationReads:[],settings:{},xpLogs:[],supportMessages:[],selectedSupportOwnerUid:"",selectedSupportTicketId:"",supportView:"active",chatMessages:[],selectedChatOwnerUid:"",selectedChatId:"",chatView:"active",chatSearch:"",editingCharacterUserId:"",presenceFilters:{},presenceBackups:[],unsubs:[]};
 
 function toast(msg){const el=$("#toast");el.textContent=msg;el.classList.add("show");clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.remove("show"),3000)}
 function errMsg(e){return ({'auth/invalid-credential':'E-mail ou senha incorretos.','auth/user-disabled':'Esta conta foi desativada.','auth/too-many-requests':'Muitas tentativas. Aguarde alguns minutos e tente novamente.','auth/network-request-failed':'Falha de conexão. Verifique sua internet.','auth/email-already-in-use':'Este e-mail já existe.','auth/weak-password':'A senha precisa ter pelo menos 6 caracteres.','permission-denied':'Permissão negada. Publique o firestore.rules novo.'})[e?.code]||`${e?.code||'erro'}: ${e?.message||'Falha inesperada'}`}
@@ -443,6 +443,7 @@ function subscribeAll(){
   subscribePublic();
   if(editor()){
     state.unsubs.push(onSnapshot(collection(db,"rtPresence"),snapshot=>{state.rtPresence=snapshot.docs.map(d=>({id:d.id,...d.data()}));renderRtPresence();},error=>console.error("Falha ao carregar RT Presença:",error)));
+    state.unsubs.push(onSnapshot(collection(db,"presenceBackups"),snapshot=>{state.presenceBackups=snapshot.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>rtDateValue(b.createdAt)-rtDateValue(a.createdAt));renderPresenceBackups();},error=>console.error("Falha ao carregar backups de presença:",error)));
   }else state.rtPresence=[];
   if(editor())state.unsubs.push(onSnapshot(collection(db,"users"),s=>{state.users=s.docs.map(d=>{const user={id:d.id,...d.data()};return {...user,resolvedAccessRole:resolveAccessRole(user)}});render();scheduleAttendanceUserMigration();scheduleAccountRoleSync()}));
   if(owner())state.unsubs.push(onSnapshot(collection(db,"audit"),s=>{state.audit=s.docs.map(d=>({id:d.id,...d.data()}));render()}));
@@ -529,7 +530,7 @@ function renderUnifiedPresence(){
   target.innerHTML=`<div class="presence-v207 presence-unified">
     <div class="presence-v207-toolbar">
       <div><h3>Registro de Presenças</h3><p>Registre WorldBoss, Purgatório e Eventos somente nesta aba. Cada salvamento atualiza o Histórico e o RT Presença automaticamente.</p></div>
-      ${editor()?`<button class="btn primary" data-open-presence-modal="worldboss">➕ Registrar Presença</button>`:""}
+      ${editor()?`<div class="presence-action-group"><button class="btn primary" data-open-presence-modal="worldboss">➕ Registrar Presença</button><button class="btn" data-backup-presence>💾 Backup Presença</button>${administrator()?`<button class="btn danger" data-reset-presence>🔄 Resetar Presença</button>`:""}</div>`:""}
     </div>
     <div class="presence-v207-filters">
       <input type="search" placeholder="Buscar usuário, clã, evento ou status..." data-unified-presence-search>
@@ -537,8 +538,45 @@ function renderUnifiedPresence(){
       <select data-unified-presence-kind><option value="">Todos os eventos</option><option value="worldboss">WorldBoss</option><option value="purgatorio">Purgatório</option><option value="eventos">Eventos</option></select>
     </div>
     <div class="table-wrap presence-v207-table"><table><thead><tr><th>Data</th><th>Usuário</th><th>Clã</th><th>Evento</th><th>Horário/Atividade</th><th>Status</th><th>Observação</th><th>Responsável</th>${owner()?"<th>Ações</th>":""}</tr></thead><tbody data-unified-presence-body>${renderUnifiedPresenceBody(rows)}</tbody></table></div>
+    <section class="presence-backup-panel"><div class="presence-backup-head"><div><h3>📚 Histórico de backups</h3><p>Os fechamentos ficam guardados por semana e podem ser consultados sem alterar o Histórico existente.</p></div><span class="badge" id="presenceBackupCount">${state.presenceBackups.length} backups</span></div><div class="presence-backup-list" id="presenceBackupList"></div></section>
   </div>`;
+  renderPresenceBackups();
 }
+
+function presenceBackupDate(value){
+  const ms=rtDateValue(value);if(!ms)return "—";
+  return new Date(ms).toLocaleString("pt-BR");
+}
+function presenceBackupCounts(records=[]){return{present:records.filter(x=>Number(x.status)===1).length,justified:records.filter(x=>Number(x.status)===3).length,absent:records.filter(x=>Number(x.status)===-1).length}}
+function renderPresenceBackups(){
+  const list=$("#presenceBackupList");if(!list)return;
+  setText("presenceBackupCount",`${state.presenceBackups.length} backup${state.presenceBackups.length===1?"":"s"}`);
+  list.innerHTML=state.presenceBackups.map(item=>{const counts=item.counts||presenceBackupCounts(item.records||[]);return `<article class="presence-backup-card"><div><strong>📅 ${escapeHtml(item.week||"Semana não informada")}</strong><span>${escapeHtml(presenceBackupDate(item.createdAt))}</span></div><div class="presence-backup-metrics"><span>🟢 ${Number(counts.present||0)}</span><span>🟡 ${Number(counts.justified||0)}</span><span>🔴 ${Number(counts.absent||0)}</span><span>📋 ${Number(item.total||item.records?.length||0)}</span></div><div><small>Responsável</small><b>${escapeHtml(item.createdByName||"—")}</b></div><button class="btn mini" data-download-presence-backup="${item.id}">Baixar JSON</button></article>`}).join("")||`<div class="empty-state">Nenhum backup de presença foi criado.</div>`;
+}
+async function createPresenceBackup({automatic=false}={}){
+  if(!editor())return toast("Sem permissão para criar backup.");
+  const records=state.attendance.filter(item=>[-1,1,3].includes(Number(item.status))).map(item=>{const copy={...item};delete copy.id;return copy});
+  if(!records.length){toast("Não existem registros de presença para salvar.");return null}
+  const now=new Date(),week=isoWeek(todayIso()),counts=presenceBackupCounts(records),id=`${week}__${now.toISOString().replace(/[^0-9]/g,"").slice(0,14)}`;
+  const payload={week,records,counts,total:records.length,automatic,createdBy:state.user.uid,createdByName:state.profile?.name||state.user.email,createdAt:serverTimestamp(),createdAtText:now.toISOString(),sourceVersion:"22.8.0"};
+  await setDoc(doc(db,"presenceBackups",id),payload);
+  await audit(automatic?"backup automático da presença":"backup da presença",`${week} · ${records.length} registros`);
+  toast(`Backup salvo: ${records.length} registros.`);return{id,...payload,createdAt:now};
+}
+async function resetPresenceWithBackup(){
+  if(!administrator())return toast("Somente DEV e Liderança podem resetar a presença.");
+  const rows=state.attendance.filter(item=>[-1,1,3].includes(Number(item.status)));
+  if(!rows.length)return toast("Não existem registros para resetar.");
+  if(!confirm(`Resetar ${rows.length} registros de presença? O sistema criará um backup automático antes da limpeza.`))return;
+  try{
+    const backup=await createPresenceBackup({automatic:true});if(!backup)return;
+    for(let start=0;start<rows.length;start+=400){const batch=writeBatch(db);rows.slice(start,start+400).forEach(item=>batch.delete(doc(db,"attendance",item.id)));await batch.commit()}
+    await audit("presença resetada",`${backup.week} · ${rows.length} registros enviados ao histórico`);
+    toast("Presença resetada com backup concluído.");
+  }catch(error){console.error(error);toast(errMsg(error))}
+}
+function downloadPresenceBackup(id){const item=state.presenceBackups.find(row=>row.id===id);if(!item)return toast("Backup não encontrado.");downloadJson(`presenca-${item.week||id}.json`,{version:"22.8.0",exportedAt:new Date().toISOString(),backup:item});}
+
 function renderUnifiedPresenceBody(rows){return rows.map(item=>{const st=presenceStatus(item.status);return `<tr><td>${escapeHtml(item.date||"—")}</td><td>${escapeHtml(item.memberName||"—")}</td><td>${escapeHtml(item.clan||"—")}</td><td>${escapeHtml(presenceTypeLabel(item.kind))}</td><td>${escapeHtml(item.slot||"—")}</td><td><span class="presence-status-chip ${st.cls}">${st.icon} ${st.label}</span></td><td>${escapeHtml(item.note||"—")}</td><td>${escapeHtml(item.updatedByName||"—")}</td>${owner()?`<td><button class="btn danger mini" data-delete-attendance="${item.id}">Excluir</button></td>`:""}</tr>`}).join("")||`<tr><td colspan="9">Nenhum registro encontrado.</td></tr>`}
 function filterUnifiedPresence(){const q=String(document.querySelector("[data-unified-presence-search]")?.value||"").toLowerCase(),date=document.querySelector("[data-unified-presence-date]")?.value||"",kind=document.querySelector("[data-unified-presence-kind]")?.value||"";const rows=recentAllPresenceRows().filter(item=>(!date||item.date===date)&&(!kind||item.kind===kind)&&(!q||`${item.memberName} ${item.clan} ${presenceTypeLabel(item.kind)} ${item.slot} ${presenceStatus(item.status).label}`.toLowerCase().includes(q)));const body=document.querySelector("[data-unified-presence-body]");if(body)body.innerHTML=renderUnifiedPresenceBody(rows)}
 function renderRecentPresenceBody(rows){return rows.map(item=>{const st=presenceStatus(item.status);return `<tr><td>${escapeHtml(item.date||"—")}</td><td>${escapeHtml(item.memberName||"—")}</td><td>${escapeHtml(item.clan||"—")}</td><td>${escapeHtml(item.slot||"—")}</td><td><span class="presence-status-chip ${st.cls}">${st.icon} ${st.label}</span></td><td>${escapeHtml(item.note||"—")}</td><td>${escapeHtml(item.updatedByName||"—")}</td>${owner()?`<td><button class="btn danger mini" data-delete-attendance="${item.id}">Excluir</button></td>`:""}</tr>`}).join("")||`<tr><td colspan="8">Nenhum registro encontrado.</td></tr>`}
@@ -1034,8 +1072,8 @@ function renderAdvancedCenter(){
   const showLogin=byId("maintenanceShowLogin"); if(showLogin)showLogin.checked=maintenance.showLogin!==false; const showApp=byId("maintenanceShowApp"); if(showApp)showApp.checked=maintenance.showApp!==false; updateMaintenancePreview(); applyMaintenanceNotice();
 }
 function downloadJson(filename,data){const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
-on("checkUpdatesButton","click",()=>{setText("updateStatusText","Versão 21.2.4 instalada e verificada. Base estável: V21.0.1.");toast("Verificação local concluída.")});
-on("createBackupButton","click",()=>{if(!owner())return;downloadJson(`77-team-backup-${new Date().toISOString().slice(0,10)}.json`,{version:"21.2.4",baseVersion:"21.0.1",exportedAt:new Date().toISOString(),members:state.members,attendance:state.attendance,users:state.users,events:state.events,notifications:state.sentNotifications,audit:state.audit,settings:state.settings});toast("Backup JSON gerado.")});
+on("checkUpdatesButton","click",()=>{setText("updateStatusText","Versão 22.8.0 instalada e verificada. Base oficial: V22.7.3.");toast("Verificação local concluída.")});
+on("createBackupButton","click",()=>{if(!owner())return;downloadJson(`77-team-backup-${new Date().toISOString().slice(0,10)}.json`,{version:"22.8.0",baseVersion:"22.7.3",exportedAt:new Date().toISOString(),members:state.members,attendance:state.attendance,users:state.users,events:state.events,notifications:state.sentNotifications,audit:state.audit,settings:state.settings});toast("Backup JSON gerado.")});
 on("restoreBackupFile","change",async e=>{const file=e.target.files?.[0];if(!file)return;try{const data=JSON.parse(await file.text());setText("restoreBackupInfo",`Arquivo válido: versão ${data.version||"não informada"}, exportado em ${data.exportedAt||"data não informada"}.`)}catch{setText("restoreBackupInfo","Arquivo inválido ou corrompido.")}});
 function maintenanceFormData(){return {enabled:byId("maintenanceModeToggle")?.checked===true,title:byId("maintenanceTitle")?.value.trim()||"Sistema em manutenção",message:byId("maintenanceMessage")?.value.trim()||"Estamos realizando melhorias. Algumas funções podem apresentar instabilidade.",imageUrl:byId("maintenanceImageUrl")?.value.trim()||"",expectedEnd:byId("maintenanceExpectedEnd")?.value||"",showLogin:byId("maintenanceShowLogin")?.checked!==false,showApp:byId("maintenanceShowApp")?.checked!==false}}
 function formatMaintenanceEnd(value){if(!value)return "";const d=new Date(value);return Number.isNaN(d.getTime())?"":`Previsão de término: ${d.toLocaleString("pt-BR")}`}
@@ -1053,6 +1091,9 @@ document.addEventListener("change",e=>{const el=e.target.closest("[data-presence
 
 document.addEventListener("click",async e=>{
   const openPresence=e.target.closest("[data-open-presence-modal]");if(openPresence){openPresenceModal(openPresence.dataset.openPresenceModal);return}
+  const backupPresence=e.target.closest("[data-backup-presence]");if(backupPresence){try{await createPresenceBackup()}catch(error){console.error(error);toast(errMsg(error))}return}
+  const resetPresence=e.target.closest("[data-reset-presence]");if(resetPresence){await resetPresenceWithBackup();return}
+  const downloadBackup=e.target.closest("[data-download-presence-backup]");if(downloadBackup){downloadPresenceBackup(downloadBackup.dataset.downloadPresenceBackup);return}
   const statusChoice=e.target.closest("[data-presence-status-choice]");if(statusChoice){document.querySelectorAll("[data-presence-status-choice]").forEach(btn=>btn.classList.toggle("active",btn===statusChoice));return}
   const deleteAttendance=e.target.closest("[data-delete-attendance]");if(deleteAttendance&&owner()&&confirm("Excluir este registro de presença?")){await deleteDoc(doc(db,"attendance",deleteAttendance.dataset.deleteAttendance));await audit("presença excluída",deleteAttendance.dataset.deleteAttendance);toast("Registro excluído.");return}
 

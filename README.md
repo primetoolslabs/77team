@@ -1,3 +1,9 @@
+# 77 TEAM Manager V22.8.0 Stable
+
+Atualização sobre a base oficial V22.7.3 com backup, histórico e reset seguro de presenças. Todas as funcionalidades anteriores foram preservadas.
+
+Consulte `CHANGELOG-V22.8.0.md`.
+
 # 77 TEAM Manager V22.7.3 Stable
 
 Atualização exclusivamente visual sobre a base oficial V22.7.2 Hotfix. A nova logo foi aplicada somente dentro do painel, sem alterar a tela de login, funcionalidades, lógica, permissões ou integração com Firebase.

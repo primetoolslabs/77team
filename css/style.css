@@ -5468,3 +5468,15 @@ body[data-access-role="leadership"] #configuracoes .settings-content:before{cont
   background-color:#020006!important;
   background-image:linear-gradient(180deg,rgba(0,0,0,.16),rgba(0,0,0,.40)),url('../assets/login-purple-storm-v22-6-2.png?v=22.7.2')!important;
 }
+
+
+/* V22.8.0 — Backup e reset seguro de presença */
+.presence-action-group{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.presence-backup-panel{margin-top:22px;border-top:1px solid var(--border);padding-top:20px}
+.presence-backup-head{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:14px}
+.presence-backup-head h3{margin:0 0 4px}.presence-backup-head p{margin:0;color:var(--muted)}
+.presence-backup-list{display:grid;gap:10px}
+.presence-backup-card{display:grid;grid-template-columns:minmax(180px,1fr) minmax(230px,auto) minmax(140px,auto) auto;align-items:center;gap:16px;padding:14px 16px;border:1px solid var(--border);border-radius:14px;background:var(--card)}
+.presence-backup-card>div{display:flex;flex-direction:column;gap:3px}.presence-backup-card span,.presence-backup-card small{color:var(--muted)}
+.presence-backup-metrics{flex-direction:row!important;flex-wrap:wrap;gap:8px!important}.presence-backup-metrics span{padding:5px 8px;border-radius:9px;background:rgba(255,255,255,.04);color:var(--text)}
+@media(max-width:850px){.presence-v207-toolbar,.presence-backup-head{align-items:stretch;flex-direction:column}.presence-action-group{justify-content:stretch}.presence-action-group .btn{flex:1}.presence-backup-card{grid-template-columns:1fr}.presence-backup-card .btn{width:100%}}

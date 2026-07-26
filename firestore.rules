@@ -135,6 +135,11 @@ service cloud.firestore {
       allow update: if editor();
       allow delete: if dev();
     }
+    match /presenceBackups/{id} {
+      allow read, create: if editor();
+      allow update: if false;
+      allow delete: if dev();
+    }
     match /notifications/{id} {
       allow read: if editor() || (active() && (
         resource.data.get('targetType','all') == 'all'
