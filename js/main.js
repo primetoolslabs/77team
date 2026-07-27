@@ -551,31 +551,54 @@ function presenceBackupCounts(records=[]){return{present:records.filter(x=>Numbe
 function renderPresenceBackups(){
   const list=$("#presenceBackupList");if(!list)return;
   setText("presenceBackupCount",`${state.presenceBackups.length} backup${state.presenceBackups.length===1?"":"s"}`);
-  list.innerHTML=state.presenceBackups.map(item=>{const counts=item.counts||presenceBackupCounts(item.records||[]);return `<article class="presence-backup-card"><div><strong>📅 ${escapeHtml(item.week||"Semana não informada")}</strong><span>${escapeHtml(presenceBackupDate(item.createdAt))}</span></div><div class="presence-backup-metrics"><span>🟢 ${Number(counts.present||0)}</span><span>🟡 ${Number(counts.justified||0)}</span><span>🔴 ${Number(counts.absent||0)}</span><span>📋 ${Number(item.total||item.records?.length||0)}</span></div><div><small>Responsável</small><b>${escapeHtml(item.createdByName||"—")}</b></div><button class="btn mini" data-download-presence-backup="${item.id}">Baixar JSON</button></article>`}).join("")||`<div class="empty-state">Nenhum backup de presença foi criado.</div>`;
+  list.innerHTML=state.presenceBackups.map(item=>{const counts=item.counts||presenceBackupCounts(item.records||[]);return `<article class="presence-backup-card"><div><strong>📅 ${escapeHtml(item.week||"Semana não informada")}</strong><span>${escapeHtml(presenceBackupDate(item.createdAt))}</span></div><div class="presence-backup-metrics"><span>🟢 ${Number(counts.present||0)}</span><span>🟡 ${Number(counts.justified||0)}</span><span>🔴 ${Number(counts.absent||0)}</span><span>📋 ${Number(item.total||item.records?.length||0)}</span><span>🧾 ${Number(item.rtTotal||item.rtRecords?.length||0)} RTs</span></div><div><small>Responsável</small><b>${escapeHtml(item.createdByName||"—")}</b></div><button class="btn mini" data-download-presence-backup="${item.id}">Baixar JSON</button></article>`}).join("")||`<div class="empty-state">Nenhum backup de presença foi criado.</div>`;
 }
 async function createPresenceBackup({automatic=false}={}){
   if(!editor())return toast("Sem permissão para criar backup.");
   const records=state.attendance.filter(item=>[-1,1,3].includes(Number(item.status))).map(item=>{const copy={...item};delete copy.id;return copy});
-  if(!records.length){toast("Não existem registros de presença para salvar.");return null}
+  const rtRecords=state.rtPresence.map(item=>{const copy={...item};delete copy.id;return copy});
+  if(!records.length&&!rtRecords.length){toast("Não existem dados de presença para salvar.");return null}
   const now=new Date(),week=isoWeek(todayIso()),counts=presenceBackupCounts(records),id=`${week}__${now.toISOString().replace(/[^0-9]/g,"").slice(0,14)}`;
-  const payload={week,records,counts,total:records.length,automatic,createdBy:state.user.uid,createdByName:state.profile?.name||state.user.email,createdAt:serverTimestamp(),createdAtText:now.toISOString(),sourceVersion:"22.8.1"};
+  const payload={week,records,rtRecords,counts,total:records.length,rtTotal:rtRecords.length,automatic,createdBy:state.user.uid,createdByName:state.profile?.name||state.user.email,createdAt:serverTimestamp(),createdAtText:now.toISOString(),sourceVersion:"22.8.2"};
   await setDoc(doc(db,"presenceBackups",id),payload);
-  await audit(automatic?"backup automático da presença":"backup da presença",`${week} · ${records.length} registros`);
-  toast(`Backup salvo: ${records.length} registros.`);return{id,...payload,createdAt:now};
+  await audit(automatic?"backup automático da presença":"backup da presença",`${week} · ${records.length} presenças · ${rtRecords.length} RTs`);
+  toast(`Backup salvo: ${records.length} presenças e ${rtRecords.length} RTs.`);return{id,...payload,createdAt:now};
+}
+function clearPresenceClientCache(){
+  state.presenceFilters={};
+  try{
+    [localStorage,sessionStorage].forEach(storage=>{
+      for(let i=storage.length-1;i>=0;i--){
+        const key=storage.key(i)||"";
+        if(/presence|presenca|attendance|rtpresence|registro-presenca/i.test(key))storage.removeItem(key);
+      }
+    });
+  }catch(error){console.warn("Não foi possível limpar todo o cache local da presença.",error)}
+}
+async function deleteDocsInChunks(collectionName,rows){
+  for(let start=0;start<rows.length;start+=400){
+    const batch=writeBatch(db);
+    rows.slice(start,start+400).forEach(item=>batch.delete(doc(db,collectionName,item.id)));
+    await batch.commit();
+  }
 }
 async function resetPresenceWithBackup(){
   if(!administrator())return toast("Somente DEV e Liderança podem resetar a presença.");
-  const rows=state.attendance.filter(item=>[-1,1,3].includes(Number(item.status)));
-  if(!rows.length)return toast("Não existem registros para resetar.");
-  if(!confirm(`Resetar ${rows.length} registros de presença? O sistema criará um backup automático antes da limpeza.`))return;
+  const attendanceRows=state.attendance.filter(item=>[-1,1,3].includes(Number(item.status)));
+  const rtRows=[...state.rtPresence];
+  if(!attendanceRows.length&&!rtRows.length)return toast("Não existem dados de presença para resetar.");
+  const confirmation=prompt(`ATENÇÃO: o reset encerrará a semana atual e limpará Presenças, RT Presença, Consultar Registros, indicadores, ranking e estatísticas derivados desses dados.\n\nSerá criado um backup automático com ${attendanceRows.length} presenças e ${rtRows.length} RTs.\n\nDigite RESET para confirmar:`);
+  if(String(confirmation||"").trim().toUpperCase()!=="RESET")return toast("Reset cancelado.");
   try{
     const backup=await createPresenceBackup({automatic:true});if(!backup)return;
-    for(let start=0;start<rows.length;start+=400){const batch=writeBatch(db);rows.slice(start,start+400).forEach(item=>batch.delete(doc(db,"attendance",item.id)));await batch.commit()}
-    await audit("presença resetada",`${backup.week} · ${rows.length} registros enviados ao histórico`);
-    toast("Presença resetada com backup concluído.");
+    await deleteDocsInChunks("attendance",attendanceRows);
+    await deleteDocsInChunks("rtPresence",rtRows);
+    clearPresenceClientCache();
+    await audit("reset global de presença",`${backup.week} · ${attendanceRows.length} presenças · ${rtRows.length} RTs removidos · backup ${backup.id}`);
+    toast("Reset global concluído. Todas as abas de presença foram reiniciadas.");
   }catch(error){console.error(error);toast(errMsg(error))}
 }
-function downloadPresenceBackup(id){const item=state.presenceBackups.find(row=>row.id===id);if(!item)return toast("Backup não encontrado.");downloadJson(`presenca-${item.week||id}.json`,{version:"22.8.1",exportedAt:new Date().toISOString(),backup:item});}
+function downloadPresenceBackup(id){const item=state.presenceBackups.find(row=>row.id===id);if(!item)return toast("Backup não encontrado.");downloadJson(`presenca-${item.week||id}.json`,{version:"22.8.2",exportedAt:new Date().toISOString(),backup:item});}
 
 
 function backupCenterDateValue(item){return rtDateValue(item?.createdAt)||Date.parse(item?.createdAtText||0)||0}
@@ -594,7 +617,7 @@ function renderBackupCenter(){
   setText("backupCenterTotal",String(state.presenceBackups.length));
   setText("backupCenterLatest",latest?presenceBackupDate(latest.createdAt||latest.createdAtText):"Nunca");
   setText("backupCenterResponsible",latest?.createdByName||"—");
-  list.innerHTML=rows.map(item=>{const counts=item.counts||presenceBackupCounts(item.records||[]);return `<article class="backup-center-card"><div class="backup-center-main"><span class="backup-kind">💾 Backup de Presença</span><strong>${escapeHtml(item.week||"Semana não informada")}</strong><small>${escapeHtml(presenceBackupDate(item.createdAt||item.createdAtText))} · ${item.automatic?"Automático":"Manual"}</small></div><div class="backup-center-stats"><span>🟢 ${Number(counts.present||0)}</span><span>🟡 ${Number(counts.justified||0)}</span><span>🔴 ${Number(counts.absent||0)}</span><span>📋 ${Number(item.total||item.records?.length||0)}</span></div><div class="backup-center-owner"><small>Responsável</small><b>${escapeHtml(item.createdByName||"—")}</b></div><div class="backup-center-actions"><button class="btn mini" data-view-center-backup="${item.id}">👁 Visualizar</button><button class="btn mini" data-download-presence-backup="${item.id}">JSON</button><button class="btn mini" data-export-center-excel="${item.id}">Excel</button>${administrator()?`<button class="btn mini" data-restore-center-backup="${item.id}">♻ Restaurar</button>`:""}${owner()?`<button class="btn danger mini" data-delete-center-backup="${item.id}">🗑 Excluir</button>`:""}</div></article>`}).join("")||`<div class="empty-state">Nenhum backup encontrado.</div>`;
+  list.innerHTML=rows.map(item=>{const counts=item.counts||presenceBackupCounts(item.records||[]);return `<article class="backup-center-card"><div class="backup-center-main"><span class="backup-kind">💾 Backup de Presença</span><strong>${escapeHtml(item.week||"Semana não informada")}</strong><small>${escapeHtml(presenceBackupDate(item.createdAt||item.createdAtText))} · ${item.automatic?"Automático":"Manual"}</small></div><div class="backup-center-stats"><span>🟢 ${Number(counts.present||0)}</span><span>🟡 ${Number(counts.justified||0)}</span><span>🔴 ${Number(counts.absent||0)}</span><span>📋 ${Number(item.total||item.records?.length||0)}</span><span>🧾 ${Number(item.rtTotal||item.rtRecords?.length||0)} RTs</span></div><div class="backup-center-owner"><small>Responsável</small><b>${escapeHtml(item.createdByName||"—")}</b></div><div class="backup-center-actions"><button class="btn mini" data-view-center-backup="${item.id}">👁 Visualizar</button><button class="btn mini" data-download-presence-backup="${item.id}">JSON</button><button class="btn mini" data-export-center-excel="${item.id}">Excel</button>${administrator()?`<button class="btn mini" data-restore-center-backup="${item.id}">♻ Restaurar</button>`:""}${owner()?`<button class="btn danger mini" data-delete-center-backup="${item.id}">🗑 Excluir</button>`:""}</div></article>`}).join("")||`<div class="empty-state">Nenhum backup encontrado.</div>`;
 }
 function viewCenterBackup(id){
   const item=state.presenceBackups.find(row=>row.id===id);if(!item)return toast("Backup não encontrado.");
@@ -611,11 +634,12 @@ function exportCenterBackupExcel(id){
 async function restoreCenterBackup(id){
   if(!administrator())return toast("Somente DEV e Liderança podem restaurar backups.");
   const item=state.presenceBackups.find(row=>row.id===id);if(!item)return toast("Backup não encontrado.");
-  if(!confirm(`Restaurar o backup ${item.week||id}? Os registros serão adicionados à presença atual.`))return;
+  const records=item.records||[],rtRecords=item.rtRecords||[];
+  if(!confirm(`Restaurar o backup ${item.week||id}? Serão adicionadas ${records.length} presenças e ${rtRecords.length} RTs à semana atual.`))return;
   try{
-    const records=item.records||[];
     for(let start=0;start<records.length;start+=400){const batch=writeBatch(db);records.slice(start,start+400).forEach(record=>{const ref=doc(collection(db,"attendance"));batch.set(ref,{...record,restoredFromBackup:id,restoredAt:serverTimestamp(),restoredBy:state.user.uid,restoredByName:state.profile?.name||state.user.email})});await batch.commit()}
-    await audit("backup restaurado",`${item.week||id} · ${records.length} registros`);toast(`Backup restaurado: ${records.length} registros.`);
+    for(let start=0;start<rtRecords.length;start+=400){const batch=writeBatch(db);rtRecords.slice(start,start+400).forEach(record=>{const ref=doc(collection(db,"rtPresence"));batch.set(ref,{...record,restoredFromBackup:id,restoredAt:serverTimestamp(),restoredBy:state.user.uid,restoredByName:state.profile?.name||state.user.email})});await batch.commit()}
+    await audit("backup restaurado",`${item.week||id} · ${records.length} presenças · ${rtRecords.length} RTs`);toast(`Backup restaurado: ${records.length} presenças e ${rtRecords.length} RTs.`);
   }catch(error){console.error(error);toast(errMsg(error))}
 }
 async function deleteCenterBackup(id){
@@ -1123,7 +1147,7 @@ function renderAdvancedCenter(){
 }
 function downloadJson(filename,data){const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
 on("checkUpdatesButton","click",()=>{setText("updateStatusText","Versão 22.8.0 instalada e verificada. Base oficial: V22.7.3.");toast("Verificação local concluída.")});
-on("createBackupButton","click",()=>{if(!owner())return;downloadJson(`77-team-backup-${new Date().toISOString().slice(0,10)}.json`,{version:"22.8.1",baseVersion:"22.7.3",exportedAt:new Date().toISOString(),members:state.members,attendance:state.attendance,users:state.users,events:state.events,notifications:state.sentNotifications,audit:state.audit,settings:state.settings});toast("Backup JSON gerado.")});
+on("createBackupButton","click",()=>{if(!owner())return;downloadJson(`77-team-backup-${new Date().toISOString().slice(0,10)}.json`,{version:"22.8.2",baseVersion:"22.7.3",exportedAt:new Date().toISOString(),members:state.members,attendance:state.attendance,users:state.users,events:state.events,notifications:state.sentNotifications,audit:state.audit,settings:state.settings});toast("Backup JSON gerado.")});
 on("restoreBackupFile","change",async e=>{const file=e.target.files?.[0];if(!file)return;try{const data=JSON.parse(await file.text());setText("restoreBackupInfo",`Arquivo válido: versão ${data.version||"não informada"}, exportado em ${data.exportedAt||"data não informada"}.`)}catch{setText("restoreBackupInfo","Arquivo inválido ou corrompido.")}});
 function maintenanceFormData(){return {enabled:byId("maintenanceModeToggle")?.checked===true,title:byId("maintenanceTitle")?.value.trim()||"Sistema em manutenção",message:byId("maintenanceMessage")?.value.trim()||"Estamos realizando melhorias. Algumas funções podem apresentar instabilidade.",imageUrl:byId("maintenanceImageUrl")?.value.trim()||"",expectedEnd:byId("maintenanceExpectedEnd")?.value||"",showLogin:byId("maintenanceShowLogin")?.checked!==false,showApp:byId("maintenanceShowApp")?.checked!==false}}
 function formatMaintenanceEnd(value){if(!value)return "";const d=new Date(value);return Number.isNaN(d.getTime())?"":`Previsão de término: ${d.toLocaleString("pt-BR")}`}

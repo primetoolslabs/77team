@@ -1,4 +1,4 @@
-# 77 TEAM Manager V22.8.1 🟢 Stable
+# 77 TEAM Manager V22.8.2 🟢 Stable
 
 ## Novidades
 - Nova aba **Administração → Backup**.

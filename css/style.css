@@ -5482,7 +5482,7 @@ body[data-access-role="leadership"] #configuracoes .settings-content:before{cont
 @media(max-width:850px){.presence-v207-toolbar,.presence-backup-head{align-items:stretch;flex-direction:column}.presence-action-group{justify-content:stretch}.presence-action-group .btn{flex:1}.presence-backup-card{grid-template-columns:1fr}.presence-backup-card .btn{width:100%}}
 
 
-/* V22.8.1 — Central de Backup em Administração */
+/* V22.8.2 — Central de Backup em Administração */
 .backup-center-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:18px}
 .backup-center-toolbar{align-items:flex-end;gap:16px}.backup-center-toolbar p{margin:4px 0 0;color:var(--muted)}
 .backup-center-filters{display:flex;gap:10px;flex-wrap:wrap}.backup-center-filters input{min-width:240px}
