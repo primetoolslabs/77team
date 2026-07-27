@@ -5,10 +5,10 @@
 <meta charset="utf-8"/>
 <meta content="width=device-width,initial-scale=1,viewport-fit=cover" name="viewport"/>
 <meta content="#09070f" name="theme-color"/>
-<title>77 TEAM Manager V22.8.0 Stable</title>
+<title>77 TEAM Manager V22.8.1 Stable</title>
 <link href="manifest.json" rel="manifest"/>
 <link href="icons/icon-192.png" rel="icon"/>
-<link href="css/style.css?v=22.8.0" rel="stylesheet"/>
+<link href="css/style.css?v=22.8.1" rel="stylesheet"/>
 </head>
 <body>
 <div class="loading" id="loading">
@@ -59,7 +59,7 @@
 <div class="login-v222-safe"><strong>🛡 SEUS DADOS PROTEGIDOS</strong><span>Autenticação segura e base original preservada.</span></div>
 </main>
 </div>
-<footer class="login-v222-footer">© 2026 77 TEAM Manager • V22.8.0 Stable • Desenvolvido por <strong>PrimeTools Labs</strong></footer>
+<footer class="login-v222-footer">© 2026 77 TEAM Manager • V22.8.1 Stable • Desenvolvido por <strong>PrimeTools Labs</strong></footer>
 </section>
 <div class="app hidden" id="app">
 <aside class="sidebar sidebar-v13" id="sidebar">
@@ -68,7 +68,7 @@
 <button aria-label="Recolher menu" class="sidebar-icon-button collapse-button" id="collapseSidebarButton" type="button">≪</button>
 </div>
 <div class="sidebar-brand-v13 sidebar-brand-with-logo">
-<img alt="Nova logo 77 TEAM Manager" class="sidebar-team-logo" src="assets/logo-77-team-manager-nova.webp?v=22.8.0"/>
+<img alt="Nova logo 77 TEAM Manager" class="sidebar-team-logo" src="assets/logo-77-team-manager-nova.webp?v=22.8.1"/>
 <div class="sidebar-brand-copy">
 <strong>77 TEAM</strong>
 <span>PAINEL DE CONTROLE</span>
@@ -106,7 +106,7 @@
 </div>
 <div class="topbar-profile">
 <div class="profile-logo-wrap">
-<img alt="Nova logo 77 TEAM Manager" src="assets/logo-77-team-manager-nova.webp?v=22.8.0"/>
+<img alt="Nova logo 77 TEAM Manager" src="assets/logo-77-team-manager-nova.webp?v=22.8.1"/>
 </div>
 <div class="profile-copy">
 <strong id="topbarUserName">Visitante</strong>
@@ -981,7 +981,7 @@
 <article class="settings-card preview-card">
 <h3>Pré-visualização</h3>
 <div class="brand-preview">
-<img alt="Nova logo 77 TEAM Manager" src="assets/logo-77-team-manager-nova.webp?v=22.8.0"/>
+<img alt="Nova logo 77 TEAM Manager" src="assets/logo-77-team-manager-nova.webp?v=22.8.1"/>
 <strong id="cfgPreviewName">77 TEAM</strong>
 <span id="cfgPreviewDescription">Gestão completa da equipe.</span>
 </div>
@@ -1146,7 +1146,7 @@
 <section class="settings-tab" data-settings-panel="about">
 <div class="settings-page-head"><div><span>CONFIGURAÇÕES</span><h2>Sobre</h2><p>Informações da plataforma.</p></div></div>
 <article class="settings-card about-enterprise-card">
-<img alt="Nova logo 77 TEAM Manager" src="assets/logo-77-team-manager-nova.webp?v=22.8.0"/>
+<img alt="Nova logo 77 TEAM Manager" src="assets/logo-77-team-manager-nova.webp?v=22.8.1"/>
 <h2>77 TEAM Manager</h2>
 <strong>Versão 20.0 Enterprise</strong>
 <p>Plataforma de gestão de membros, presenças, personagens, metas, eventos e inteligência administrativa da 77 TEAM.</p>
@@ -1222,7 +1222,7 @@
 <div class="about-v152-shell">
 <article class="about-v152-card">
 <div class="about-v152-system">
-<img alt="Nova logo 77 TEAM Manager" class="about-v152-team-logo" src="assets/logo-77-team-manager-nova.webp?v=22.8.0"/>
+<img alt="Nova logo 77 TEAM Manager" class="about-v152-team-logo" src="assets/logo-77-team-manager-nova.webp?v=22.8.1"/>
 <div><span class="about-v152-kicker">SISTEMA OFICIAL</span><h2>77 TEAM Manager</h2><p>Plataforma de gerenciamento da comunidade 77 TEAM, criada para organizar membros, presenças, eventos, personagens, metas e rotinas administrativas.</p></div>
 </div>
 <div class="about-v152-divider"></div>
@@ -1239,6 +1239,17 @@
 </article>
 </div>
 </section>
+
+<section class="page page-animate admin-only" id="backup-central">
+<div class="page-head"><div><h2>💾 Central de Backup</h2><p>Todos os backups permanecem organizados do mais recente para o mais antigo.</p></div></div>
+<div class="backup-center-kpis">
+<article class="card"><span>Total de backups</span><strong id="backupCenterTotal">0</strong><small>arquivos mantidos</small></article>
+<article class="card"><span>Último backup</span><strong id="backupCenterLatest">Nunca</strong><small>data e hora</small></article>
+<article class="card"><span>Último responsável</span><strong id="backupCenterResponsible">—</strong><small>responsável pela criação</small></article>
+</div>
+<article class="panel backup-center-panel"><div class="panel-head backup-center-toolbar"><div><h3>Backups armazenados</h3><p>Pesquise por semana, data ou responsável.</p></div><div class="backup-center-filters"><input id="backupCenterSearch" type="search" placeholder="Pesquisar backup..."/><select id="backupCenterType"><option value="all">Todos os tipos</option><option value="presence">Presença</option></select></div></div><div class="panel-body"><div id="backupCenterList" class="backup-center-list"></div></div></article>
+</section>
+
 <section class="page owner-only" id="auditoria">
 <div class="panel"><div class="panel-head"><h3>Auditoria</h3></div>
 <div class="panel-body table-wrap"><table><thead><tr><th>Data</th><th>Usuário</th><th>Ação</th><th>Detalhes</th></tr></thead><tbody id="auditRows"></tbody></table></div></div>

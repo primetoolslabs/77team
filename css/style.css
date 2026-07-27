@@ -5480,3 +5480,15 @@ body[data-access-role="leadership"] #configuracoes .settings-content:before{cont
 .presence-backup-card>div{display:flex;flex-direction:column;gap:3px}.presence-backup-card span,.presence-backup-card small{color:var(--muted)}
 .presence-backup-metrics{flex-direction:row!important;flex-wrap:wrap;gap:8px!important}.presence-backup-metrics span{padding:5px 8px;border-radius:9px;background:rgba(255,255,255,.04);color:var(--text)}
 @media(max-width:850px){.presence-v207-toolbar,.presence-backup-head{align-items:stretch;flex-direction:column}.presence-action-group{justify-content:stretch}.presence-action-group .btn{flex:1}.presence-backup-card{grid-template-columns:1fr}.presence-backup-card .btn{width:100%}}
+
+
+/* V22.8.1 — Central de Backup em Administração */
+.backup-center-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:18px}
+.backup-center-toolbar{align-items:flex-end;gap:16px}.backup-center-toolbar p{margin:4px 0 0;color:var(--muted)}
+.backup-center-filters{display:flex;gap:10px;flex-wrap:wrap}.backup-center-filters input{min-width:240px}
+.backup-center-list{display:grid;gap:12px}.backup-center-card{display:grid;grid-template-columns:minmax(210px,1.15fr) minmax(230px,.9fr) minmax(140px,.65fr) minmax(280px,auto);align-items:center;gap:16px;padding:16px;border:1px solid var(--border);border-radius:16px;background:var(--card)}
+.backup-center-main,.backup-center-owner{display:flex;flex-direction:column;gap:4px}.backup-center-main small,.backup-center-owner small{color:var(--muted)}.backup-kind{font-size:.78rem;font-weight:800;color:var(--accent)}
+.backup-center-stats{display:flex;gap:7px;flex-wrap:wrap}.backup-center-stats span{padding:6px 9px;border-radius:9px;background:rgba(255,255,255,.05)}
+.backup-center-actions{display:flex;justify-content:flex-end;gap:7px;flex-wrap:wrap}
+@media(max-width:1100px){.backup-center-card{grid-template-columns:1fr 1fr}.backup-center-actions{justify-content:flex-start;grid-column:1/-1}}
+@media(max-width:700px){.backup-center-kpis{grid-template-columns:1fr}.backup-center-toolbar{align-items:stretch;flex-direction:column}.backup-center-filters{flex-direction:column}.backup-center-filters input{min-width:0;width:100%}.backup-center-card{grid-template-columns:1fr}.backup-center-actions{grid-column:auto}.backup-center-actions .btn{flex:1}}

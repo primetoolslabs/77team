@@ -1,8 +1,8 @@
-# 77 TEAM Manager V22.8.0 Stable
+# 77 TEAM Manager V22.8.1 Stable
 
 Atualização sobre a base oficial V22.7.3 com backup, histórico e reset seguro de presenças. Todas as funcionalidades anteriores foram preservadas.
 
-Consulte `CHANGELOG-V22.8.0.md`.
+Consulte `CHANGELOG-V22.8.1.md`.
 
 # 77 TEAM Manager V22.7.3 Stable
 
@@ -1108,3 +1108,7 @@ Acesse **AVANÇADO > Cargos e permissões** para configurar permissões individu
 - A propriedade de fundo é aplicada com prioridade para não ser sobrescrita pelo CSS legado.
 - Adicionado fallback automático para a imagem padrão quando uma URL remota falhar.
 - Layout, autenticação, Firebase, permissões e demais funcionalidades da V22.7.0 foram preservados.
+
+
+## V22.8.1 — Central de Backup
+A área Administração agora possui uma Central de Backup com organização cronológica, filtros, visualização, exportação, restauração controlada e exclusão exclusiva do DEV.

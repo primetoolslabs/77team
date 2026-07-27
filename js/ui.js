@@ -171,7 +171,7 @@
       ["presencas","📅","Presenças"],["personagens","⚔️","Personagens"],["solicitacoes","📥","Solicitações"],["notificacoes","🔔","Notificações"],["atendimento","🎧","Atendimento"],["chat","💬","Chat Privado"],["registros","📁","Consultar Registros"],["metas","🎯","Metas"]
     ]},
     administracao:{title:"ADMINISTRAÇÃO",icon:"🛡️",defaultPage:"staff",role:"administrator",items:[
-      ["staff","👥","Staff"],["configuracoes","⚙️","Configurações"],["auditoria","📜","Auditoria"]
+      ["staff","👥","Staff"],["configuracoes","⚙️","Configurações"],["backup-central","💾","Backup"],["auditoria","📜","Auditoria"]
     ]},
     avancado:{title:"AVANÇADO",icon:"🚀",defaultPage:"atualizacoes",role:"owner",items:[
       ["atualizacoes","🚀","Atualizações"],["backup","💾","Backup e restauração"],["logs-sistema","📋","Logs do sistema"],["status-firebase","🔥","Status do Firebase"],["status-github","🌐","Status do GitHub"],["sessoes","👥","Sessões conectadas"],["manutencao","🚧","Modo manutenção"],["status-servicos","🟢","Status dos serviços"],["limpeza-cache","🧹","Limpeza de cache"],["estatisticas-sistema","📈","Estatísticas do sistema"],["personalizar-login","🎨","Personalizar Login"],["permissoes-cargos","🔐","Cargos e permissões"]

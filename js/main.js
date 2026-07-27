@@ -136,7 +136,7 @@ function selectedCargoValue(member,user){
 
 const HOME_PAGES=new Set(["dashboard","meu-perfil","membros","historico","ranking","calendario","estatisticas","sobre"]);
 const STAFF_PAGES=new Set(["staff-hub","presencas","registros","worldboss","purgatorio","eventos","personagens","metas","solicitacoes","notificacoes","atendimento","chat"]);
-const ADMIN_PAGES=new Set(["staff","configuracoes","auditoria"]);
+const ADMIN_PAGES=new Set(["staff","configuracoes","backup-central","auditoria"]);
 const ADVANCED_PAGES=new Set(["atualizacoes","backup","logs-sistema","status-firebase","status-github","sessoes","manutencao","status-servicos","limpeza-cache","estatisticas-sistema","personalizar-login","permissoes-cargos"]);
 
 const ROLE_PERMISSION_DEFINITIONS=Object.freeze([
@@ -443,7 +443,7 @@ function subscribeAll(){
   subscribePublic();
   if(editor()){
     state.unsubs.push(onSnapshot(collection(db,"rtPresence"),snapshot=>{state.rtPresence=snapshot.docs.map(d=>({id:d.id,...d.data()}));renderRtPresence();},error=>console.error("Falha ao carregar RT Presença:",error)));
-    state.unsubs.push(onSnapshot(collection(db,"presenceBackups"),snapshot=>{state.presenceBackups=snapshot.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>rtDateValue(b.createdAt)-rtDateValue(a.createdAt));renderPresenceBackups();},error=>console.error("Falha ao carregar backups de presença:",error)));
+    state.unsubs.push(onSnapshot(collection(db,"presenceBackups"),snapshot=>{state.presenceBackups=snapshot.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>rtDateValue(b.createdAt)-rtDateValue(a.createdAt));renderPresenceBackups();renderBackupCenter();},error=>console.error("Falha ao carregar backups de presença:",error)));
   }else state.rtPresence=[];
   if(editor())state.unsubs.push(onSnapshot(collection(db,"users"),s=>{state.users=s.docs.map(d=>{const user={id:d.id,...d.data()};return {...user,resolvedAccessRole:resolveAccessRole(user)}});render();scheduleAttendanceUserMigration();scheduleAccountRoleSync()}));
   if(owner())state.unsubs.push(onSnapshot(collection(db,"audit"),s=>{state.audit=s.docs.map(d=>({id:d.id,...d.data()}));render()}));
@@ -558,7 +558,7 @@ async function createPresenceBackup({automatic=false}={}){
   const records=state.attendance.filter(item=>[-1,1,3].includes(Number(item.status))).map(item=>{const copy={...item};delete copy.id;return copy});
   if(!records.length){toast("Não existem registros de presença para salvar.");return null}
   const now=new Date(),week=isoWeek(todayIso()),counts=presenceBackupCounts(records),id=`${week}__${now.toISOString().replace(/[^0-9]/g,"").slice(0,14)}`;
-  const payload={week,records,counts,total:records.length,automatic,createdBy:state.user.uid,createdByName:state.profile?.name||state.user.email,createdAt:serverTimestamp(),createdAtText:now.toISOString(),sourceVersion:"22.8.0"};
+  const payload={week,records,counts,total:records.length,automatic,createdBy:state.user.uid,createdByName:state.profile?.name||state.user.email,createdAt:serverTimestamp(),createdAtText:now.toISOString(),sourceVersion:"22.8.1"};
   await setDoc(doc(db,"presenceBackups",id),payload);
   await audit(automatic?"backup automático da presença":"backup da presença",`${week} · ${records.length} registros`);
   toast(`Backup salvo: ${records.length} registros.`);return{id,...payload,createdAt:now};
@@ -575,7 +575,57 @@ async function resetPresenceWithBackup(){
     toast("Presença resetada com backup concluído.");
   }catch(error){console.error(error);toast(errMsg(error))}
 }
-function downloadPresenceBackup(id){const item=state.presenceBackups.find(row=>row.id===id);if(!item)return toast("Backup não encontrado.");downloadJson(`presenca-${item.week||id}.json`,{version:"22.8.0",exportedAt:new Date().toISOString(),backup:item});}
+function downloadPresenceBackup(id){const item=state.presenceBackups.find(row=>row.id===id);if(!item)return toast("Backup não encontrado.");downloadJson(`presenca-${item.week||id}.json`,{version:"22.8.1",exportedAt:new Date().toISOString(),backup:item});}
+
+
+function backupCenterDateValue(item){return rtDateValue(item?.createdAt)||Date.parse(item?.createdAtText||0)||0}
+function backupCenterFiltered(){
+  const term=(byId("backupCenterSearch")?.value||"").trim().toLowerCase();
+  const type=byId("backupCenterType")?.value||"all";
+  return [...state.presenceBackups].sort((a,b)=>backupCenterDateValue(b)-backupCenterDateValue(a)).filter(item=>{
+    if(type!=="all"&&type!=="presence")return false;
+    if(!term)return true;
+    return [item.week,item.createdByName,item.createdAtText,"presença",item.automatic?"automático":"manual"].some(value=>String(value||"").toLowerCase().includes(term));
+  });
+}
+function renderBackupCenter(){
+  const list=byId("backupCenterList");if(!list)return;
+  const rows=backupCenterFiltered(),latest=rows[0]||state.presenceBackups[0];
+  setText("backupCenterTotal",String(state.presenceBackups.length));
+  setText("backupCenterLatest",latest?presenceBackupDate(latest.createdAt||latest.createdAtText):"Nunca");
+  setText("backupCenterResponsible",latest?.createdByName||"—");
+  list.innerHTML=rows.map(item=>{const counts=item.counts||presenceBackupCounts(item.records||[]);return `<article class="backup-center-card"><div class="backup-center-main"><span class="backup-kind">💾 Backup de Presença</span><strong>${escapeHtml(item.week||"Semana não informada")}</strong><small>${escapeHtml(presenceBackupDate(item.createdAt||item.createdAtText))} · ${item.automatic?"Automático":"Manual"}</small></div><div class="backup-center-stats"><span>🟢 ${Number(counts.present||0)}</span><span>🟡 ${Number(counts.justified||0)}</span><span>🔴 ${Number(counts.absent||0)}</span><span>📋 ${Number(item.total||item.records?.length||0)}</span></div><div class="backup-center-owner"><small>Responsável</small><b>${escapeHtml(item.createdByName||"—")}</b></div><div class="backup-center-actions"><button class="btn mini" data-view-center-backup="${item.id}">👁 Visualizar</button><button class="btn mini" data-download-presence-backup="${item.id}">JSON</button><button class="btn mini" data-export-center-excel="${item.id}">Excel</button>${administrator()?`<button class="btn mini" data-restore-center-backup="${item.id}">♻ Restaurar</button>`:""}${owner()?`<button class="btn danger mini" data-delete-center-backup="${item.id}">🗑 Excluir</button>`:""}</div></article>`}).join("")||`<div class="empty-state">Nenhum backup encontrado.</div>`;
+}
+function viewCenterBackup(id){
+  const item=state.presenceBackups.find(row=>row.id===id);if(!item)return toast("Backup não encontrado.");
+  const counts=item.counts||presenceBackupCounts(item.records||[]);
+  alert(`Backup de Presença\n\nSemana: ${item.week||"—"}\nData: ${presenceBackupDate(item.createdAt||item.createdAtText)}\nResponsável: ${item.createdByName||"—"}\nTotal: ${item.total||item.records?.length||0}\nPresentes: ${counts.present||0}\nJustificados: ${counts.justified||0}\nAusentes: ${counts.absent||0}`);
+}
+function exportCenterBackupExcel(id){
+  const item=state.presenceBackups.find(row=>row.id===id);if(!item)return toast("Backup não encontrado.");
+  const headers=["Data","Membro","Clã","Tipo","Horário/Atividade","Status","Observação","Responsável"];
+  const rows=(item.records||[]).map(r=>[r.date||"",r.memberName||"",r.clan||"",presenceTypeLabel(r.kind),r.slot||"",presenceStatus(r.status).label,r.note||"",r.updatedByName||item.createdByName||""]);
+  const html=`<html><head><meta charset="utf-8"></head><body><h2>Backup ${escapeHtml(item.week||"")}</h2><table border="1"><tr>${headers.map(h=>`<th>${escapeHtml(h)}</th>`).join("")}</tr>${rows.map(row=>`<tr>${row.map(v=>`<td>${escapeHtml(v)}</td>`).join("")}</tr>`).join("")}</table></body></html>`;
+  const blob=new Blob(["\ufeff"+html],{type:"application/vnd.ms-excel"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`backup-presenca-${item.week||id}.xls`;a.click();URL.revokeObjectURL(a.href);audit("download de backup",`${item.week||id} · Excel`);
+}
+async function restoreCenterBackup(id){
+  if(!administrator())return toast("Somente DEV e Liderança podem restaurar backups.");
+  const item=state.presenceBackups.find(row=>row.id===id);if(!item)return toast("Backup não encontrado.");
+  if(!confirm(`Restaurar o backup ${item.week||id}? Os registros serão adicionados à presença atual.`))return;
+  try{
+    const records=item.records||[];
+    for(let start=0;start<records.length;start+=400){const batch=writeBatch(db);records.slice(start,start+400).forEach(record=>{const ref=doc(collection(db,"attendance"));batch.set(ref,{...record,restoredFromBackup:id,restoredAt:serverTimestamp(),restoredBy:state.user.uid,restoredByName:state.profile?.name||state.user.email})});await batch.commit()}
+    await audit("backup restaurado",`${item.week||id} · ${records.length} registros`);toast(`Backup restaurado: ${records.length} registros.`);
+  }catch(error){console.error(error);toast(errMsg(error))}
+}
+async function deleteCenterBackup(id){
+  if(!owner())return toast("Somente DEV pode excluir backups.");
+  const item=state.presenceBackups.find(row=>row.id===id);if(!item)return toast("Backup não encontrado.");
+  if(!confirm(`Excluir permanentemente o backup ${item.week||id}?`))return;
+  try{await deleteDoc(doc(db,"presenceBackups",id));await audit("backup excluído",`${item.week||id} · ${item.total||item.records?.length||0} registros`);toast("Backup excluído.")}catch(error){console.error(error);toast(errMsg(error))}
+}
+on("backupCenterSearch","input",renderBackupCenter);
+on("backupCenterType","change",renderBackupCenter);
 
 function renderUnifiedPresenceBody(rows){return rows.map(item=>{const st=presenceStatus(item.status);return `<tr><td>${escapeHtml(item.date||"—")}</td><td>${escapeHtml(item.memberName||"—")}</td><td>${escapeHtml(item.clan||"—")}</td><td>${escapeHtml(presenceTypeLabel(item.kind))}</td><td>${escapeHtml(item.slot||"—")}</td><td><span class="presence-status-chip ${st.cls}">${st.icon} ${st.label}</span></td><td>${escapeHtml(item.note||"—")}</td><td>${escapeHtml(item.updatedByName||"—")}</td>${owner()?`<td><button class="btn danger mini" data-delete-attendance="${item.id}">Excluir</button></td>`:""}</tr>`}).join("")||`<tr><td colspan="9">Nenhum registro encontrado.</td></tr>`}
 function filterUnifiedPresence(){const q=String(document.querySelector("[data-unified-presence-search]")?.value||"").toLowerCase(),date=document.querySelector("[data-unified-presence-date]")?.value||"",kind=document.querySelector("[data-unified-presence-kind]")?.value||"";const rows=recentAllPresenceRows().filter(item=>(!date||item.date===date)&&(!kind||item.kind===kind)&&(!q||`${item.memberName} ${item.clan} ${presenceTypeLabel(item.kind)} ${item.slot} ${presenceStatus(item.status).label}`.toLowerCase().includes(q)));const body=document.querySelector("[data-unified-presence-body]");if(body)body.innerHTML=renderUnifiedPresenceBody(rows)}
@@ -1073,7 +1123,7 @@ function renderAdvancedCenter(){
 }
 function downloadJson(filename,data){const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
 on("checkUpdatesButton","click",()=>{setText("updateStatusText","Versão 22.8.0 instalada e verificada. Base oficial: V22.7.3.");toast("Verificação local concluída.")});
-on("createBackupButton","click",()=>{if(!owner())return;downloadJson(`77-team-backup-${new Date().toISOString().slice(0,10)}.json`,{version:"22.8.0",baseVersion:"22.7.3",exportedAt:new Date().toISOString(),members:state.members,attendance:state.attendance,users:state.users,events:state.events,notifications:state.sentNotifications,audit:state.audit,settings:state.settings});toast("Backup JSON gerado.")});
+on("createBackupButton","click",()=>{if(!owner())return;downloadJson(`77-team-backup-${new Date().toISOString().slice(0,10)}.json`,{version:"22.8.1",baseVersion:"22.7.3",exportedAt:new Date().toISOString(),members:state.members,attendance:state.attendance,users:state.users,events:state.events,notifications:state.sentNotifications,audit:state.audit,settings:state.settings});toast("Backup JSON gerado.")});
 on("restoreBackupFile","change",async e=>{const file=e.target.files?.[0];if(!file)return;try{const data=JSON.parse(await file.text());setText("restoreBackupInfo",`Arquivo válido: versão ${data.version||"não informada"}, exportado em ${data.exportedAt||"data não informada"}.`)}catch{setText("restoreBackupInfo","Arquivo inválido ou corrompido.")}});
 function maintenanceFormData(){return {enabled:byId("maintenanceModeToggle")?.checked===true,title:byId("maintenanceTitle")?.value.trim()||"Sistema em manutenção",message:byId("maintenanceMessage")?.value.trim()||"Estamos realizando melhorias. Algumas funções podem apresentar instabilidade.",imageUrl:byId("maintenanceImageUrl")?.value.trim()||"",expectedEnd:byId("maintenanceExpectedEnd")?.value||"",showLogin:byId("maintenanceShowLogin")?.checked!==false,showApp:byId("maintenanceShowApp")?.checked!==false}}
 function formatMaintenanceEnd(value){if(!value)return "";const d=new Date(value);return Number.isNaN(d.getTime())?"":`Previsão de término: ${d.toLocaleString("pt-BR")}`}
@@ -1094,6 +1144,10 @@ document.addEventListener("click",async e=>{
   const backupPresence=e.target.closest("[data-backup-presence]");if(backupPresence){try{await createPresenceBackup()}catch(error){console.error(error);toast(errMsg(error))}return}
   const resetPresence=e.target.closest("[data-reset-presence]");if(resetPresence){await resetPresenceWithBackup();return}
   const downloadBackup=e.target.closest("[data-download-presence-backup]");if(downloadBackup){downloadPresenceBackup(downloadBackup.dataset.downloadPresenceBackup);return}
+  const viewCenter=e.target.closest("[data-view-center-backup]");if(viewCenter){viewCenterBackup(viewCenter.dataset.viewCenterBackup);return}
+  const excelCenter=e.target.closest("[data-export-center-excel]");if(excelCenter){exportCenterBackupExcel(excelCenter.dataset.exportCenterExcel);return}
+  const restoreCenter=e.target.closest("[data-restore-center-backup]");if(restoreCenter){await restoreCenterBackup(restoreCenter.dataset.restoreCenterBackup);return}
+  const deleteCenter=e.target.closest("[data-delete-center-backup]");if(deleteCenter){await deleteCenterBackup(deleteCenter.dataset.deleteCenterBackup);return}
   const statusChoice=e.target.closest("[data-presence-status-choice]");if(statusChoice){document.querySelectorAll("[data-presence-status-choice]").forEach(btn=>btn.classList.toggle("active",btn===statusChoice));return}
   const deleteAttendance=e.target.closest("[data-delete-attendance]");if(deleteAttendance&&owner()&&confirm("Excluir este registro de presença?")){await deleteDoc(doc(db,"attendance",deleteAttendance.dataset.deleteAttendance));await audit("presença excluída",deleteAttendance.dataset.deleteAttendance);toast("Registro excluído.");return}
 
