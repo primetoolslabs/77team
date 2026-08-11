@@ -1,17 +1,18 @@
-# Matriz de permissões — V22.5.3
+# Matriz de permissões — V22.8.4
 
-| Cargo | Home | Área Staff | Administração | Avançado | Aprovar solicitações | Alterar cargos |
-|---|---:|---:|---:|---:|---|---|
-| DEV | Sim | Sim | Sim | Sim | DEV, Liderança, Staff e Membro | Todos, exceto proteção da própria exclusão |
-| Liderança | Sim | Sim | Sim | Não | Staff e Membro | Staff e Membro |
-| Staff | Sim | Sim | Não | Não | Membro | Somente cargos de membro |
-| Membro | Sim | Não | Não | Não | Não | Não |
-| Visitante | Visualização pública | Não | Não | Não | Não | Não |
+| Permissão | DEV | Liderança | Staff | Membro |
+|---|:---:|:---:|:---:|:---:|
+| Aceitar solicitações | ✅ | ✅ | ✅ | ❌ |
+| Rejeitar solicitações | ✅ | ✅ | ✅ | ❌ |
+| Alterar cargos | ✅ | ✅ | ❌ | ❌ |
+| Excluir membros | ✅ | ✅ | ❌ | ❌ |
+| Editar membros | ✅ | ✅ | ✅ | ❌ |
+| Registrar presença | ✅ | ✅ | ✅ | ❌ |
+| Editar presença | ✅ | ✅ | ✅ | ❌ |
+| Excluir presença individual | ✅ | ❌ | ❌ | ❌ |
+| Finalizar RT | ✅ | ✅ | ✅ | ❌ |
+| Resetar ciclo semanal | ✅ | ✅ | ❌ | ❌ |
+| Administração | ✅ | ✅ | ❌ | ❌ |
+| Avançado | ✅ | ❌ | ❌ | ❌ |
 
-## Campos oficiais
-
-- `accessRole`: cargo de acesso ao sistema.
-- `role`: mantido sincronizado por compatibilidade.
-- `memberRole`: cargo interno do membro, como Membros, PT TIME, PT BOOST ou PT CORE.
-
-As regras do Firestore validam o cargo efetivo e impedem que um usuário altere os próprios campos de permissão.
+A matriz configurável em Avançado pode restringir permissões individuais. O DEV permanece com acesso total para evitar bloqueio administrativo do sistema.

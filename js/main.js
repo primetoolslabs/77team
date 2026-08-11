@@ -19,7 +19,7 @@ const db=getFirestore(app);
 const storage=getStorage(app);
 const $=s=>document.querySelector(s),$$=s=>Array.from(document.querySelectorAll(s));
 
-const CLANS=["77 Team I","77 Team II","亗 DHM黑龙77 亗","DHM 亗 白龙 ②","Projeto X"];
+const CLANS=["77 Team I","77 Team II","77 Team III","Projeto X"];
 const MEMBER_ROLES=["Membros","PT TIME","PT BOOST","PT CORE"];
 const ALL_ROLES=["Staff",...MEMBER_ROLES];
 const REQUEST_ACCESS_OPTIONS={
@@ -72,7 +72,8 @@ const ROLE_CONFIG=Object.freeze({
 
 function normalizeAccessRole(role){
   const value=String(role||"").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
-  if(["dev","developer","desenvolvedor","owner","proprietario","administrador","admin"].includes(value))return "dev";
+  if(["dev","developer","desenvolvedor","owner","proprietario"].includes(value))return "dev";
+  if(["administrador","admin"].includes(value))return "leadership";
   if(["leadership","lideranca","lider","leader","lideranca staff","lideranca/staff"].includes(value))return "leadership";
   if(["staff","moderador","moderator"].includes(value))return "staff";
   if(["guest","visitante"].includes(value))return "guest";
@@ -110,12 +111,12 @@ function editor(){return ["dev","leadership","staff"].includes(currentAccessRole
 function administrator(){return ["dev","leadership"].includes(currentAccessRole())}
 function hasRoleLevel(level){return (ROLE_CONFIG[currentAccessRole()]?.level||0)>=level}
 function canManageAcceptedMember(member,user){
-  if(!editor()||!member||!user||user.status!=="approved"||user.active===false)return false;
+  if(!permissionEnabled("roles_change")||!member||!user||user.status!=="approved"||user.active===false)return false;
   if(user.id===state.user?.uid)return false;
   const target=resolveAccessRole(user);
   if(owner())return true;
   if(leadership())return target==="staff"||target==="member";
-  return staff()&&target==="member";
+  return false;
 }
 function allowedCargoOptions(member,user){
   if(!canManageAcceptedMember(member,user))return [];
@@ -148,9 +149,11 @@ const ROLE_PERMISSION_DEFINITIONS=Object.freeze([
   {group:"Presenças",key:"presence_edit",label:"Editar presença",defaults:{dev:true,leadership:true,staff:true,member:false,guest:false}},
   {group:"Presenças",key:"presence_delete",label:"Excluir presença",defaults:{dev:true,leadership:false,staff:false,member:false,guest:false}},
   {group:"Presenças",key:"presence_finalize",label:"Finalizar RT",defaults:{dev:true,leadership:true,staff:true,member:false,guest:false}},
+  {group:"Presenças",key:"presence_reset",label:"Resetar ciclo semanal",defaults:{dev:true,leadership:true,staff:false,member:false,guest:false}},
   {group:"Solicitações e cargos",key:"requests_approve",label:"Aprovar solicitações",defaults:{dev:true,leadership:true,staff:true,member:false,guest:false}},
   {group:"Solicitações e cargos",key:"requests_reject",label:"Rejeitar solicitações",defaults:{dev:true,leadership:true,staff:true,member:false,guest:false}},
-  {group:"Solicitações e cargos",key:"roles_change",label:"Alterar cargos permitidos pela hierarquia",defaults:{dev:true,leadership:true,staff:true,member:false,guest:false}},
+  {group:"Solicitações e cargos",key:"roles_change",label:"Alterar cargos permitidos pela hierarquia",defaults:{dev:true,leadership:true,staff:false,member:false,guest:false}},
+  {group:"Membros",key:"members_delete",label:"Excluir membros",defaults:{dev:true,leadership:true,staff:false,member:false,guest:false}},
   {group:"Personagens",key:"character_view",label:"Visualizar personagens",defaults:{dev:true,leadership:true,staff:true,member:true,guest:false}},
   {group:"Personagens",key:"character_edit",label:"Editar personagens permitidos",defaults:{dev:true,leadership:true,staff:true,member:true,guest:false}},
   {group:"Personagens",key:"character_delete",label:"Excluir personagens permitidos",defaults:{dev:true,leadership:true,staff:true,member:true,guest:false}},
@@ -498,6 +501,10 @@ function subscribeAll(){
     state.unsubs.push(onSnapshot(chatQuery,s=>{state.chatMessages=s.docs.map(d=>({id:d.id,...d.data()}));renderPrivateChat();},error=>console.error("Falha ao carregar chat privado:",error)));
   }
   state.unsubs.push(onSnapshot(doc(db,"settings","app"),s=>{state.settings=s.exists()?s.data():{};loadSettingsForm();applyLoginCustomization();loadLoginCustomizationForm();renderGoals();render()}));
+  if(owner()) state.unsubs.push(onSnapshot(doc(db,"settings","private"),s=>{
+    const privateSettings=s.exists()?s.data():{};
+    if(privateSettings.notificationsPrivate){state.settings.notifications={...(state.settings.notifications||{}),...privateSettings.notificationsPrivate};loadSettingsForm();}
+  },error=>console.warn("Configurações privadas indisponíveis:",error)));
 }
 async function audit(action,details){if(!state.user||!editor())return;try{await addDoc(collection(db,"audit"),{userId:state.user.uid,userName:state.profile.name,action,details,createdAt:serverTimestamp()})}catch{}}
 
@@ -530,7 +537,7 @@ function renderUnifiedPresence(){
   target.innerHTML=`<div class="presence-v207 presence-unified">
     <div class="presence-v207-toolbar">
       <div><h3>Registro de Presenças</h3><p>Registre WorldBoss, Purgatório e Eventos somente nesta aba. Cada salvamento atualiza o Histórico e o RT Presença automaticamente.</p></div>
-      ${editor()?`<div class="presence-action-group"><button class="btn primary" data-open-presence-modal="worldboss">➕ Registrar Presença</button><button class="btn" data-backup-presence>💾 Backup Presença</button>${administrator()?`<button class="btn danger" data-reset-presence>🔄 Resetar Presença</button>`:""}</div>`:""}
+      ${permissionEnabled("presence_register")?`<div class="presence-action-group"><button class="btn primary" data-open-presence-modal="worldboss">➕ Registrar Presença</button><button class="btn" data-backup-presence>💾 Backup Presença</button>${permissionEnabled("presence_reset")?`<button class="btn danger" data-reset-presence>🔄 Resetar Presença</button>`:""}</div>`:""}
     </div>
     <div class="presence-v207-filters">
       <input type="search" placeholder="Buscar usuário, clã, evento ou status..." data-unified-presence-search>
@@ -554,12 +561,12 @@ function renderPresenceBackups(){
   list.innerHTML=state.presenceBackups.map(item=>{const counts=item.counts||presenceBackupCounts(item.records||[]);return `<article class="presence-backup-card"><div><strong>📅 ${escapeHtml(item.week||"Semana não informada")}</strong><span>${escapeHtml(presenceBackupDate(item.createdAt))}</span></div><div class="presence-backup-metrics"><span>🟢 ${Number(counts.present||0)}</span><span>🟡 ${Number(counts.justified||0)}</span><span>🔴 ${Number(counts.absent||0)}</span><span>📋 ${Number(item.total||item.records?.length||0)}</span><span>🧾 ${Number(item.rtTotal||item.rtRecords?.length||0)} RTs</span></div><div><small>Responsável</small><b>${escapeHtml(item.createdByName||"—")}</b></div><button class="btn mini" data-download-presence-backup="${item.id}">Baixar JSON</button></article>`}).join("")||`<div class="empty-state">Nenhum backup de presença foi criado.</div>`;
 }
 async function createPresenceBackup({automatic=false}={}){
-  if(!editor())return toast("Sem permissão para criar backup.");
-  const records=state.attendance.filter(item=>[-1,1,3].includes(Number(item.status))).map(item=>{const copy={...item};delete copy.id;return copy});
-  const rtRecords=state.rtPresence.map(item=>{const copy={...item};delete copy.id;return copy});
+  if(!permissionEnabled("presence_register"))return toast("Sem permissão para criar backup.");
+  const records=state.attendance.filter(item=>[-1,1,3].includes(Number(item.status))).map(item=>({...item,originalId:item.id}));
+  const rtRecords=state.rtPresence.map(item=>({...item,originalId:item.id}));
   if(!records.length&&!rtRecords.length){toast("Não existem dados de presença para salvar.");return null}
   const now=new Date(),week=isoWeek(todayIso()),counts=presenceBackupCounts(records),id=`${week}__${now.toISOString().replace(/[^0-9]/g,"").slice(0,14)}`;
-  const payload={week,records,rtRecords,counts,total:records.length,rtTotal:rtRecords.length,automatic,createdBy:state.user.uid,createdByName:state.profile?.name||state.user.email,createdAt:serverTimestamp(),createdAtText:now.toISOString(),sourceVersion:"22.8.2"};
+  const payload={week,records,rtRecords,counts,total:records.length,rtTotal:rtRecords.length,automatic,createdBy:state.user.uid,createdByName:state.profile?.name||state.user.email,createdAt:serverTimestamp(),createdAtText:now.toISOString(),sourceVersion:"22.8.4"};
   await setDoc(doc(db,"presenceBackups",id),payload);
   await audit(automatic?"backup automático da presença":"backup da presença",`${week} · ${records.length} presenças · ${rtRecords.length} RTs`);
   toast(`Backup salvo: ${records.length} presenças e ${rtRecords.length} RTs.`);return{id,...payload,createdAt:now};
@@ -583,7 +590,7 @@ async function deleteDocsInChunks(collectionName,rows){
   }
 }
 async function resetPresenceWithBackup(){
-  if(!administrator())return toast("Somente DEV e Liderança podem resetar a presença.");
+  if(!permissionEnabled("presence_reset"))return toast("Sem permissão para resetar a presença.");
   const attendanceRows=state.attendance.filter(item=>[-1,1,3].includes(Number(item.status)));
   const rtRows=[...state.rtPresence];
   if(!attendanceRows.length&&!rtRows.length)return toast("Não existem dados de presença para resetar.");
@@ -598,7 +605,7 @@ async function resetPresenceWithBackup(){
     toast("Reset global concluído. Todas as abas de presença foram reiniciadas.");
   }catch(error){console.error(error);toast(errMsg(error))}
 }
-function downloadPresenceBackup(id){const item=state.presenceBackups.find(row=>row.id===id);if(!item)return toast("Backup não encontrado.");downloadJson(`presenca-${item.week||id}.json`,{version:"22.8.2",exportedAt:new Date().toISOString(),backup:item});}
+function downloadPresenceBackup(id){const item=state.presenceBackups.find(row=>row.id===id);if(!item)return toast("Backup não encontrado.");downloadJson(`presenca-${item.week||id}.json`,{version:"22.8.4",exportedAt:new Date().toISOString(),backup:item});}
 
 
 function backupCenterDateValue(item){return rtDateValue(item?.createdAt)||Date.parse(item?.createdAtText||0)||0}
@@ -635,10 +642,10 @@ async function restoreCenterBackup(id){
   if(!administrator())return toast("Somente DEV e Liderança podem restaurar backups.");
   const item=state.presenceBackups.find(row=>row.id===id);if(!item)return toast("Backup não encontrado.");
   const records=item.records||[],rtRecords=item.rtRecords||[];
-  if(!confirm(`Restaurar o backup ${item.week||id}? Serão adicionadas ${records.length} presenças e ${rtRecords.length} RTs à semana atual.`))return;
+  if(!confirm(`Restaurar o backup ${item.week||id}? Serão restauradas ${records.length} presenças e ${rtRecords.length} RTs usando os IDs originais, evitando duplicações.`))return;
   try{
-    for(let start=0;start<records.length;start+=400){const batch=writeBatch(db);records.slice(start,start+400).forEach(record=>{const ref=doc(collection(db,"attendance"));batch.set(ref,{...record,restoredFromBackup:id,restoredAt:serverTimestamp(),restoredBy:state.user.uid,restoredByName:state.profile?.name||state.user.email})});await batch.commit()}
-    for(let start=0;start<rtRecords.length;start+=400){const batch=writeBatch(db);rtRecords.slice(start,start+400).forEach(record=>{const ref=doc(collection(db,"rtPresence"));batch.set(ref,{...record,restoredFromBackup:id,restoredAt:serverTimestamp(),restoredBy:state.user.uid,restoredByName:state.profile?.name||state.user.email})});await batch.commit()}
+    for(let start=0;start<records.length;start+=400){const batch=writeBatch(db);records.slice(start,start+400).forEach(record=>{const {id:legacyId,originalId,...data}=record;const targetId=originalId||legacyId||(data.kind+"__"+(data.date||todayIso())+"__"+(data.memberId||"member")+"__"+(data.slot||"slot")).replace(/[^a-zA-Z0-9_-]/g,"_");const ref=doc(db,"attendance",targetId);batch.set(ref,{...data,restoredFromBackup:id,restoredAt:serverTimestamp(),restoredBy:state.user.uid,restoredByName:state.profile?.name||state.user.email},{merge:true})});await batch.commit()}
+    for(let start=0;start<rtRecords.length;start+=400){const batch=writeBatch(db);rtRecords.slice(start,start+400).forEach(record=>{const {id:legacyId,originalId,...data}=record;const targetId=originalId||legacyId||`${data.kind||"rt"}__${data.date||todayIso()}__${data.slot||"all"}`.replace(/[^a-zA-Z0-9_-]/g,"_");const ref=doc(db,"rtPresence",targetId);batch.set(ref,{...data,restoredFromBackup:id,restoredAt:serverTimestamp(),restoredBy:state.user.uid,restoredByName:state.profile?.name||state.user.email},{merge:true})});await batch.commit()}
     await audit("backup restaurado",`${item.week||id} · ${records.length} presenças · ${rtRecords.length} RTs`);toast(`Backup restaurado: ${records.length} presenças e ${rtRecords.length} RTs.`);
   }catch(error){console.error(error);toast(errMsg(error))}
 }
@@ -1111,7 +1118,7 @@ function render(){
             <button class="btn" data-change-member-role="${member.id}" type="button">Alterar cargo</button>
           </div>`;
         })()}
-        ${editor()?`<button class="btn danger" data-delete-member="${member.id}">Excluir</button>`:"Visualização"}
+        ${permissionEnabled("members_delete")?`<button class="btn danger" data-delete-member="${member.id}">Excluir</button>`:"Visualização"}
       </td>
     </tr>`;
   }).join("")||"<tr><td colspan='7'>Nenhum membro.</td></tr>";
@@ -1147,7 +1154,7 @@ function renderAdvancedCenter(){
 }
 function downloadJson(filename,data){const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
 on("checkUpdatesButton","click",()=>{setText("updateStatusText","Versão 22.8.0 instalada e verificada. Base oficial: V22.7.3.");toast("Verificação local concluída.")});
-on("createBackupButton","click",()=>{if(!owner())return;downloadJson(`77-team-backup-${new Date().toISOString().slice(0,10)}.json`,{version:"22.8.2",baseVersion:"22.7.3",exportedAt:new Date().toISOString(),members:state.members,attendance:state.attendance,users:state.users,events:state.events,notifications:state.sentNotifications,audit:state.audit,settings:state.settings});toast("Backup JSON gerado.")});
+on("createBackupButton","click",()=>{if(!owner())return;downloadJson(`77-team-backup-${new Date().toISOString().slice(0,10)}.json`,{version:"22.8.4",baseVersion:"22.7.3",exportedAt:new Date().toISOString(),members:state.members,attendance:state.attendance,users:state.users,events:state.events,notifications:state.sentNotifications,audit:state.audit,settings:state.settings});toast("Backup JSON gerado.")});
 on("restoreBackupFile","change",async e=>{const file=e.target.files?.[0];if(!file)return;try{const data=JSON.parse(await file.text());setText("restoreBackupInfo",`Arquivo válido: versão ${data.version||"não informada"}, exportado em ${data.exportedAt||"data não informada"}.`)}catch{setText("restoreBackupInfo","Arquivo inválido ou corrompido.")}});
 function maintenanceFormData(){return {enabled:byId("maintenanceModeToggle")?.checked===true,title:byId("maintenanceTitle")?.value.trim()||"Sistema em manutenção",message:byId("maintenanceMessage")?.value.trim()||"Estamos realizando melhorias. Algumas funções podem apresentar instabilidade.",imageUrl:byId("maintenanceImageUrl")?.value.trim()||"",expectedEnd:byId("maintenanceExpectedEnd")?.value||"",showLogin:byId("maintenanceShowLogin")?.checked!==false,showApp:byId("maintenanceShowApp")?.checked!==false}}
 function formatMaintenanceEnd(value){if(!value)return "";const d=new Date(value);return Number.isNaN(d.getTime())?"":`Previsão de término: ${d.toLocaleString("pt-BR")}`}
@@ -1176,7 +1183,7 @@ document.addEventListener("click",async e=>{
   const deleteAttendance=e.target.closest("[data-delete-attendance]");if(deleteAttendance&&owner()&&confirm("Excluir este registro de presença?")){await deleteDoc(doc(db,"attendance",deleteAttendance.dataset.deleteAttendance));await audit("presença excluída",deleteAttendance.dataset.deleteAttendance);toast("Registro excluído.");return}
 
   const p=e.target.closest("[data-presence]");
-  if(p&&editor()){
+  if(p&&permissionEnabled("presence_edit")){
     const [kind,memberId,slot,date=todayIso()]=p.dataset.presence.split("|"),member=state.members.find(m=>m.id===memberId);if(!member)return;
     const id=(kind+"__"+date+"__"+memberId+"__"+slot).replace(/[^a-zA-Z0-9_-]/g,"_");
     const current=presenceRecord(kind,memberId,slot,date),sequence=[0,1,2,3,-1],next=sequence[(sequence.indexOf(Number(current?.status||0))+1)%sequence.length];
@@ -1185,7 +1192,7 @@ document.addEventListener("click",async e=>{
     await audit("presença alterada",`${member.name} · ${kind} · ${slot} · ${presenceStatus(next).label}`);toast("Alteração salva automaticamente.");
   }
   const noteButton=e.target.closest("[data-presence-note]");
-  if(noteButton&&editor()){
+  if(noteButton&&permissionEnabled("presence_edit")){
     const [kind,memberId,slot,date]=noteButton.dataset.presenceNote.split("|"),member=state.members.find(m=>m.id===memberId);if(!member)return;
     const current=presenceRecord(kind,memberId,slot,date),note=prompt(`Observação de ${member.name} · ${slot}:`,current?.note||"");if(note===null)return;
     const id=(kind+"__"+date+"__"+memberId+"__"+slot).replace(/[^a-zA-Z0-9_-]/g,"_");
@@ -1193,13 +1200,13 @@ document.addEventListener("click",async e=>{
     await audit("observação de presença",`${member.name} · ${kind} · ${slot}`);toast("Observação salva.");
   }
   const bulk=e.target.closest("[data-presence-bulk]");
-  if(bulk&&editor()){
+  if(bulk&&permissionEnabled("presence_edit")){
     const kind=bulk.dataset.kind,status=Number(bulk.dataset.presenceBulk),filter=presenceFilter(kind),slots=filter.slot==="all"?TYPES[kind]:[filter.slot],members=state.members.filter(m=>(!filter.clan||m.clan===filter.clan)&&(!filter.search||String(m.name||"").toLowerCase().includes(filter.search.toLowerCase())));
     if(!confirm(`${status===1?"Marcar como presentes":status===-1?"Marcar como ausentes":"Limpar"} ${members.length*slots.length} registros?`))return;
     const batch=writeBatch(db);for(const member of members)for(const slot of slots){const id=(kind+"__"+filter.date+"__"+member.id+"__"+slot).replace(/[^a-zA-Z0-9_-]/g,"_"),ref=doc(db,"attendance",id);if(status===0)batch.delete(ref);else batch.set(ref,{memberId:member.id,userId:member.userId||member.id,memberName:member.name,clan:member.clan,role:member.role,kind,slot,status,date:filter.date,note:"",updatedBy:state.user.uid,updatedByName:state.profile?.name||state.user.email,updatedAt:serverTimestamp()},{merge:true})}await batch.commit();await audit("presença em massa",`${kind} · ${filter.date} · ${members.length*slots.length} registros`);toast("Marcações atualizadas.");
   }
   const review=e.target.closest("[data-presence-review]");
-  if(review&&editor()){
+  if(review&&permissionEnabled("presence_finalize")){
     const kind=review.dataset.presenceReview,filter=presenceFilter(kind),slots=filter.slot==="all"?TYPES[kind]:[filter.slot];
     const members=state.members.filter(m=>(!filter.clan||m.clan===filter.clan)&&(!filter.search||String(m.name||"").toLowerCase().includes(filter.search.toLowerCase())));
     const records=[];
@@ -1294,9 +1301,9 @@ Um registro será salvo em Gestão → RT Presença.`))return;
     return;
   }
 
-  const del=e.target.closest("[data-delete-member]");if(del&&editor())await deleteDoc(doc(db,"members",del.dataset.deleteMember));
+  const del=e.target.closest("[data-delete-member]");if(del&&permissionEnabled("members_delete")){if(confirm("Excluir este membro?")){await deleteDoc(doc(db,"members",del.dataset.deleteMember));await audit("membro excluído",del.dataset.deleteMember);toast("Membro excluído.");}return;}
   const approve=e.target.closest("[data-approve]");
-  if(approve&&editor()){
+  if(approve&&permissionEnabled("requests_approve")){
     const u=state.users.find(x=>x.id===approve.dataset.approve);if(!u)return;
     const clan=document.querySelector(`[data-clan="${u.id}"]`)?.value||"";
     const chosen=document.querySelector(`[data-role="${u.id}"]`)?.value||"";
@@ -1328,7 +1335,7 @@ Um registro será salvo em Gestão → RT Presença.`))return;
   }
 
   const reject=e.target.closest("[data-reject]");
-  if(reject&&editor()){
+  if(reject&&permissionEnabled("requests_reject")){
     const u=state.users.find(x=>x.id===reject.dataset.reject);if(!u)return;
     if(!confirm(`Rejeitar a solicitação de ${u.name}?`))return;
     try{
@@ -2257,7 +2264,7 @@ function characterAvatarHtml(item){
 }
 
 function canDeleteCharacter(item){
-  if(!item||!state.user||state.guest)return false;
+  if(!item||!state.user||state.guest||!permissionEnabled("character_delete"))return false;
   const actor=currentAccessRole();
   const targetUser=state.users.find(user=>user.id===item.id)||{};
   const targetRole=resolveAccessRole(targetUser);
@@ -2326,7 +2333,7 @@ function renderCharacterCards(rows){
       <div class="character-card-actions">
         <button class="btn primary" data-character-details="${item.id}" type="button">Ver detalhes</button>
         <button class="btn" data-character-pdf="${item.id}" type="button">Gerar PDF</button>
-        ${editor()?`<button class="btn character-edit-btn" data-character-edit="${item.id}" type="button">✏️ Editar</button>`:""}
+        ${permissionEnabled("character_edit")?`<button class="btn character-edit-btn" data-character-edit="${item.id}" type="button">✏️ Editar</button>`:""}
         ${canDeleteCharacter(item)?`<button class="btn danger" data-character-delete="${item.id}" type="button">🗑 Excluir</button>`:""}
       </div>
     </article>`;
@@ -2357,7 +2364,7 @@ function renderCharactersTableV71(rows){
       <td>
         <button class="btn" data-character-details="${item.id}" type="button">Detalhes</button>
         <button class="btn" data-character-pdf="${item.id}" type="button">PDF</button>
-        ${editor()?`<button class="btn" data-character-edit="${item.id}" type="button">Editar</button>`:""}
+        ${permissionEnabled("character_edit")?`<button class="btn" data-character-edit="${item.id}" type="button">Editar</button>`:""}
         ${canDeleteCharacter(item)?`<button class="btn danger" data-character-delete="${item.id}" type="button">Excluir</button>`:""}
       </td>
     </tr>`;
@@ -2990,13 +2997,16 @@ async function saveSettingsSection(section){
 
   try{
     const payload=settingsPayload(section);
-    await setDoc(doc(db,"settings","app"),{
-      [section]:payload,
-      updatedAt:serverTimestamp(),
-      updatedBy:state.user.uid
-    },{merge:true});
-
-    state.settings={...state.settings,[section]:payload};
+    if(section==="notifications"){
+      const {discordWebhook="",...publicNotifications}=payload;
+      await setDoc(doc(db,"settings","app"),{notifications:publicNotifications,updatedAt:serverTimestamp(),updatedBy:state.user.uid},{merge:true});
+      await setDoc(doc(db,"settings","private"),{notificationsPrivate:{discordWebhook},updatedAt:serverTimestamp(),updatedBy:state.user.uid},{merge:true});
+      try{await updateDoc(doc(db,"settings","app"),{"notifications.discordWebhook":deleteField()})}catch{}
+      state.settings={...state.settings,notifications:{...publicNotifications,discordWebhook}};
+    }else{
+      await setDoc(doc(db,"settings","app"),{[section]:payload,updatedAt:serverTimestamp(),updatedBy:state.user.uid},{merge:true});
+      state.settings={...state.settings,[section]:payload};
+    }
     if(section==="appearance")applyEnterpriseAppearance();
     if(section==="general")renderSettingsPreview();
     toast("Configurações salvas.");
@@ -3629,7 +3639,7 @@ on("notificationTargetMode","change",()=>{
   if(!individual&&byId("notificationTargetUser"))byId("notificationTargetUser").value="";
 });
 on("notificationAdminForm","submit",async event=>{
-  event.preventDefault();if(!editor())return toast("Sem permissão para enviar notificações.");
+  event.preventDefault();if(!permissionEnabled("notifications_send"))return toast("Sem permissão para enviar notificações.");
   const targetType=byId("notificationTargetMode")?.value||"all";
   const targetUserId=byId("notificationTargetUser")?.value||"";
   if(targetType==="user"&&!targetUserId)return toast("Selecione o usuário destinatário.");

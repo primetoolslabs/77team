@@ -1,3 +1,11 @@
+# 77 TEAM Manager V22.8.4 Hotfix
+
+Atualização de auditoria e segurança sobre a V22.8.3. Corrige permissões, Reset Global, restauração de backups, compatibilidade de cargos e proteção do Discord Webhook. Nenhum módulo existente foi removido.
+
+Consulte `CHANGELOG-V22.8.4.md`.
+
+---
+
 # 77 TEAM Manager V22.8.2 Stable
 
 Atualização sobre a base oficial V22.7.3 com backup, histórico e reset seguro de presenças. Todas as funcionalidades anteriores foram preservadas.

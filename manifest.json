@@ -1,6 +1,6 @@
 {
-  "name": "77 TEAM Manager 20.5",
-  "short_name": "77 Manager",
+  "name": "77 TEAM Manager V22.8.4 Stable",
+  "short_name": "77 TEAM V22.8.4",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
@@ -19,6 +19,6 @@
     }
   ],
   "description": "V20.5 com assistente de primeiro acesso, preenchimento obrigatório do perfil e compatibilidade com usuários existentes.",
-  "version": "20.6",
+  "version": "22.8.4",
   "version_name": "20.6"
 }
