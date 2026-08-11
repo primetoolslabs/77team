@@ -124,8 +124,8 @@ service cloud.firestore {
 
     match /members/{id} {
       allow read: if true;
-      allow create: if editor();
-      allow update: if editor() && (permission('roles_change', false) || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role','accessRole','memberRole']));
+      allow create: if editor() && permission('members_edit', true);
+      allow update: if editor() && permission('members_edit', true) && (permission('roles_change', false) || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role','accessRole','memberRole']));
       allow delete: if permission('members_delete', false);
     }
     match /attendance/{id} {
@@ -142,8 +142,15 @@ service cloud.firestore {
       allow delete: if permission('presence_reset', false) || dev();
     }
     match /presenceBackups/{id} {
-      allow read, create: if editor();
+      allow read: if editor();
+      allow create: if editor() && permission('presence_register', true);
       allow update: if false;
+      allow delete: if dev();
+      match /attendance/{recordId} { allow read: if editor(); allow create: if editor() && permission('presence_register', true); allow update: if false; allow delete: if dev(); }
+      match /rt/{recordId} { allow read: if editor(); allow create: if editor() && permission('presence_register', true); allow update: if false; allow delete: if dev(); }
+    }
+    match /resetJobs/{id} {
+      allow read, create, update: if permission('presence_reset', false);
       allow delete: if dev();
     }
     match /notifications/{id} {
@@ -166,22 +173,22 @@ service cloud.firestore {
     }
 
     match /supportMessages/{id} {
-      allow read: if editor() || (active() && resource.data.ownerUid == request.auth.uid && resource.data.status != 'resolved');
+      allow read: if (editor() && permission('support_manage', true)) || (active() && resource.data.ownerUid == request.auth.uid && resource.data.status != 'resolved');
       allow create: if active()
         && request.resource.data.senderUid == request.auth.uid
         && request.resource.data.ownerUid is string
         && request.resource.data.text is string
         && request.resource.data.text.size() <= 2000
         && (request.resource.data.text.size() > 0 || request.resource.data.get('imageUrl','') != '')
-        && (editor() || request.resource.data.ownerUid == request.auth.uid);
-      allow update: if editor()
+        && ((editor() && permission('support_manage', true)) || request.resource.data.ownerUid == request.auth.uid);
+      allow update: if editor() && permission('support_manage', true)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','statusUpdatedAt','statusUpdatedBy'])
         && request.resource.data.status in ['open','in_progress','waiting_user','resolved'];
       allow delete: if dev();
     }
 
     match /chatMessages/{id} {
-      allow read: if editor() || (active() && resource.data.ownerUid == request.auth.uid);
+      allow read: if (editor() && permission('support_manage', true)) || (active() && resource.data.ownerUid == request.auth.uid);
       allow create: if active()
         && request.resource.data.senderUid == request.auth.uid
         && request.resource.data.ownerUid is string
@@ -189,15 +196,15 @@ service cloud.firestore {
         && request.resource.data.text.size() <= 2000
         && request.resource.data.get('chatStatus','active') == 'active'
         && (request.resource.data.text.size() > 0 || request.resource.data.get('imageUrl','') != '')
-        && (editor() || request.resource.data.ownerUid == request.auth.uid);
-      allow update: if editor()
+        && ((editor() && permission('support_manage', true)) || request.resource.data.ownerUid == request.auth.uid);
+      allow update: if editor() && permission('support_manage', true)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['chatStatus','finalizedAt','finalizedBy'])
         && request.resource.data.chatStatus == 'finalized';
       allow delete: if dev();
     }
     match /settings/{id} {
       allow read: if id == 'app' || (id == 'private' && dev());
-      allow write: if dev();
+      allow write: if (id == 'app' && permission('settings_edit', false)) || (id == 'private' && dev());
     }
     match /xpLogs/{id} { allow read, create: if editor(); allow update: if false; allow delete: if dev(); }
     match /audit/{id} {

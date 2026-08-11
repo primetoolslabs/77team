@@ -1,6 +1,6 @@
 {
-  "name": "77 TEAM Manager V22.8.4 Stable",
-  "short_name": "77 TEAM V22.8.4",
+  "name": "77 TEAM Manager V22.8.5 Hotfix",
+  "short_name": "77 TEAM V22.8.5",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
@@ -18,7 +18,7 @@
       "type": "image/png"
     }
   ],
-  "description": "V20.5 com assistente de primeiro acesso, preenchimento obrigatório do perfil e compatibilidade com usuários existentes.",
-  "version": "22.8.4",
-  "version_name": "20.6"
+  "description": "77 TEAM Manager V22.8.5 Hotfix — consolidação de permissões, backup seguro e reset global recuperável.",
+  "version": "22.8.5",
+  "version_name": "22.8.5"
 }

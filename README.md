@@ -1,3 +1,11 @@
+# 77 TEAM Manager V22.8.5 Hotfix
+
+Atualização de consolidação sobre a V22.8.4, sem mudanças de layout. Integra a matriz configurável às operações críticas, melhora a segurança dos backups, adiciona rastreamento recuperável do Reset Global e prepara o projeto para npm/Firebase CLI.
+
+Consulte `CHANGELOG-V22.8.5.md`.
+
+---
+
 # 77 TEAM Manager V22.8.4 Hotfix
 
 Atualização de auditoria e segurança sobre a V22.8.3. Corrige permissões, Reset Global, restauração de backups, compatibilidade de cargos e proteção do Discord Webhook. Nenhum módulo existente foi removido.
