@@ -19,6 +19,18 @@
 - Identificações antigas de versão removidas das telas principais.
 - Leitura de membros e eventos passa a exigir conta ativa.
 
+## Quinta auditoria
+
+- Removido o modo Visitante e suas opções de configuração.
+- Corrigidas as rotas restantes de HTML/XSS em Personagens, Histórico, Staff, XP, relatórios e atributos dinâmicos.
+- Backup completo atualizado para schema 3, incluindo subcoleções `attendance` e `rt` de cada backup semanal.
+- Backup passa a incluir todas as leituras de notificações e registros de reset disponíveis ao DEV.
+- Restauração validada por projeto Firebase, versão, schema, estrutura, IDs, limites e chaves seguras.
+- Criado `restoreJobs` com progresso, conclusão e registro de falha por coleção.
+- Primeiro DEV protegido por e-mail previamente autorizado em `system/bootstrap`, removido após a ativação.
+- DEV, Liderança e Staff podem alterar o clã do jogador, com sincronização entre `members` e `users`.
+- Cache interno atualizado para a revisão `22.8.5-a5`.
+
 ## Compatibilidade
 
 - Base oficial e layout preservados.

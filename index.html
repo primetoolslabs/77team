@@ -19,7 +19,7 @@
 <div class="setup-card">
 <img alt="77 TEAM" class="setup-logo" src="assets/logo-77-team-vertical.webp"/>
 <h1>Configurar sistema</h1>
-<p>Como este Firebase ainda não possui um DEV, crie agora a conta principal.</p>
+<p>Como este Firebase ainda não possui um DEV, crie a conta principal usando o e-mail previamente autorizado em <code>system/bootstrap</code>.</p>
 <form class="stack" id="setupForm">
 <label>Nome do DEV<input id="setupName" required="" value="Prime Tools Labs"/></label>
 <label>E-mail<input id="setupEmail" required="" type="email" value="primetoolslabs@gmail.com"/></label>
@@ -49,7 +49,6 @@
 </form>
 <div class="login-v222-quick"><span>OU ACESSE RAPIDAMENTE</span></div>
 <div class="login-v222-actions">
-<button class="login-v222-secondary" id="guestButton" type="button">♟ Entrar como visitante</button>
 <button class="login-v222-secondary" id="toggleSignup" type="button">＋ Criar conta de membro</button>
 </div>
 <div class="subbox hidden login-v222-signup" id="signupBox">
@@ -90,7 +89,7 @@
 <div class="topbar-left">
 <button aria-label="Abrir menu" class="menu-toggle" id="menuButton" type="button">☰</button>
 <div>
-<h2>Bem-vindo, <span id="welcomeName">Visitante</span>!</h2>
+<h2>Bem-vindo, <span id="welcomeName">Usuário</span>!</h2>
 <p>Gestão completa da 77 TEAM <span class="manager-version-badge">Manager</span><span class="stable-badge" id="systemVersion">v22.8.5 Hotfix</span></p>
 </div>
 </div>
@@ -109,8 +108,8 @@
 <img alt="Nova logo 77 TEAM Manager" src="assets/logo-77-team-manager-nova.webp?v=22.8.5"/>
 </div>
 <div class="profile-copy">
-<strong id="topbarUserName">Visitante</strong>
-<span class="badge" id="userBadge">Visitante</span>
+<strong id="topbarUserName">Usuário</strong>
+<span class="badge" id="userBadge">Membro</span>
 </div>
 <button aria-label="Perfil" class="profile-chevron" type="button">⌄</button>
 <button class="hidden" id="logoutButton" type="button">Sair</button>
@@ -994,7 +993,6 @@
 <article class="settings-card">
 <h3>Aprovação e cadastro</h3>
 <label class="toggle-row"><span>Aprovação manual de novos membros</span><input checked="" id="cfgManualApproval" type="checkbox"/></label>
-<label class="toggle-row"><span>Permitir acesso de visitante</span><input checked="" id="cfgGuestAccess" type="checkbox"/></label>
 <label class="toggle-row"><span>Exigir personagem preenchido</span><input id="cfgRequireCharacter" type="checkbox"/></label>
 </article>
 <article class="settings-card">
@@ -1018,7 +1016,7 @@
 <article class="settings-card">
 <div class="table-wrap">
 <table class="permissions-table">
-<thead><tr><th>Módulo</th><th>Liderança</th><th>Staff</th><th>Membro</th><th>Visitante</th></tr></thead>
+<thead><tr><th>Módulo</th><th>Liderança</th><th>Staff</th><th>Membro</th></tr></thead>
 <tbody id="permissionsRows"></tbody>
 </table>
 </div>
@@ -1212,9 +1210,9 @@
 <div class="panel permission-config-panel">
 <div class="panel-head"><div><h3>Cargos e permissões</h3><p>As alterações entram em vigor para a interface assim que forem salvas.</p></div><div class="button-row"><button class="btn" id="resetRolePermissions" type="button">↺ Restaurar padrão</button><button class="btn primary" id="saveRolePermissions" type="button">💾 Salvar permissões</button></div></div>
 <div class="panel-body">
-<div class="role-color-legend"><span class="role-badge role-dev">DEV</span><span class="role-badge role-leadership">Liderança</span><span class="role-badge role-staff">Staff</span><span class="role-badge role-member">Membro</span><span class="role-badge role-guest">Visitante</span></div>
+<div class="role-color-legend"><span class="role-badge role-dev">DEV</span><span class="role-badge role-leadership">Liderança</span><span class="role-badge role-staff">Staff</span><span class="role-badge role-member">Membro</span></div>
 <div class="permission-search-row"><input id="rolePermissionSearch" type="search" placeholder="Pesquisar área ou ação..."/><span id="rolePermissionStatus">Configuração atual carregada.</span></div>
-<div class="table-wrap"><table class="permission-matrix configurable-permission-matrix"><thead><tr><th>Área/Ação</th><th>DEV</th><th>Liderança</th><th>Staff</th><th>Membro</th><th>Visitante</th></tr></thead><tbody id="rolePermissionMatrix"></tbody></table></div>
+<div class="table-wrap"><table class="permission-matrix configurable-permission-matrix"><thead><tr><th>Área/Ação</th><th>DEV</th><th>Liderança</th><th>Staff</th><th>Membro</th></tr></thead><tbody id="rolePermissionMatrix"></tbody></table></div>
 <p class="permission-note"><strong>Segurança:</strong> o DEV permanece com acesso total e não pode ser bloqueado. A hierarquia crítica de cargos e as regras do Firebase continuam limitando ações sensíveis.</p>
 </div></div>
 </section>
@@ -1356,7 +1354,7 @@
 </div>
 <div class="global-search-results hidden" id="globalSearchResults"></div>
 <div class="toast" id="toast"></div>
-<script src="js/ui.js?v=22.8.5"></script>
-<script src="js/main.js?v=22.8.5" type="module"></script>
+<script src="js/ui.js?v=22.8.5-a5"></script>
+<script src="js/main.js?v=22.8.5-a5" type="module"></script>
 </body>
 </html>

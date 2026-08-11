@@ -1,7 +1,7 @@
-const CACHE_NAME="77-team-manager-v22.8.5";
+const CACHE_NAME="77-team-manager-v22.8.5-a5";
 const APP_SHELL=[
   "./","./index.html","./manifest.json","./css/style.css?v=22.8.5",
-  "./js/ui.js?v=22.8.5","./js/main.js?v=22.8.5","./js/firebase-config.js",
+  "./js/ui.js?v=22.8.5-a5","./js/main.js?v=22.8.5-a5","./js/firebase-config.js",
   "./icons/icon-192.png","./icons/icon-512.png",
   "./assets/logo-77-team-manager-nova.webp","./assets/logo-77-team-manager-oficial.png",
   "./assets/logo-77-team-vertical.webp","./assets/primetools-labs.png"

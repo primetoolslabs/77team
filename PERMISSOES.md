@@ -7,6 +7,7 @@
 | Alterar cargos | ✅ | ✅ | ❌ | ❌ |
 | Excluir membros | ✅ | ✅ | ❌ | ❌ |
 | Editar membros | ✅ | ✅ | ✅ | ❌ |
+| Alterar clã dos jogadores | ✅ | ✅ | ✅ | ❌ |
 | Registrar presença | ✅ | ✅ | ✅ | ❌ |
 | Editar presença | ✅ | ✅ | ✅ | ❌ |
 | Excluir presença individual | ✅ | ❌ | ❌ | ❌ |

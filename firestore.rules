@@ -29,15 +29,28 @@ service cloud.firestore {
       return dev() || cfg.get(key, {}).get(roleKey(), fallback);
     }
     function ownerExists(){return exists(/databases/$(database)/documents/system/owner);}
+    function bootstrapAuthorized(){
+      return signedIn()
+        && exists(/databases/$(database)/documents/system/bootstrap)
+        && get(/databases/$(database)/documents/system/bootstrap).data.allowedEmail == request.auth.token.email;
+    }
     function pendingMember(){return isMemberRole(accessRoleOf(resource.data)) && resource.data.get('status','pending') == 'pending' && resource.data.get('active',false) == false;}
     function approvalFields(){return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role','accessRole','active','status','clan','memberRole','approvedAt','roleUpdatedAt','roleUpdatedBy','updatedAt']);}
     function rejectionFields(){return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['active','status','rejectedAt','rejectedBy','updatedAt']);}
 
     match /system/owner {
       allow get: if true;
-      allow create: if signedIn() && !ownerExists() && request.resource.data.uid == request.auth.uid
-        && request.resource.data.keys().hasOnly(['uid','createdAt']);
+      allow create: if bootstrapAuthorized() && !ownerExists() && request.resource.data.uid == request.auth.uid
+        && request.resource.data.keys().hasOnly(['uid','createdAt'])
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && isDevRole(accessRoleOf(get(/databases/$(database)/documents/users/$(request.auth.uid)).data))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.active == true
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'approved';
       allow update, delete: if dev();
+    }
+    match /system/bootstrap {
+      allow read: if false;
+      allow create, update, delete: if dev();
     }
 
     match /users/{uid} {
@@ -46,7 +59,9 @@ service cloud.firestore {
       allow get: if signedIn() && request.auth.uid == uid;
       allow get, list: if editor();
       allow create: if signedIn() && (
-        (request.auth.uid == uid && !ownerExists() && isDevRole(accessRoleOf(request.resource.data)) && request.resource.data.active == true && request.resource.data.status == 'approved')
+        (request.auth.uid == uid && !ownerExists() && bootstrapAuthorized()
+          && request.resource.data.email == request.auth.token.email
+          && isDevRole(accessRoleOf(request.resource.data)) && request.resource.data.active == true && request.resource.data.status == 'approved')
         ||
         // Recuperação segura do perfil do DEV quando system/owner aponta para o usuário autenticado.
         (request.auth.uid == uid && ownerExists()
@@ -111,6 +126,11 @@ service cloud.firestore {
           && request.resource.data.characterUpdatedBy == request.auth.uid
         )
         || (
+          editor() && permission('members_edit', true)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['clan','clanUpdatedAt','clanUpdatedBy','updatedAt'])
+          && request.resource.data.clanUpdatedBy == request.auth.uid
+        )
+        || (
           editor() && permission('character_delete', true)
           && resource.data.keys().hasAny(['character'])
           && !request.resource.data.keys().hasAny(['character'])
@@ -149,12 +169,15 @@ service cloud.firestore {
       allow create: if editor() && permission('presence_register', true);
       allow update: if dev() && request.resource.data.restoredBy == request.auth.uid;
       allow delete: if dev();
-      match /attendance/{recordId} { allow read: if editor(); allow create: if editor() && permission('presence_register', true); allow update: if false; allow delete: if dev(); }
-      match /rt/{recordId} { allow read: if editor(); allow create: if editor() && permission('presence_register', true); allow update: if false; allow delete: if dev(); }
+      match /attendance/{recordId} { allow read: if editor(); allow create: if editor() && permission('presence_register', true); allow update: if dev() && request.resource.data.restoredBy == request.auth.uid; allow delete: if dev(); }
+      match /rt/{recordId} { allow read: if editor(); allow create: if editor() && permission('presence_register', true); allow update: if dev() && request.resource.data.restoredBy == request.auth.uid; allow delete: if dev(); }
     }
     match /resetJobs/{id} {
       allow read, create, update: if permission('presence_reset', false);
       allow delete: if dev();
+    }
+    match /restoreJobs/{id} {
+      allow read, create, update, delete: if dev();
     }
     match /notifications/{id} {
       allow read: if editor() || (active() && (
@@ -171,7 +194,7 @@ service cloud.firestore {
       allow delete: if dev();
     }
     match /notificationReads/{id} {
-      allow read: if active() && resource.data.userId == request.auth.uid;
+      allow read: if dev() || (active() && resource.data.userId == request.auth.uid);
       allow create, update: if (active() && request.resource.data.userId == request.auth.uid && request.resource.data.notificationId is string)
         || (dev() && request.resource.data.restoredBy == request.auth.uid);
       allow delete: if dev() || (active() && resource.data.userId == request.auth.uid);

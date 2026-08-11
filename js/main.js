@@ -10,7 +10,7 @@ function on(id,eventName,handler){const el=byId(id);if(el)el.addEventListener(ev
 import {firebaseConfig,FIREBASE_VERSION} from "./firebase-config.js";
 const SDK=`https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}`;
 const {initializeApp,deleteApp}=await import(`${SDK}/firebase-app.js`);
-const {getAuth,onAuthStateChanged,signInWithEmailAndPassword,createUserWithEmailAndPassword,signOut,updatePassword,updateEmail,reauthenticateWithCredential,EmailAuthProvider,setPersistence,browserLocalPersistence,browserSessionPersistence}=await import(`${SDK}/firebase-auth.js`);
+const {getAuth,onAuthStateChanged,signInWithEmailAndPassword,createUserWithEmailAndPassword,signOut,updatePassword,updateEmail,reauthenticateWithCredential,EmailAuthProvider,setPersistence,browserLocalPersistence,browserSessionPersistence,deleteUser}=await import(`${SDK}/firebase-auth.js`);
 const {getFirestore,collection,doc,getDoc,getDocs,setDoc,addDoc,updateDoc,deleteDoc,deleteField,onSnapshot,serverTimestamp,writeBatch,query,where,Timestamp}=await import(`${SDK}/firebase-firestore.js`);
 const {getStorage,ref:storageRef,uploadBytes,getDownloadURL,deleteObject}=await import(`${SDK}/firebase-storage.js`);
 
@@ -68,7 +68,7 @@ const ROLE_CONFIG=Object.freeze({
   leadership:{label:"Liderança",level:3,badgeClass:"role-leadership"},
   staff:{label:"Staff",level:2,badgeClass:"role-staff"},
   member:{label:"Membro",level:1,badgeClass:"role-member"},
-  guest:{label:"Visitante",level:0,badgeClass:"role-guest"}
+  guest:{label:"Acesso indisponível",level:0,badgeClass:"role-member"}
 });
 
 function normalizeAccessRole(role){
@@ -264,17 +264,22 @@ onSnapshot(doc(db,"settings","app"),snapshot=>{const publicSettings=snapshot.exi
 
 $("#setupForm").onsubmit=async e=>{
   e.preventDefault();
+  let cred=null;
   try{
     if(await ownerExists())throw new Error("O DEV já foi configurado.");
     const name=$("#setupName").value.trim();
     const email=$("#setupEmail").value.trim().toLowerCase();
     const password=$("#setupPassword").value;
     if(password!==$("#setupConfirm").value)throw new Error("As senhas não conferem.");
-    const cred=await createUserWithEmailAndPassword(auth,email,password);
-    await setDoc(doc(db,"users",cred.user.uid),{name,email,role:"dev",active:true,status:"approved",firstLogin:false,profileCompleted:true,createdAt:serverTimestamp()});
+    cred=await createUserWithEmailAndPassword(auth,email,password);
+    await setDoc(doc(db,"users",cred.user.uid),{name,email,role:"dev",accessRole:"dev",active:true,status:"approved",firstLogin:false,profileCompleted:true,createdAt:serverTimestamp()});
     await setDoc(doc(db,"system","owner"),{uid:cred.user.uid,createdAt:serverTimestamp()});
+    try{await deleteDoc(doc(db,"system","bootstrap"))}catch{}
     toast("Sistema configurado com sucesso.");
-  }catch(e){toast(errMsg(e))}
+  }catch(e){
+    if(cred?.user)try{await deleteUser(cred.user)}catch{}
+    toast(e?.code==="permission-denied"?"E-mail não autorizado. Configure system/bootstrap antes de criar o primeiro DEV.":errMsg(e));
+  }
 };
 
 $("#loginForm").onsubmit=async e=>{
@@ -297,7 +302,6 @@ $("#loginForm").onsubmit=async e=>{
   }
 };
 $("#toggleSignup").onclick=()=>$("#signupBox").classList.toggle("hidden");
-$("#guestButton").onclick=()=>{state.guest=true;state.profile={role:"guest",name:"Visitante"};showOnly("app");applyPermissions();subscribePublic()};
 
 $("#signupForm").onsubmit=async e=>{
   e.preventDefault();
@@ -560,7 +564,7 @@ function presenceBackupCounts(records=[]){return{present:records.filter(x=>Numbe
 function renderPresenceBackups(){
   const list=$("#presenceBackupList");if(!list)return;
   setText("presenceBackupCount",`${state.presenceBackups.length} backup${state.presenceBackups.length===1?"":"s"}`);
-  list.innerHTML=state.presenceBackups.map(item=>{const counts=item.counts||presenceBackupCounts(item.records||[]);return `<article class="presence-backup-card"><div><strong>📅 ${escapeHtml(item.week||"Semana não informada")}</strong><span>${escapeHtml(presenceBackupDate(item.createdAt))}</span></div><div class="presence-backup-metrics"><span>🟢 ${Number(counts.present||0)}</span><span>🟡 ${Number(counts.justified||0)}</span><span>🔴 ${Number(counts.absent||0)}</span><span>📋 ${Number(item.total||item.records?.length||0)}</span><span>🧾 ${Number(item.rtTotal||item.rtRecords?.length||0)} RTs</span></div><div><small>Responsável</small><b>${escapeHtml(item.createdByName||"—")}</b></div><button class="btn mini" data-download-presence-backup="${item.id}">Baixar JSON</button></article>`}).join("")||`<div class="empty-state">Nenhum backup de presença foi criado.</div>`;
+  list.innerHTML=state.presenceBackups.map(item=>{const counts=item.counts||presenceBackupCounts(item.records||[]);return `<article class="presence-backup-card"><div><strong>📅 ${escapeHtml(item.week||"Semana não informada")}</strong><span>${escapeHtml(presenceBackupDate(item.createdAt))}</span></div><div class="presence-backup-metrics"><span>🟢 ${Number(counts.present||0)}</span><span>🟡 ${Number(counts.justified||0)}</span><span>🔴 ${Number(counts.absent||0)}</span><span>📋 ${Number(item.total||item.records?.length||0)}</span><span>🧾 ${Number(item.rtTotal||item.rtRecords?.length||0)} RTs</span></div><div><small>Responsável</small><b>${escapeHtml(item.createdByName||"—")}</b></div><button class="btn mini" data-download-presence-backup="${escapeHtml(item.id)}">Baixar JSON</button></article>`}).join("")||`<div class="empty-state">Nenhum backup de presença foi criado.</div>`;
 }
 async function writeBackupSubcollection(backupId,name,rows){
   for(let start=0;start<rows.length;start+=400){
@@ -798,9 +802,9 @@ function renderNotifications(){
   const rows=state.notifications.slice().sort((a,b)=>{const av=a.createdAt?.toMillis?.()||Date.parse(a.createdAt||0)||0;const bv=b.createdAt?.toMillis?.()||Date.parse(b.createdAt||0)||0;return bv-av});
   setHtml("notificationRows",rows.map(n=>{
     const read=notificationRead(n);
-    return `<article class="notification-item ${read?"":"unread"}" data-notification-id="${n.id}">
+    return `<article class="notification-item ${read?"":"unread"}" data-notification-id="${escapeHtml(n.id)}">
       <div><strong>${escapeHtml(n.title||"Notificação")}</strong><p>${escapeHtml(n.message||"")}</p><small>${escapeHtml(n.createdByName||"77 TEAM")} · ${escapeHtml(notificationDate(n))}</small></div>
-      ${read?'<span class="notification-read-label">Lida</span>':`<button class="btn mini" data-mark-notification="${n.id}" type="button">Marcar como lida</button>`}
+      ${read?'<span class="notification-read-label">Lida</span>':`<button class="btn mini" data-mark-notification="${escapeHtml(n.id)}" type="button">Marcar como lida</button>`}
     </article>`;
   }).join("")||"<p class='empty-state'>Nenhuma notificação.</p>");
   renderNotificationAdmin();
@@ -1105,10 +1109,10 @@ function render(){
     .slice(0,5);
 
   $("#recentPresenceRows").innerHTML=recent.map(a=>`<tr>
-    <td><span class="member-avatar">${(a.memberName||"?").slice(0,1).toUpperCase()}</span>${a.memberName||"—"}</td>
+    <td><span class="member-avatar">${escapeHtml((a.memberName||"?").slice(0,1).toUpperCase())}</span>${escapeHtml(a.memberName||"—")}</td>
     <td>${roleBadge(a.role)}</td>
-    <td>${a.date||"—"}</td>
-    <td>${a.slot||a.kind||"—"}</td>
+    <td>${escapeHtml(a.date||"—")}</td>
+    <td>${escapeHtml(a.slot||a.kind||"—")}</td>
   </tr>`).join("")||'<tr><td colspan="4">Nenhuma presença registrada.</td></tr>';
 
   $("#topFiveRows").innerHTML=rank.slice(0,5).map((r,i)=>`<tr>
@@ -1151,13 +1155,19 @@ function render(){
           if(!options.length)return "";
           const selected=selectedCargoValue(member,user);
           return `<div class="member-role-control">
-            <select class="role-change-select" data-role-select="${member.id}" aria-label="Novo cargo de ${escapeHtml(member.name)}">
+            <select class="role-change-select" data-role-select="${escapeHtml(member.id)}" aria-label="Novo cargo de ${escapeHtml(member.name)}">
               ${options.map(option=>`<option value="${option.value}" ${option.value===selected?"selected":""}>${option.label}</option>`).join("")}
             </select>
-            <button class="btn" data-change-member-role="${member.id}" type="button">Alterar cargo</button>
+            <button class="btn" data-change-member-role="${escapeHtml(member.id)}" type="button">Alterar cargo</button>
           </div>`;
         })()}
-        ${permissionEnabled("members_delete")?`<button class="btn danger" data-delete-member="${member.id}">Excluir</button>`:"Visualização"}
+        ${permissionEnabled("members_edit")?`<div class="member-role-control">
+          <select class="role-change-select" data-clan-select="${escapeHtml(member.id)}" aria-label="Novo clã de ${escapeHtml(member.name)}">
+            <option value="">Sem clã</option>${CLANS.map(clan=>`<option value="${escapeHtml(clan)}" ${clan===member.clan?"selected":""}>${escapeHtml(clan)}</option>`).join("")}
+          </select>
+          <button class="btn" data-change-member-clan="${escapeHtml(member.id)}" type="button">Alterar clã</button>
+        </div>`:""}
+        ${permissionEnabled("members_delete")?`<button class="btn danger" data-delete-member="${escapeHtml(member.id)}">Excluir</button>`:"Visualização"}
       </td>
     </tr>`;
   }).join("")||"<tr><td colspan='7'>Nenhum membro.</td></tr>";
@@ -1193,7 +1203,7 @@ function renderAdvancedCenter(){
 }
 function downloadJson(filename,data){const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
 on("checkUpdatesButton","click",()=>{setText("updateStatusText","Versão 22.8.5 instalada e verificada. Base oficial: V22.7.3.");toast("Verificação local concluída.")});
-on("createBackupButton","click",()=>{if(!owner())return;downloadJson(`77-team-backup-${new Date().toISOString().slice(0,10)}.json`,backupPayload());toast("Backup completo e seguro gerado.")});
+on("createBackupButton","click",async()=>{if(!owner())return;try{downloadJson(`77-team-backup-${new Date().toISOString().slice(0,10)}.json`,await completeBackupPayload());toast("Backup completo e seguro gerado.")}catch(error){toast(error.message||errMsg(error))}});
 on("restoreBackupFile","change",async e=>{const file=e.target.files?.[0];if(!file)return;try{const data=JSON.parse(await file.text());setText("restoreBackupInfo",`Arquivo válido: versão ${data.version||"não informada"}, exportado em ${data.exportedAt||"data não informada"}.`)}catch{setText("restoreBackupInfo","Arquivo inválido ou corrompido.")}});
 function maintenanceFormData(){return {enabled:byId("maintenanceModeToggle")?.checked===true,title:byId("maintenanceTitle")?.value.trim()||"Sistema em manutenção",message:byId("maintenanceMessage")?.value.trim()||"Estamos realizando melhorias. Algumas funções podem apresentar instabilidade.",imageUrl:byId("maintenanceImageUrl")?.value.trim()||"",expectedEnd:byId("maintenanceExpectedEnd")?.value||"",showLogin:byId("maintenanceShowLogin")?.checked!==false,showApp:byId("maintenanceShowApp")?.checked!==false}}
 function formatMaintenanceEnd(value){if(!value)return "";const d=new Date(value);return Number.isNaN(d.getTime())?"":`Previsão de término: ${d.toLocaleString("pt-BR")}`}
@@ -1274,13 +1284,31 @@ Um registro será salvo em Gestão → RT Presença.`))return;
   const rtPrint=e.target.closest("[data-rt-print]");if(rtPrint){const rt=state.rtPresence.find(x=>x.id===rtPrint.dataset.rtPrint);if(rt)printRt(rt)}
   const rtDelete=e.target.closest("[data-rt-delete]");if(rtDelete&&owner()){const rt=state.rtPresence.find(x=>x.id===rtDelete.dataset.rtDelete);if(rt&&confirm("Excluir este RT definitivamente? O Histórico de presença não será removido.")){await deleteDoc(doc(db,"rtPresence",rt.id));await audit("RT Presença excluído",`${rt.id} · ${rt.typeLabel} · ${rt.date}`);toast("RT excluído.")}}
 
+  const changeClan=e.target.closest("[data-change-member-clan]");
+  if(changeClan){
+    if(!permissionEnabled("members_edit"))return toast("Sem permissão para alterar o clã.");
+    const member=state.members.find(item=>item.id===changeClan.dataset.changeMemberClan);if(!member)return;
+    const select=document.querySelector(`[data-clan-select="${CSS.escape(member.id)}"]`),nextClan=select?.value||"";
+    if(nextClan&&!CLANS.includes(nextClan))return toast("Clã inválido.");
+    if((member.clan||"")===nextClan)return toast("O membro já está neste clã.");
+    if(!confirm(`Alterar o clã de ${member.name} para ${nextClan||"Sem clã"}?`))return;
+    try{
+      const batch=writeBatch(db),user=linkedUserForMember(member),payload={clan:nextClan,clanUpdatedAt:serverTimestamp(),clanUpdatedBy:state.user.uid,updatedAt:serverTimestamp()};
+      batch.update(doc(db,"members",member.id),payload);
+      if(user)batch.update(doc(db,"users",user.id),payload);
+      await batch.commit();member.clan=nextClan;if(user)user.clan=nextClan;render();
+      await audit("clã de membro alterado",`${member.name} → ${nextClan||"Sem clã"}`);toast("Clã atualizado com sucesso.");
+    }catch(error){toast(errMsg(error))}
+    return;
+  }
+
   const changeRole=e.target.closest("[data-change-member-role]");
   if(changeRole){
     const member=state.members.find(item=>item.id===changeRole.dataset.changeMemberRole);
     const user=linkedUserForMember(member);
     if(!canManageAcceptedMember(member,user))return toast("Você não tem permissão para alterar este cargo.");
 
-    const select=document.querySelector(`[data-role-select="${member.id}"]`);
+    const select=document.querySelector(`[data-role-select="${CSS.escape(member.id)}"]`);
     const chosen=select?.value||"";
     const allowed=allowedCargoOptions(member,user);
     if(!allowed.some(option=>option.value===chosen))return toast("Cargo inválido para o seu nível de acesso.");
@@ -1609,7 +1637,7 @@ function updateLiveClock(){
 }
 updateLiveClock();
 setInterval(updateLiveClock,1000);
-if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js?v=22.8.5").catch(error=>console.warn("Service Worker indisponível:",error)));
+if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js?v=22.8.5-a5").catch(error=>console.warn("Service Worker indisponível:",error)));
 
 function animateNumber(id,target,suffix=""){
   const el=byId(id);
@@ -1644,8 +1672,8 @@ function renderGlobalSearch(query){
   ).slice(0,8);
 
   box.innerHTML=matches.length
-    ?matches.map(member=>`<button type="button" data-search-member="${member.id}">
-        <span class="member-avatar">${(member.name||"?").slice(0,1).toUpperCase()}</span>
+    ?matches.map(member=>`<button type="button" data-search-member="${escapeHtml(member.id)}">
+        <span class="member-avatar">${escapeHtml((member.name||"?").slice(0,1).toUpperCase())}</span>
         <span><strong>${escapeHtml(member.name)}</strong><small>${escapeHtml(member.role||"Membro")} · ${escapeHtml(member.clan||"Sem clã")}</small></span>
       </button>`).join("")
     :'<p>Nenhum resultado encontrado.</p>';
@@ -1750,9 +1778,9 @@ function renderOwnProfile(){
     .slice(0,20);
 
   setHtml("profileHistoryRows",history.map(item=>`<tr>
-    <td>${formatHistoryDate(item.date)}</td>
-    <td>${item.kind||"—"}</td>
-    <td>${item.slot||"—"}</td>
+    <td>${escapeHtml(formatHistoryDate(item.date))}</td>
+    <td>${escapeHtml(item.kind||"—")}</td>
+    <td>${escapeHtml(item.slot||"—")}</td>
     <td>${item.status===1?"Presente":item.status===-1?"Ausente":"—"}</td>
   </tr>`).join("")||'<tr><td colspan="4">Nenhum registro encontrado.</td></tr>');
 
@@ -1979,7 +2007,7 @@ function applyRestrictedVisibility(){
 function renderRolePermissionMatrix(){
   const host=byId("rolePermissionMatrix");
   if(!host)return;
-  const roles=["dev","leadership","staff","member","guest"];
+  const roles=["dev","leadership","staff","member"];
   const configured=configuredRolePermissions();
   let currentGroup="";
   host.innerHTML=ROLE_PERMISSION_DEFINITIONS.map(item=>{
@@ -2079,8 +2107,8 @@ function renderCharactersTable(){
   tbody.innerHTML=rows.map(item=>{
     const c=item.character;
     return `<tr>
-      <td><strong>${item.nickname}</strong></td>
-      <td>${c.className||"—"}</td>
+      <td><strong>${escapeHtml(item.nickname)}</strong></td>
+      <td>${escapeHtml(c.className||"—")}</td>
       <td>${c.power??0}</td>
       <td>${c.level??0}</td>
       <td>${c.codex??0}</td>
@@ -2179,9 +2207,9 @@ function renderProfileTimeline(history){
     <article class="timeline-item ${item.status===1?"success":"danger"}">
       <div class="timeline-dot">${item.status===1?"✓":"×"}</div>
       <div>
-        <strong>${item.kind||"Atividade"} · ${item.slot||"—"}</strong>
+        <strong>${escapeHtml(item.kind||"Atividade")} · ${escapeHtml(item.slot||"—")}</strong>
         <p>${item.status===1?"Presença confirmada":"Ausência registrada"}</p>
-        <small>${formatHistoryDate(item.date)}</small>
+        <small>${escapeHtml(formatHistoryDate(item.date))}</small>
       </div>
     </article>
   `).join("")||'<p class="empty-state">Nenhuma atividade registrada.</p>';
@@ -2301,7 +2329,7 @@ function characterAvatarHtml(item){
   if(avatar){
     return `<img src="${escapeHtml(avatar)}" alt="${escapeHtml(item.nickname)}">`;
   }
-  return `<span>${item.nickname.slice(0,1).toUpperCase()}</span>`;
+  return `<span>${escapeHtml(item.nickname.slice(0,1).toUpperCase())}</span>`;
 }
 
 function canDeleteCharacter(item){
@@ -2361,8 +2389,8 @@ function renderCharacterCards(rows){
       <div class="character-card-head">
         <div class="character-card-avatar">${characterAvatarHtml(item)}</div>
         <div>
-          <h3>${item.nickname}</h3>
-          <p>${c.className||"Classe não informada"} · ${item.role}</p>
+          <h3>${escapeHtml(item.nickname)}</h3>
+          <p>${escapeHtml(c.className||"Classe não informada")} · ${escapeHtml(item.role)}</p>
           <small>${escapeHtml(item.clan)}</small>
         </div>
       </div>
@@ -2372,10 +2400,10 @@ function renderCharacterCards(rows){
         <div><span>Codex</span><strong>${c.codex||0}</strong></div>
       </div>
       <div class="character-card-actions">
-        <button class="btn primary" data-character-details="${item.id}" type="button">Ver detalhes</button>
-        <button class="btn" data-character-pdf="${item.id}" type="button">Gerar PDF</button>
-        ${permissionEnabled("character_edit")?`<button class="btn character-edit-btn" data-character-edit="${item.id}" type="button">✏️ Editar</button>`:""}
-        ${canDeleteCharacter(item)?`<button class="btn danger" data-character-delete="${item.id}" type="button">🗑 Excluir</button>`:""}
+        <button class="btn primary" data-character-details="${escapeHtml(item.id)}" type="button">Ver detalhes</button>
+        <button class="btn" data-character-pdf="${escapeHtml(item.id)}" type="button">Gerar PDF</button>
+        ${permissionEnabled("character_edit")?`<button class="btn character-edit-btn" data-character-edit="${escapeHtml(item.id)}" type="button">✏️ Editar</button>`:""}
+        ${canDeleteCharacter(item)?`<button class="btn danger" data-character-delete="${escapeHtml(item.id)}" type="button">🗑 Excluir</button>`:""}
       </div>
     </article>`;
   }).join("")||'<p class="empty-state">Nenhum personagem encontrado.</p>';
@@ -2388,9 +2416,9 @@ function renderCharactersTableV71(rows){
   tbody.innerHTML=rows.map(item=>{
     const c=item.character;
     return `<tr>
-      <td><strong>${item.nickname}</strong></td>
-      <td>${c.className||"—"}</td>
-      <td>${item.role}</td>
+      <td><strong>${escapeHtml(item.nickname)}</strong></td>
+      <td>${escapeHtml(c.className||"—")}</td>
+      <td>${escapeHtml(item.role)}</td>
       <td>${escapeHtml(item.clan)}</td>
       <td>${Number(c.power||0).toLocaleString("pt-BR")}</td>
       <td>${c.level||0}</td>
@@ -2403,10 +2431,10 @@ function renderCharactersTableV71(rows){
       <td>${c.constitution||0}</td>
       <td>${c.wildernessTraining||0}</td>
       <td>
-        <button class="btn" data-character-details="${item.id}" type="button">Detalhes</button>
-        <button class="btn" data-character-pdf="${item.id}" type="button">PDF</button>
-        ${permissionEnabled("character_edit")?`<button class="btn" data-character-edit="${item.id}" type="button">Editar</button>`:""}
-        ${canDeleteCharacter(item)?`<button class="btn danger" data-character-delete="${item.id}" type="button">Excluir</button>`:""}
+        <button class="btn" data-character-details="${escapeHtml(item.id)}" type="button">Detalhes</button>
+        <button class="btn" data-character-pdf="${escapeHtml(item.id)}" type="button">PDF</button>
+        ${permissionEnabled("character_edit")?`<button class="btn" data-character-edit="${escapeHtml(item.id)}" type="button">Editar</button>`:""}
+        ${canDeleteCharacter(item)?`<button class="btn danger" data-character-delete="${escapeHtml(item.id)}" type="button">Excluir</button>`:""}
       </td>
     </tr>`;
   }).join("")||'<tr><td colspan="15">Nenhum personagem encontrado.</td></tr>';
@@ -2430,8 +2458,8 @@ function openCharacterDetails(item){
 
   content.innerHTML=`<div class="character-drawer-hero">
     <div class="character-drawer-avatar">${characterAvatarHtml(item)}</div>
-    <h2>${item.nickname}</h2>
-    <p>${c.className||"Classe não informada"} · ${item.role}</p>
+    <h2>${escapeHtml(item.nickname)}</h2>
+    <p>${escapeHtml(c.className||"Classe não informada")} · ${escapeHtml(item.role)}</p>
     <small>${escapeHtml(item.clan)}</small>
   </div>
   <div class="character-drawer-highlight">
@@ -2451,7 +2479,7 @@ function openCharacterDetails(item){
     <div><span>Presenças</span><strong>${item.stat.present||0}</strong></div>
     <div><span>Ausências</span><strong>${item.stat.absent||0}</strong></div>
   </div>
-  <button class="btn primary full" data-character-pdf="${item.id}" type="button">Gerar PDF individual</button>`;
+  <button class="btn primary full" data-character-pdf="${escapeHtml(item.id)}" type="button">Gerar PDF individual</button>`;
 
   byId("characterDetailsDrawer")?.classList.remove("hidden");
 }
@@ -2534,9 +2562,9 @@ function printCharacterReport(rows,title){
   const body=rows.map(item=>{
     const c=item.character;
     return `<tr>
-      <td>${item.nickname}</td>
-      <td>${c.className||"—"}</td>
-      <td>${item.role}</td>
+      <td>${escapeHtml(item.nickname)}</td>
+      <td>${escapeHtml(c.className||"—")}</td>
+      <td>${escapeHtml(item.role)}</td>
       <td>${escapeHtml(item.clan)}</td>
       <td>${Number(c.power||0).toLocaleString("pt-BR")}</td>
       <td>${c.level||0}</td>
@@ -2590,7 +2618,7 @@ function printIndividualCharacter(item){
   }
 
   popup.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
-  <title>Ficha - ${item.nickname}</title>
+  <title>Ficha - ${escapeHtml(item.nickname)}</title>
   <style>
     @page{size:A4 portrait;margin:12mm}
     body{font-family:Arial,sans-serif;color:#17131c}
@@ -2602,7 +2630,7 @@ function printIndividualCharacter(item){
     .signature{margin-top:55px;border-top:1px solid #555;text-align:center;padding-top:6px;font-size:10px}
     @media print{.actions{display:none}}
   </style></head><body>
-  <header><strong>77 TEAM MANAGER</strong><div class="name">${item.nickname}</div>
+  <header><strong>77 TEAM MANAGER</strong><div class="name">${escapeHtml(item.nickname)}</div>
   <div class="subtitle">${escapeHtml(c.className||"Classe não informada")} · ${escapeHtml(item.role)} · ${escapeHtml(item.clan)}</div></header>
   <div class="actions"><button onclick="window.print()">Salvar como PDF</button></div>
   <div class="grid">
@@ -2770,13 +2798,13 @@ function renderHistoryTimeline(rows){
 
   container.innerHTML=Object.entries(groups).map(([date,items])=>`
     <section class="history-day-group">
-      <h4>${formatHistoryDate(date)}</h4>
+      <h4>${escapeHtml(formatHistoryDate(date))}</h4>
       ${items.map(item=>`
-        <article class="history-entry ${item.status===1?"success":"danger"}" data-history-details="${item.id}">
+        <article class="history-entry ${item.status===1?"success":"danger"}" data-history-details="${escapeHtml(item.id)}">
           <div class="history-entry-icon">${item.status===1?"✓":"×"}</div>
           <div>
-            <strong>${item.memberName}</strong>
-            <p>${item.kind} · ${item.slot}</p>
+            <strong>${escapeHtml(item.memberName)}</strong>
+            <p>${escapeHtml(item.kind)} · ${escapeHtml(item.slot)}</p>
             <small>${escapeHtml(item.role)} · ${escapeHtml(item.clan)}</small>
           </div>
           <span>${item.status===1?"Presente":"Ausente"}</span>
@@ -2789,14 +2817,14 @@ function renderHistoryTimeline(rows){
 function renderHistoryTableV72(rows){
   const tbody=byId("historyRows");if(!tbody)return;
   tbody.innerHTML=rows.map(item=>`<tr>
-    <td>${formatHistoryDate(item.date)}</td>
-    <td><strong>${item.memberName}</strong></td>
+    <td>${escapeHtml(formatHistoryDate(item.date))}</td>
+    <td><strong>${escapeHtml(item.memberName)}</strong></td>
     <td>${roleBadge(item.role)}</td>
     <td>${escapeHtml(item.clan)}</td>
-    <td>${item.kind}</td>
-    <td>${item.slot}</td>
+    <td>${escapeHtml(item.kind)}</td>
+    <td>${escapeHtml(item.slot)}</td>
     <td>${item.status===1?"Presente":"Ausente"}</td>
-    <td><button class="btn" data-history-details="${item.id}" type="button">Detalhes</button></td>
+    <td><button class="btn" data-history-details="${escapeHtml(item.id)}" type="button">Detalhes</button></td>
   </tr>`).join("")||'<tr><td colspan="8">Nenhum registro encontrado.</td></tr>';
 }
 
@@ -2805,7 +2833,7 @@ function renderHistoryCharts(rows){
   rows.forEach(item=>typeCounts[item.kind]=(typeCounts[item.kind]||0)+1);
   const maxType=Math.max(1,...Object.values(typeCounts));
   setHtml("historyTypeBars",Object.entries(typeCounts).map(([name,value])=>`
-    <div class="history-bar-row"><span>${name}</span><div><i style="width:${Math.round(value/maxType*100)}%"></i></div><strong>${value}</strong></div>
+    <div class="history-bar-row"><span>${escapeHtml(name)}</span><div><i style="width:${Math.round(value/maxType*100)}%"></i></div><strong>${value}</strong></div>
   `).join("")||"<p>Sem dados.</p>");
 
   const memberCounts={};
@@ -2813,7 +2841,7 @@ function renderHistoryCharts(rows){
   const top=Object.entries(memberCounts).sort((a,b)=>b[1]-a[1]).slice(0,5);
   const maxMember=Math.max(1,...top.map(item=>item[1]));
   setHtml("historyTopMembers",top.map(([name,value])=>`
-    <div class="history-bar-row"><span>${name}</span><div><i style="width:${Math.round(value/maxMember*100)}%"></i></div><strong>${value}</strong></div>
+    <div class="history-bar-row"><span>${escapeHtml(name)}</span><div><i style="width:${Math.round(value/maxMember*100)}%"></i></div><strong>${value}</strong></div>
   `).join("")||"<p>Sem dados.</p>");
 }
 
@@ -2832,14 +2860,14 @@ function openHistoryDetails(item){
   setHtml("historyDetailsContent",`
     <div class="history-detail-hero ${item.status===1?"success":"danger"}">
       <div>${item.status===1?"✓":"×"}</div>
-      <h2>${item.memberName}</h2>
+      <h2>${escapeHtml(item.memberName)}</h2>
       <p>${item.status===1?"Presença confirmada":"Ausência registrada"}</p>
     </div>
     <div class="history-detail-grid">
-      <div><span>Data</span><strong>${formatHistoryDate(item.date)}</strong></div>
-      <div><span>Tipo</span><strong>${item.kind}</strong></div>
-      <div><span>Horário/Evento</span><strong>${item.slot}</strong></div>
-      <div><span>Cargo</span><strong>${item.role}</strong></div>
+      <div><span>Data</span><strong>${escapeHtml(formatHistoryDate(item.date))}</strong></div>
+      <div><span>Tipo</span><strong>${escapeHtml(item.kind)}</strong></div>
+      <div><span>Horário/Evento</span><strong>${escapeHtml(item.slot)}</strong></div>
+      <div><span>Cargo</span><strong>${escapeHtml(item.role)}</strong></div>
       <div><span>Clã</span><strong>${escapeHtml(item.clan)}</strong></div>
       <div><span>Status</span><strong>${item.status===1?"Presente":"Ausente"}</strong></div>
     </div>
@@ -2853,14 +2881,14 @@ function printHistoryRows(rows,title){
   if(!popup||!popup.document)return toast("Permita pop-ups para gerar o PDF.");
 
   const body=rows.map(item=>`<tr>
-    <td>${formatHistoryDate(item.date)}</td><td>${item.memberName}</td><td>${item.role}</td>
+    <td>${escapeHtml(formatHistoryDate(item.date))}</td><td>${escapeHtml(item.memberName)}</td><td>${escapeHtml(item.role)}</td>
     <td>${escapeHtml(item.clan)}</td><td>${escapeHtml(item.kind)}</td><td>${escapeHtml(item.slot)}</td>
     <td>${item.status===1?"Presente":"Ausente"}</td>
   </tr>`).join("");
 
-  popup.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>${title}</title>
+  popup.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>${escapeHtml(title)}</title>
   <style>@page{size:A4 landscape;margin:10mm}body{font-family:Arial;color:#17131c}header{padding:15px;color:#fff;background:#251133;border-bottom:4px solid #a83cff}header strong{color:#d277ff;font-size:20px}h1{font-size:16px}.actions{text-align:right;margin:10px 0}.actions button{padding:9px 14px;background:#8e24cf;color:#fff;border:0;border-radius:6px}table{width:100%;border-collapse:collapse;font-size:9px}th{background:#2c123c;color:#fff;padding:7px;border:1px solid #7e4597}td{padding:6px;border:1px solid #d5c7dc}tbody tr:nth-child(even){background:#f8f2fb}@media print{.actions{display:none}}</style>
-  </head><body><header><strong>77 TEAM MANAGER</strong><h1>${title}</h1></header>
+  </head><body><header><strong>77 TEAM MANAGER</strong><h1>${escapeHtml(title)}</h1></header>
   <div class="actions"><button onclick="window.print()">Salvar como PDF</button></div>
   <p>Gerado em ${new Date().toLocaleString("pt-BR")} · ${rows.length} registro(s)</p>
   <table><thead><tr><th>Data</th><th>Jogador</th><th>Cargo</th><th>Clã</th><th>Tipo</th><th>Horário/Evento</th><th>Status</th></tr></thead><tbody>${body}</tbody></table>
@@ -2960,7 +2988,6 @@ function settingsPayload(section){
     }),
     team:()=>({
       manualApproval:cfgValue("cfgManualApproval"),
-      guestAccess:cfgValue("cfgGuestAccess"),
       requireCharacter:cfgValue("cfgRequireCharacter"),
       allowNickname:cfgValue("cfgAllowNickname"),
       allowAvatar:cfgValue("cfgAllowAvatar"),
@@ -3022,7 +3049,7 @@ function settingsPayload(section){
 
   if(section==="permissions"){
     const permissions={};
-    ["owner","staff","member","guest"].forEach(role=>{
+    ["owner","staff","member"].forEach(role=>{
       permissions[role]=SETTINGS_MODULES.filter(module=>
         byId(`perm-${role}-${module}`)?.checked
       );
@@ -3069,7 +3096,7 @@ function renderPermissionMatrix(){
 
   tbody.innerHTML=SETTINGS_MODULES.map(module=>`<tr>
     <td><strong>${labels[module]||module}</strong></td>
-    ${["owner","staff","member","guest"].map(role=>{
+    ${["owner","staff","member"].map(role=>{
       const checked=(configured[role]||[]).includes(module);
       const locked=role==="owner";
       return `<td><input id="perm-${role}-${module}" type="checkbox" ${checked?"checked":""} ${locked?"disabled":""}></td>`;
@@ -3091,7 +3118,6 @@ function loadSettingsForm(){
 
   const team=settings.team||{};
   setCfgValue("cfgManualApproval",team.manualApproval??true);
-  setCfgValue("cfgGuestAccess",team.guestAccess??true);
   setCfgValue("cfgRequireCharacter",team.requireCharacter??false);
   setCfgValue("cfgAllowNickname",team.allowNickname??true);
   setCfgValue("cfgAllowAvatar",team.allowAvatar??true);
@@ -3231,6 +3257,7 @@ function privateSettingsForBackup(){
 function backupPayload(){
   return serializeBackupValue({
     format:"77-team-manager-backup",
+    backupSchema:3,
     version:"22.8.5",
     generatedAt:new Date().toISOString(),
     projectId:firebaseConfig.projectId,
@@ -3252,6 +3279,65 @@ function backupPayload(){
   });
 }
 
+async function completeBackupPayload(){
+  if(!owner())throw new Error("Somente o DEV pode gerar o backup completo.");
+  const payload=backupPayload();
+  const reads=await getDocs(collection(db,"notificationReads"));
+  const resetJobs=await getDocs(collection(db,"resetJobs"));
+  payload.collections.notifications=serializeBackupValue(state.sentNotifications||state.notifications);
+  payload.collections.notificationReads=serializeBackupValue(reads.docs.map(item=>({id:item.id,...item.data()})));
+  payload.collections.resetJobs=serializeBackupValue(resetJobs.docs.map(item=>({id:item.id,...item.data()})));
+  payload.subcollections={presenceBackups:{}};
+  for(const backup of state.presenceBackups){
+    const data=await loadPresenceBackupData(backup);
+    payload.subcollections.presenceBackups[backup.id]={
+      attendance:serializeBackupValue(data.records),
+      rt:serializeBackupValue(data.rtRecords)
+    };
+  }
+  payload.summary={
+    collections:Object.fromEntries(Object.entries(payload.collections).map(([name,rows])=>[name,Array.isArray(rows)?rows.length:0])),
+    presenceBackupSubcollections:Object.keys(payload.subcollections.presenceBackups).length
+  };
+  return payload;
+}
+
+function validBackupDocumentId(value){return typeof value==="string"&&value.length>0&&value.length<=500&&!value.includes("/")&&!/^\.{1,2}$/.test(value)}
+function validateBackupValue(value,depth=0){
+  if(depth>20)throw new Error("Backup excede a profundidade permitida.");
+  if(typeof value==="string"&&value.length>200000)throw new Error("Backup contém texto acima do limite seguro.");
+  if(Array.isArray(value)){value.forEach(item=>validateBackupValue(item,depth+1));return}
+  if(value&&typeof value==="object")for(const [key,item] of Object.entries(value)){
+    if(["__proto__","prototype","constructor"].includes(key))throw new Error("Backup contém uma chave não permitida.");
+    validateBackupValue(item,depth+1);
+  }
+}
+function validateBackupPayload(payload){
+  validateBackupValue(payload);
+  if(!payload||payload.format!=="77-team-manager-backup")throw new Error("Formato de backup incompatível.");
+  if(payload.projectId!==firebaseConfig.projectId)throw new Error("Este backup pertence a outro projeto Firebase.");
+  if(Number(payload.backupSchema||0)!==3)throw new Error("Schema de backup incompatível. Use um backup completo V22.8.5 schema 3.");
+  if(String(payload.version||"")!=="22.8.5")throw new Error("Versão de backup incompatível.");
+  if(!payload.collections||typeof payload.collections!=="object"||Array.isArray(payload.collections))throw new Error("Coleções do backup ausentes.");
+  const allowed=["users","members","attendance","events","notifications","notificationReads","rtPresence","presenceBackups","resetJobs","xpLogs","audit","supportMessages","chatMessages"];
+  for(const name of allowed)if(!Array.isArray(payload.collections[name]))throw new Error(`Coleção obrigatória ausente: ${name}.`);
+  for(const [name,rows] of Object.entries(payload.collections)){
+    if(!allowed.includes(name))throw new Error(`Coleção não permitida: ${name}.`);
+    if(!Array.isArray(rows)||rows.length>50000)throw new Error(`Coleção inválida ou excessiva: ${name}.`);
+    rows.forEach(item=>{if(!item||!validBackupDocumentId(item.id))throw new Error(`Documento inválido em ${name}.`)});
+  }
+  const groups=payload.subcollections?.presenceBackups;
+  if(!groups||typeof groups!=="object"||Array.isArray(groups))throw new Error("Subcoleções dos backups semanais ausentes.");
+  for(const [backupId,data] of Object.entries(groups)){
+    if(!validBackupDocumentId(backupId)||!Array.isArray(data?.attendance)||!Array.isArray(data?.rt))throw new Error("Subcoleção semanal inválida.");
+    if(data.attendance.length>50000||data.rt.length>10000)throw new Error("Subcoleção semanal excede o limite seguro.");
+    [...data.attendance,...data.rt].forEach(item=>{if(!item||!validBackupDocumentId(item.originalId||item.id))throw new Error(`Registro inválido no backup ${backupId}.`)});
+  }
+  if(!payload.settings||typeof payload.settings.public!=="object"||Array.isArray(payload.settings.public))throw new Error("Configurações públicas do backup ausentes.");
+  if(!payload.generatedAt||Number.isNaN(Date.parse(payload.generatedAt)))throw new Error("Data de geração do backup inválida.");
+  return allowed;
+}
+
 function downloadJsonFile(name,data){
   const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
   const url=URL.createObjectURL(blob);
@@ -3265,35 +3351,40 @@ function downloadJsonFile(name,data){
 }
 
 async function restoreBackupPayload(payload){
-  if(payload?.format!=="77-team-manager-backup")throw new Error("Arquivo de backup incompatível.");
+  if(!owner())throw new Error("Somente o DEV pode restaurar backups completos.");
+  const allowed=validateBackupPayload(payload);
   const collections=payload.collections||{};
-  const allowed=["users","members","attendance","events","notifications","notificationReads","rtPresence","presenceBackups","xpLogs","audit","supportMessages","chatMessages"];
-
-  for(const collectionName of allowed){
-    const rows=Array.isArray(collections[collectionName])?collections[collectionName]:[];
-    for(let index=0;index<rows.length;index+=350){
-      const group=rows.slice(index,index+350);
-      const batch=writeBatch(db);
-      group.forEach(item=>{
-        if(!item.id)return;
-        const data=deserializeBackupValue({...item});
-        delete data.id;
-        data.restoredBy=state.user.uid;
-        data.restoredAt=serverTimestamp();
-        batch.set(doc(db,collectionName,item.id),data,{merge:true});
-      });
-      await batch.commit();
+  const jobId=`restore__${Date.now()}__${state.user.uid.slice(0,8)}`,jobRef=doc(db,"restoreJobs",jobId);
+  await setDoc(jobRef,{status:"validated",sourceVersion:payload.version,backupSchema:payload.backupSchema,projectId:payload.projectId,createdBy:state.user.uid,createdAt:serverTimestamp(),updatedAt:serverTimestamp()});
+  try{
+    for(const collectionName of allowed){
+      const rows=collections[collectionName]||[];
+      await updateDoc(jobRef,{status:"restoring",currentCollection:collectionName,total:rows.length,updatedAt:serverTimestamp()});
+      for(let index=0;index<rows.length;index+=350){
+        const group=rows.slice(index,index+350),batch=writeBatch(db);
+        group.forEach(item=>{const data=deserializeBackupValue({...item});delete data.id;data.restoredBy=state.user.uid;data.restoredAt=serverTimestamp();batch.set(doc(db,collectionName,item.id),data,{merge:true})});
+        await batch.commit();
+        await updateDoc(jobRef,{processed:Math.min(index+group.length,rows.length),updatedAt:serverTimestamp()});
+      }
     }
-  }
-
-  if(payload.settings){
-    const split=payload.settings.public!==undefined||payload.settings.private!==undefined;
-    const publicSettings=deserializeBackupValue(split?payload.settings.public:payload.settings);
-    if(publicSettings?.notifications)delete publicSettings.notifications.discordWebhook;
-    delete publicSettings?.notificationsPrivate;
+    for(const [backupId,data] of Object.entries(payload.subcollections.presenceBackups)){
+      for(const [subcollection,rows] of Object.entries({attendance:data.attendance,rt:data.rt})){
+        await updateDoc(jobRef,{status:"restoring_subcollections",currentCollection:`presenceBackups/${backupId}/${subcollection}`,total:rows.length,updatedAt:serverTimestamp()});
+        for(let index=0;index<rows.length;index+=350){
+          const group=rows.slice(index,index+350),batch=writeBatch(db);
+          group.forEach(item=>{const data=deserializeBackupValue({...item}),id=item.originalId||item.id;delete data.id;data.originalId=id;data.restoredBy=state.user.uid;data.restoredAt=serverTimestamp();batch.set(doc(db,"presenceBackups",backupId,subcollection,id),data,{merge:true})});
+          await batch.commit();
+        }
+      }
+    }
+    const publicSettings=deserializeBackupValue(payload.settings?.public||{});if(publicSettings?.notifications)delete publicSettings.notifications.discordWebhook;delete publicSettings?.notificationsPrivate;
     await setDoc(doc(db,"settings","app"),publicSettings||{},{merge:true});
-    const privateSettings=deserializeBackupValue(split?payload.settings.private:{});
-    if(Object.keys(privateSettings||{}).length)await setDoc(doc(db,"settings","private"),privateSettings,{merge:true});
+    await updateDoc(jobRef,{status:"completed",completedAt:serverTimestamp(),updatedAt:serverTimestamp()});
+    await audit("backup completo restaurado",`${jobId} · schema ${payload.backupSchema}`);
+    return jobId;
+  }catch(error){
+    try{await updateDoc(jobRef,{status:"failed",errorCode:error?.code||"error",errorMessage:String(error?.message||error).slice(0,500),failedAt:serverTimestamp(),updatedAt:serverTimestamp()})}catch{}
+    throw error;
   }
 }
 
@@ -3328,24 +3419,24 @@ function renderGoals(){
       <div class="goal-item-head"><div><strong>${escapeHtml(goal.title)}</strong><small>${goal.deadline?`Prazo: ${escapeHtml(formatHistoryDate(goal.deadline))}`:"Sem prazo"}</small></div><span>${goal.progress}%</span></div>
       <div class="goal-progress"><i style="width:${goal.progress}%"></i></div>
       <p>${goal.current.toLocaleString("pt-BR")} de ${Number(goal.target).toLocaleString("pt-BR")}</p>
-      <button class="btn danger" data-delete-goal="${goal.id}" type="button">Remover</button>
+      <button class="btn danger" data-delete-goal="${escapeHtml(goal.id)}" type="button">Remover</button>
     </article>
   `).join("")||'<p class="empty-state">Nenhuma meta cadastrada.</p>');
 }
 
 on("settingsSearch","input",event=>filterSettingsTabs(event.target.value));
 on("refreshSystemHealth","click",renderSystemHealth);
-on("exportCompleteBackup","click",()=>{
-  const now=new Date().toISOString().slice(0,10);
-  downloadJsonFile(`backup-77-team-${now}.json`,backupPayload());
-  const stamp=new Date().toLocaleString("pt-BR");
-  localStorage.setItem("77team-last-backup",stamp);
-  setText("systemLastBackup",stamp);
-  toast("Backup gerado.");
+on("exportCompleteBackup","click",async()=>{
+  if(!owner())return toast("Somente o DEV pode gerar o backup completo.");
+  try{
+    const now=new Date().toISOString().slice(0,10);downloadJsonFile(`backup-77-team-${now}.json`,await completeBackupPayload());
+    const stamp=new Date().toLocaleString("pt-BR");localStorage.setItem("77team-last-backup",stamp);setText("systemLastBackup",stamp);toast("Backup completo gerado.");
+  }catch(error){toast(error.message||errMsg(error))}
 });
 on("restoreCompleteBackup","click",async()=>{
   const file=byId("importBackupFile")?.files?.[0];
   if(!file)return toast("Selecione um arquivo JSON.");
+  if(file.size>50*1024*1024)return toast("O backup excede o limite seguro de 50 MB.");
   if(!confirm("Restaurar este backup usando mesclagem?"))return;
   try{
     const payload=JSON.parse(await file.text());
@@ -3431,7 +3522,7 @@ function staffRows(){
 function staffAvatarHtml(item){
   return item.avatar
     ?`<img src="${escapeHtml(safeImageUrl(item.avatar))}" alt="${escapeHtml(item.name)}">`
-    :`<span>${item.name.slice(0,1).toUpperCase()}</span>`;
+    :`<span>${escapeHtml(item.name.slice(0,1).toUpperCase())}</span>`;
 }
 
 function formatPossibleTimestamp(value){
@@ -3477,7 +3568,7 @@ function renderStaffCards(){
         <div><span>Taxa</span><strong>${item.stat.rate}%</strong></div>
         <div><span>Level</span><strong>${progressionFor(state.members.find(member=>member.name===item.name)).level}</strong></div>
       </div>
-      <button class="btn primary full" data-staff-details="${item.id}" type="button">Ver perfil</button>
+      <button class="btn primary full" data-staff-details="${escapeHtml(item.id)}" type="button">Ver perfil</button>
     </article>
   `).join("")||'<p class="empty-state">Nenhum membro da Staff encontrado.</p>';
 }
@@ -3559,7 +3650,7 @@ function renderStaffActivity(){
 
   container.innerHTML=rows.map(([label,value])=>`
     <div class="staff-activity-row">
-      <span>${label}</span>
+      <span>${escapeHtml(label)}</span>
       <div><i style="width:${Math.round(value/max*100)}%"></i></div>
       <strong>${value}</strong>
     </div>
@@ -3576,9 +3667,9 @@ function renderStaffJournal(){
 
   list.innerHTML=staffJournalItems().slice().reverse().slice(0,20).map(item=>`
     <article class="staff-journal-item">
-      <span>${item.category||"observacao"}</span>
-      <strong>${item.authorName||"Staff"}</strong>
-      <p>${item.text}</p>
+      <span>${escapeHtml(item.category||"observacao")}</span>
+      <strong>${escapeHtml(item.authorName||"Staff")}</strong>
+      <p>${escapeHtml(item.text)}</p>
       <small>${new Date(item.createdAt).toLocaleString("pt-BR")}</small>
     </article>
   `).join("")||'<p class="empty-state">Nenhuma anotação registrada.</p>';
@@ -3598,7 +3689,7 @@ function openStaffDetails(item){
       <div><span>Ausências</span><strong>${item.stat.absent}</strong></div>
       <div><span>Taxa</span><strong>${item.stat.rate}%</strong></div>
       <div><span>Power</span><strong>${Number(item.character.power||0).toLocaleString("pt-BR")}</strong></div>
-      <div><span>Classe</span><strong>${item.character.className||"—"}</strong></div>
+      <div><span>Classe</span><strong>${escapeHtml(item.character.className||"—")}</strong></div>
       <div><span>Último acesso</span><strong>${formatPossibleTimestamp(item.lastAccess)}</strong></div>
     </div>
   `);
@@ -3615,7 +3706,7 @@ function printStaffReport(){
   const body=rows.map(item=>`<tr>
     <td>${escapeHtml(item.name)}</td><td>${item.role==="owner"?"Liderança":"Staff"}</td>
     <td>${escapeHtml(item.clan)}</td><td>${item.stat.present}</td><td>${item.stat.rate}%</td>
-    <td>${item.character.className||"—"}</td><td>${Number(item.character.power||0).toLocaleString("pt-BR")}</td>
+    <td>${escapeHtml(item.character.className||"—")}</td><td>${Number(item.character.power||0).toLocaleString("pt-BR")}</td>
   </tr>`).join("");
 
   popup.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Relatório da Staff</title>
@@ -3705,9 +3796,9 @@ function renderNotificationAdmin(){
   const list=byId("notificationSentRows");if(!list)return;
   const sent=(state.sentNotifications||[]).filter(n=>n.createdBy===state.user?.uid||owner()).slice().sort((a,b)=>{const av=a.createdAt?.toMillis?.()||Date.parse(a.createdAt||0)||0;const bv=b.createdAt?.toMillis?.()||Date.parse(b.createdAt||0)||0;return bv-av});
   setText("notificationSentCount",sent.length);
-  list.innerHTML=sent.map(n=>`<article class="notification-sent-item type-${n.type||"info"}">
+  list.innerHTML=sent.map(n=>`<article class="notification-sent-item type-${["info","warning","important","urgent"].includes(n.type)?n.type:"info"}">
     <div><strong>${escapeHtml(n.title||"Notificação")}</strong><p>${escapeHtml(n.message||"")}</p><small>${n.targetType==="user"?`Individual: ${escapeHtml(n.targetUserName||"Usuário")}`:"Todos os usuários"} · ${escapeHtml(notificationDate(n))}</small></div>
-    ${owner()?`<button class="btn danger mini" data-delete-notification="${n.id}" type="button">Excluir</button>`:""}
+    ${owner()?`<button class="btn danger mini" data-delete-notification="${escapeHtml(n.id)}" type="button">Excluir</button>`:""}
   </article>`).join("")||'<p class="empty-state">Nenhuma notificação enviada.</p>';
 }
 on("notificationTargetMode","change",()=>{
@@ -3764,13 +3855,8 @@ on("downloadStaffPdf","click",printStaffReport);
 on("downloadStaffCsv","click",downloadStaffCsvFile);
 on("closeStaffDrawer","click",()=>byId("staffDetailsDrawer")?.classList.add("hidden"));
 on("staffQuickBackup","click",()=>{
-  if(typeof backupPayload==="function"&&typeof downloadJsonFile==="function"){
-    const now=new Date().toISOString().slice(0,10);
-    downloadJsonFile(`backup-77-team-${now}.json`,backupPayload());
-    toast("Backup gerado.");
-  }else{
-    toast("Abra Configurações > Backup para gerar o arquivo.");
-  }
+  if(!owner())return toast("O backup completo é exclusivo do DEV. Use Backup de Presença para o fechamento semanal.");
+  byId("exportCompleteBackup")?.click();
 });
 
 document.addEventListener("click",event=>{
@@ -4070,9 +4156,9 @@ function renderXpAdjustmentHistory(){
   container.innerHTML=rows.map(item=>`
     <article class="xp-log-item ${Number(item.amount)>=0?"positive":"negative"}">
       <div>
-        <strong>${item.memberName||"Membro"}</strong>
-        <p>${item.reason||"Ajuste manual"}</p>
-        <small>${item.staffName||"Staff"} · ${item.createdAt?.toDate?item.createdAt.toDate().toLocaleString("pt-BR"):""}</small>
+        <strong>${escapeHtml(item.memberName||"Membro")}</strong>
+        <p>${escapeHtml(item.reason||"Ajuste manual")}</p>
+        <small>${escapeHtml(item.staffName||"Staff")} · ${item.createdAt?.toDate?item.createdAt.toDate().toLocaleString("pt-BR"):""}</small>
       </div>
       <span>${Number(item.amount)>=0?"+":""}${Number(item.amount||0)} XP</span>
     </article>
@@ -4320,7 +4406,7 @@ function renderDashboardClanPoints(){
   container.innerHTML=rows.map(([clan,points],index)=>`
     <div class="clan-points-row">
       <span>${index+1}</span>
-      <strong>${clan}</strong>
+      <strong>${escapeHtml(clan)}</strong>
       <div><i style="width:${Math.round(points/max*100)}%"></i></div>
       <b>${points}</b>
     </div>
@@ -4363,7 +4449,7 @@ function renderDashboardRecentActivity(){
 
   container.innerHTML=[...presenceActivities,...memberActivities].slice(0,6).map(item=>`
     <article class="recent-activity-item">
-      <span>${item.icon}</span>
+      <span>${escapeHtml(item.icon)}</span>
       <div><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.time)}</small></div>
     </article>
   `).join("")||'<p class="empty-state">Nenhuma atividade recente.</p>';

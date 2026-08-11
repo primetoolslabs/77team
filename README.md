@@ -1,5 +1,11 @@
 # 77 TEAM Manager V22.8.5 Hotfix
 
+## Quinta auditoria — configuração obrigatória do primeiro DEV
+
+Em um Firebase novo, antes de abrir o sistema pela primeira vez, crie manualmente no Firestore o documento `system/bootstrap` com o campo `allowedEmail` contendo o e-mail exato autorizado para a conta DEV. Esse documento não pode ser lido pelo navegador e é removido automaticamente depois que o primeiro DEV e `system/owner` forem criados. Sem essa autorização prévia, nenhuma conta pode assumir o primeiro acesso.
+
+A quinta auditoria também remove integralmente a entrada pública como Visitante, protege as renderizações dinâmicas contra HTML armazenado, adiciona backup completo schema 3 com subcoleções semanais, validação de projeto/versão/estrutura, `restoreJob` auditável e alteração de clã pelos responsáveis.
+
 Atualização de consolidação sobre a V22.8.4, sem mudanças de layout. Integra a matriz configurável às operações críticas, melhora a segurança dos backups, adiciona rastreamento recuperável do Reset Global e prepara o projeto para npm/Firebase CLI.
 
 Consulte `CHANGELOG-V22.8.5.md`.
