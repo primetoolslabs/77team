@@ -154,6 +154,7 @@ const ROLE_PERMISSION_DEFINITIONS=Object.freeze([
   {group:"Solicitações e cargos",key:"requests_reject",label:"Rejeitar solicitações",defaults:{dev:true,leadership:true,staff:true,member:false,guest:false}},
   {group:"Solicitações e cargos",key:"roles_change",label:"Alterar cargos permitidos pela hierarquia",defaults:{dev:true,leadership:true,staff:false,member:false,guest:false}},
   {group:"Membros",key:"members_delete",label:"Excluir membros",defaults:{dev:true,leadership:true,staff:false,member:false,guest:false}},
+  {group:"Membros",key:"members_edit",label:"Editar e cadastrar membros",defaults:{dev:true,leadership:true,staff:true,member:false,guest:false}},
   {group:"Personagens",key:"character_view",label:"Visualizar personagens",defaults:{dev:true,leadership:true,staff:true,member:true,guest:false}},
   {group:"Personagens",key:"character_edit",label:"Editar personagens permitidos",defaults:{dev:true,leadership:true,staff:true,member:true,guest:false}},
   {group:"Personagens",key:"character_delete",label:"Excluir personagens permitidos",defaults:{dev:true,leadership:true,staff:true,member:true,guest:false}},
@@ -357,8 +358,8 @@ function applyPermissions(){
   $$(".editor-only").forEach(el=>el.classList.toggle("hidden",!editor()));
   document.body.dataset.accessRole=currentAccessRole();
   document.body.dataset.rawAccessRole=String(state.profile?.accessRole||state.profile?.role||"");
-  document.querySelectorAll("[data-save-settings]").forEach(button=>button.classList.toggle("hidden",!owner()));
-  document.querySelectorAll("#configuracoes input,#configuracoes select,#configuracoes textarea").forEach(field=>field.disabled=!owner());
+  document.querySelectorAll("[data-save-settings]").forEach(button=>button.classList.toggle("hidden",!permissionEnabled("settings_edit")));
+  document.querySelectorAll("#configuracoes input,#configuracoes select,#configuracoes textarea").forEach(field=>field.disabled=!permissionEnabled("settings_edit"));
 
   const displayName=state.guest
     ?"Visitante"
@@ -449,7 +450,7 @@ function subscribeAll(){
     state.unsubs.push(onSnapshot(collection(db,"presenceBackups"),snapshot=>{state.presenceBackups=snapshot.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>rtDateValue(b.createdAt)-rtDateValue(a.createdAt));renderPresenceBackups();renderBackupCenter();},error=>console.error("Falha ao carregar backups de presença:",error)));
   }else state.rtPresence=[];
   if(editor())state.unsubs.push(onSnapshot(collection(db,"users"),s=>{state.users=s.docs.map(d=>{const user={id:d.id,...d.data()};return {...user,resolvedAccessRole:resolveAccessRole(user)}});render();scheduleAttendanceUserMigration();scheduleAccountRoleSync()}));
-  if(owner())state.unsubs.push(onSnapshot(collection(db,"audit"),s=>{state.audit=s.docs.map(d=>({id:d.id,...d.data()}));render()}));
+  if(permissionEnabled("audit_view"))state.unsubs.push(onSnapshot(collection(db,"audit"),s=>{state.audit=s.docs.map(d=>({id:d.id,...d.data()}));render()}));
   if(editor())state.unsubs.push(onSnapshot(collection(db,"xpLogs"),s=>{state.xpLogs=s.docs.map(d=>({id:d.id,...d.data()}));render()}));
   state.unsubs.push(onSnapshot(collection(db,"events"),s=>{state.events=s.docs.map(d=>({id:d.id,...d.data()}));render()}));
   if(state.user){
@@ -495,9 +496,9 @@ function subscribeAll(){
     }
   }
   if(state.user){
-    const supportQuery=editor()?collection(db,"supportMessages"):query(collection(db,"supportMessages"),where("ownerUid","==",state.user.uid),where("status","!=","resolved"));
+    const supportQuery=permissionEnabled("support_manage")?collection(db,"supportMessages"):query(collection(db,"supportMessages"),where("ownerUid","==",state.user.uid),where("status","!=","resolved"));
     state.unsubs.push(onSnapshot(supportQuery,s=>{state.supportMessages=s.docs.map(d=>({id:d.id,...d.data()}));renderSupport();},error=>console.error("Falha ao carregar atendimentos:",error)));
-    const chatQuery=editor()?collection(db,"chatMessages"):query(collection(db,"chatMessages"),where("ownerUid","==",state.user.uid));
+    const chatQuery=permissionEnabled("support_manage")?collection(db,"chatMessages"):query(collection(db,"chatMessages"),where("ownerUid","==",state.user.uid));
     state.unsubs.push(onSnapshot(chatQuery,s=>{state.chatMessages=s.docs.map(d=>({id:d.id,...d.data()}));renderPrivateChat();},error=>console.error("Falha ao carregar chat privado:",error)));
   }
   state.unsubs.push(onSnapshot(doc(db,"settings","app"),s=>{state.settings=s.exists()?s.data():{};loadSettingsForm();applyLoginCustomization();loadLoginCustomizationForm();renderGoals();render()}));
@@ -523,10 +524,10 @@ function renderPresence(targetId,kind){
   target.innerHTML=`<div class="presence-v207">
     <div class="presence-v207-toolbar">
       <div><h3>Registros de ${presenceTypeLabel(kind)}</h3><p>Registre individualmente pelo painel horizontal. O lançamento atualiza o Histórico e o RT Presença.</p></div>
-      ${editor()?`<button class="btn primary" data-open-presence-modal="${kind}">➕ Registrar Presença</button>`:""}
+      ${permissionEnabled("presence_register")?`<button class="btn primary" data-open-presence-modal="${kind}">➕ Registrar Presença</button>`:""}
     </div>
     <div class="presence-v207-filters"><input type="search" placeholder="Buscar nos últimos registros..." data-recent-presence-search="${kind}"><input type="date" data-recent-presence-date="${kind}"></div>
-    <div class="table-wrap presence-v207-table"><table><thead><tr><th>Data</th><th>Usuário</th><th>Clã</th><th>Horário/Evento</th><th>Status</th><th>Observação</th><th>Responsável</th>${owner()?"<th>Ações</th>":""}</tr></thead><tbody data-recent-presence-body="${kind}">${renderRecentPresenceBody(rows)}</tbody></table></div>
+    <div class="table-wrap presence-v207-table"><table><thead><tr><th>Data</th><th>Usuário</th><th>Clã</th><th>Horário/Evento</th><th>Status</th><th>Observação</th><th>Responsável</th>${permissionEnabled("presence_delete")?"<th>Ações</th>":""}</tr></thead><tbody data-recent-presence-body="${kind}">${renderRecentPresenceBody(rows)}</tbody></table></div>
   </div>`;
 }
 function recentAllPresenceRows(){return [...state.attendance].filter(item=>[-1,1,3].includes(Number(item.status))).sort((a,b)=>rtDateValue(b.updatedAt)-rtDateValue(a.updatedAt)).slice(0,50)}
@@ -544,7 +545,7 @@ function renderUnifiedPresence(){
       <input type="date" data-unified-presence-date>
       <select data-unified-presence-kind><option value="">Todos os eventos</option><option value="worldboss">WorldBoss</option><option value="purgatorio">Purgatório</option><option value="eventos">Eventos</option></select>
     </div>
-    <div class="table-wrap presence-v207-table"><table><thead><tr><th>Data</th><th>Usuário</th><th>Clã</th><th>Evento</th><th>Horário/Atividade</th><th>Status</th><th>Observação</th><th>Responsável</th>${owner()?"<th>Ações</th>":""}</tr></thead><tbody data-unified-presence-body>${renderUnifiedPresenceBody(rows)}</tbody></table></div>
+    <div class="table-wrap presence-v207-table"><table><thead><tr><th>Data</th><th>Usuário</th><th>Clã</th><th>Evento</th><th>Horário/Atividade</th><th>Status</th><th>Observação</th><th>Responsável</th>${permissionEnabled("presence_delete")?"<th>Ações</th>":""}</tr></thead><tbody data-unified-presence-body>${renderUnifiedPresenceBody(rows)}</tbody></table></div>
     <section class="presence-backup-panel"><div class="presence-backup-head"><div><h3>📚 Histórico de backups</h3><p>Os fechamentos ficam guardados por semana e podem ser consultados sem alterar o Histórico existente.</p></div><span class="badge" id="presenceBackupCount">${state.presenceBackups.length} backups</span></div><div class="presence-backup-list" id="presenceBackupList"></div></section>
   </div>`;
   renderPresenceBackups();
@@ -560,16 +561,38 @@ function renderPresenceBackups(){
   setText("presenceBackupCount",`${state.presenceBackups.length} backup${state.presenceBackups.length===1?"":"s"}`);
   list.innerHTML=state.presenceBackups.map(item=>{const counts=item.counts||presenceBackupCounts(item.records||[]);return `<article class="presence-backup-card"><div><strong>📅 ${escapeHtml(item.week||"Semana não informada")}</strong><span>${escapeHtml(presenceBackupDate(item.createdAt))}</span></div><div class="presence-backup-metrics"><span>🟢 ${Number(counts.present||0)}</span><span>🟡 ${Number(counts.justified||0)}</span><span>🔴 ${Number(counts.absent||0)}</span><span>📋 ${Number(item.total||item.records?.length||0)}</span><span>🧾 ${Number(item.rtTotal||item.rtRecords?.length||0)} RTs</span></div><div><small>Responsável</small><b>${escapeHtml(item.createdByName||"—")}</b></div><button class="btn mini" data-download-presence-backup="${item.id}">Baixar JSON</button></article>`}).join("")||`<div class="empty-state">Nenhum backup de presença foi criado.</div>`;
 }
+async function writeBackupSubcollection(backupId,name,rows){
+  for(let start=0;start<rows.length;start+=400){
+    const batch=writeBatch(db);
+    rows.slice(start,start+400).forEach((record,index)=>{
+      const originalId=record.originalId||record.id||`${name}-${start+index}`;
+      const {id,...data}=record;
+      batch.set(doc(db,"presenceBackups",backupId,name,String(originalId)),{...data,originalId:String(originalId)});
+    });
+    await batch.commit();
+  }
+}
+async function loadPresenceBackupData(item){
+  if(!item)return {records:[],rtRecords:[]};
+  if(Array.isArray(item.records)||Array.isArray(item.rtRecords))return {records:item.records||[],rtRecords:item.rtRecords||[]};
+  const [attendanceSnap,rtSnap]=await Promise.all([
+    getDocs(collection(db,"presenceBackups",item.id,"attendance")),
+    getDocs(collection(db,"presenceBackups",item.id,"rt"))
+  ]);
+  return {records:attendanceSnap.docs.map(d=>({id:d.id,...d.data()})),rtRecords:rtSnap.docs.map(d=>({id:d.id,...d.data()}))};
+}
 async function createPresenceBackup({automatic=false}={}){
   if(!permissionEnabled("presence_register"))return toast("Sem permissão para criar backup.");
   const records=state.attendance.filter(item=>[-1,1,3].includes(Number(item.status))).map(item=>({...item,originalId:item.id}));
   const rtRecords=state.rtPresence.map(item=>({...item,originalId:item.id}));
   if(!records.length&&!rtRecords.length){toast("Não existem dados de presença para salvar.");return null}
   const now=new Date(),week=isoWeek(todayIso()),counts=presenceBackupCounts(records),id=`${week}__${now.toISOString().replace(/[^0-9]/g,"").slice(0,14)}`;
-  const payload={week,records,rtRecords,counts,total:records.length,rtTotal:rtRecords.length,automatic,createdBy:state.user.uid,createdByName:state.profile?.name||state.user.email,createdAt:serverTimestamp(),createdAtText:now.toISOString(),sourceVersion:"22.8.4"};
+  const payload={week,counts,total:records.length,rtTotal:rtRecords.length,automatic,backupSchema:2,createdBy:state.user.uid,createdByName:state.profile?.name||state.user.email,createdAt:serverTimestamp(),createdAtText:now.toISOString(),sourceVersion:"22.8.5"};
   await setDoc(doc(db,"presenceBackups",id),payload);
-  await audit(automatic?"backup automático da presença":"backup da presença",`${week} · ${records.length} presenças · ${rtRecords.length} RTs`);
-  toast(`Backup salvo: ${records.length} presenças e ${rtRecords.length} RTs.`);return{id,...payload,createdAt:now};
+  await writeBackupSubcollection(id,"attendance",records);
+  await writeBackupSubcollection(id,"rt",rtRecords);
+  await audit(automatic?"backup automático da presença":"backup da presença",`${week} · ${records.length} presenças · ${rtRecords.length} RTs · schema 2`);
+  toast(`Backup salvo: ${records.length} presenças e ${rtRecords.length} RTs.`);return{id,...payload,records,rtRecords,createdAt:now};
 }
 function clearPresenceClientCache(){
   state.presenceFilters={};
@@ -585,7 +608,7 @@ function clearPresenceClientCache(){
 async function deleteDocsInChunks(collectionName,rows){
   for(let start=0;start<rows.length;start+=400){
     const batch=writeBatch(db);
-    rows.slice(start,start+400).forEach(item=>batch.delete(doc(db,collectionName,item.id)));
+    rows.slice(start,start+400).forEach(item=>batch.delete(doc(db,...collectionName.split("/"),item.originalId||item.id)));
     await batch.commit();
   }
 }
@@ -596,16 +619,26 @@ async function resetPresenceWithBackup(){
   if(!attendanceRows.length&&!rtRows.length)return toast("Não existem dados de presença para resetar.");
   const confirmation=prompt(`ATENÇÃO: o reset encerrará a semana atual e limpará Presenças, RT Presença, Consultar Registros, indicadores, ranking e estatísticas derivados desses dados.\n\nSerá criado um backup automático com ${attendanceRows.length} presenças e ${rtRows.length} RTs.\n\nDigite RESET para confirmar:`);
   if(String(confirmation||"").trim().toUpperCase()!=="RESET")return toast("Reset cancelado.");
+  const jobId=`reset__${Date.now()}__${state.user.uid.slice(0,8)}`;
   try{
+    await setDoc(doc(db,"resetJobs",jobId),{status:"preparing",week:isoWeek(todayIso()),createdBy:state.user.uid,createdByName:state.profile?.name||state.user.email,attendanceTotal:attendanceRows.length,rtTotal:rtRows.length,createdAt:serverTimestamp(),updatedAt:serverTimestamp()});
     const backup=await createPresenceBackup({automatic:true});if(!backup)return;
+    await updateDoc(doc(db,"resetJobs",jobId),{status:"backup_created",backupId:backup.id,updatedAt:serverTimestamp()});
+    await updateDoc(doc(db,"resetJobs",jobId),{status:"deleting_attendance",updatedAt:serverTimestamp()});
     await deleteDocsInChunks("attendance",attendanceRows);
+    await updateDoc(doc(db,"resetJobs",jobId),{status:"deleting_rt",updatedAt:serverTimestamp()});
     await deleteDocsInChunks("rtPresence",rtRows);
     clearPresenceClientCache();
-    await audit("reset global de presença",`${backup.week} · ${attendanceRows.length} presenças · ${rtRows.length} RTs removidos · backup ${backup.id}`);
+    await updateDoc(doc(db,"resetJobs",jobId),{status:"completed",completedAt:serverTimestamp(),updatedAt:serverTimestamp()});
+    await audit("reset global de presença",`${backup.week} · ${attendanceRows.length} presenças · ${rtRows.length} RTs removidos · backup ${backup.id} · job ${jobId}`);
     toast("Reset global concluído. Todas as abas de presença foram reiniciadas.");
-  }catch(error){console.error(error);toast(errMsg(error))}
+  }catch(error){
+    console.error(error);
+    try{await setDoc(doc(db,"resetJobs",jobId),{status:"failed",errorCode:error?.code||"error",errorMessage:String(error?.message||error).slice(0,500),updatedAt:serverTimestamp()},{merge:true})}catch{}
+    toast("Reset interrompido. O backup e o registro de recuperação foram preservados. Tente novamente após verificar a conexão.");
+  }
 }
-function downloadPresenceBackup(id){const item=state.presenceBackups.find(row=>row.id===id);if(!item)return toast("Backup não encontrado.");downloadJson(`presenca-${item.week||id}.json`,{version:"22.8.4",exportedAt:new Date().toISOString(),backup:item});}
+async function downloadPresenceBackup(id){const item=state.presenceBackups.find(row=>row.id===id);if(!item)return toast("Backup não encontrado.");const data=await loadPresenceBackupData(item);downloadJson(`presenca-${item.week||id}.json`,{version:"22.8.5",exportedAt:new Date().toISOString(),backup:{...item,...data}});}
 
 
 function backupCenterDateValue(item){return rtDateValue(item?.createdAt)||Date.parse(item?.createdAtText||0)||0}
@@ -626,22 +659,25 @@ function renderBackupCenter(){
   setText("backupCenterResponsible",latest?.createdByName||"—");
   list.innerHTML=rows.map(item=>{const counts=item.counts||presenceBackupCounts(item.records||[]);return `<article class="backup-center-card"><div class="backup-center-main"><span class="backup-kind">💾 Backup de Presença</span><strong>${escapeHtml(item.week||"Semana não informada")}</strong><small>${escapeHtml(presenceBackupDate(item.createdAt||item.createdAtText))} · ${item.automatic?"Automático":"Manual"}</small></div><div class="backup-center-stats"><span>🟢 ${Number(counts.present||0)}</span><span>🟡 ${Number(counts.justified||0)}</span><span>🔴 ${Number(counts.absent||0)}</span><span>📋 ${Number(item.total||item.records?.length||0)}</span><span>🧾 ${Number(item.rtTotal||item.rtRecords?.length||0)} RTs</span></div><div class="backup-center-owner"><small>Responsável</small><b>${escapeHtml(item.createdByName||"—")}</b></div><div class="backup-center-actions"><button class="btn mini" data-view-center-backup="${item.id}">👁 Visualizar</button><button class="btn mini" data-download-presence-backup="${item.id}">JSON</button><button class="btn mini" data-export-center-excel="${item.id}">Excel</button>${administrator()?`<button class="btn mini" data-restore-center-backup="${item.id}">♻ Restaurar</button>`:""}${owner()?`<button class="btn danger mini" data-delete-center-backup="${item.id}">🗑 Excluir</button>`:""}</div></article>`}).join("")||`<div class="empty-state">Nenhum backup encontrado.</div>`;
 }
-function viewCenterBackup(id){
+async function viewCenterBackup(id){
   const item=state.presenceBackups.find(row=>row.id===id);if(!item)return toast("Backup não encontrado.");
-  const counts=item.counts||presenceBackupCounts(item.records||[]);
+  const data=await loadPresenceBackupData(item);
+  const counts=item.counts||presenceBackupCounts(data.records);
   alert(`Backup de Presença\n\nSemana: ${item.week||"—"}\nData: ${presenceBackupDate(item.createdAt||item.createdAtText)}\nResponsável: ${item.createdByName||"—"}\nTotal: ${item.total||item.records?.length||0}\nPresentes: ${counts.present||0}\nJustificados: ${counts.justified||0}\nAusentes: ${counts.absent||0}`);
 }
-function exportCenterBackupExcel(id){
+async function exportCenterBackupExcel(id){
   const item=state.presenceBackups.find(row=>row.id===id);if(!item)return toast("Backup não encontrado.");
+  const data=await loadPresenceBackupData(item);
   const headers=["Data","Membro","Clã","Tipo","Horário/Atividade","Status","Observação","Responsável"];
-  const rows=(item.records||[]).map(r=>[r.date||"",r.memberName||"",r.clan||"",presenceTypeLabel(r.kind),r.slot||"",presenceStatus(r.status).label,r.note||"",r.updatedByName||item.createdByName||""]);
+  const rows=data.records.map(r=>[r.date||"",r.memberName||"",r.clan||"",presenceTypeLabel(r.kind),r.slot||"",presenceStatus(r.status).label,r.note||"",r.updatedByName||item.createdByName||""]);
   const html=`<html><head><meta charset="utf-8"></head><body><h2>Backup ${escapeHtml(item.week||"")}</h2><table border="1"><tr>${headers.map(h=>`<th>${escapeHtml(h)}</th>`).join("")}</tr>${rows.map(row=>`<tr>${row.map(v=>`<td>${escapeHtml(v)}</td>`).join("")}</tr>`).join("")}</table></body></html>`;
   const blob=new Blob(["\ufeff"+html],{type:"application/vnd.ms-excel"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`backup-presenca-${item.week||id}.xls`;a.click();URL.revokeObjectURL(a.href);audit("download de backup",`${item.week||id} · Excel`);
 }
 async function restoreCenterBackup(id){
   if(!administrator())return toast("Somente DEV e Liderança podem restaurar backups.");
   const item=state.presenceBackups.find(row=>row.id===id);if(!item)return toast("Backup não encontrado.");
-  const records=item.records||[],rtRecords=item.rtRecords||[];
+  const data=await loadPresenceBackupData(item);
+  const records=data.records,rtRecords=data.rtRecords;
   if(!confirm(`Restaurar o backup ${item.week||id}? Serão restauradas ${records.length} presenças e ${rtRecords.length} RTs usando os IDs originais, evitando duplicações.`))return;
   try{
     for(let start=0;start<records.length;start+=400){const batch=writeBatch(db);records.slice(start,start+400).forEach(record=>{const {id:legacyId,originalId,...data}=record;const targetId=originalId||legacyId||(data.kind+"__"+(data.date||todayIso())+"__"+(data.memberId||"member")+"__"+(data.slot||"slot")).replace(/[^a-zA-Z0-9_-]/g,"_");const ref=doc(db,"attendance",targetId);batch.set(ref,{...data,restoredFromBackup:id,restoredAt:serverTimestamp(),restoredBy:state.user.uid,restoredByName:state.profile?.name||state.user.email},{merge:true})});await batch.commit()}
@@ -653,22 +689,22 @@ async function deleteCenterBackup(id){
   if(!owner())return toast("Somente DEV pode excluir backups.");
   const item=state.presenceBackups.find(row=>row.id===id);if(!item)return toast("Backup não encontrado.");
   if(!confirm(`Excluir permanentemente o backup ${item.week||id}?`))return;
-  try{await deleteDoc(doc(db,"presenceBackups",id));await audit("backup excluído",`${item.week||id} · ${item.total||item.records?.length||0} registros`);toast("Backup excluído.")}catch(error){console.error(error);toast(errMsg(error))}
+  try{const data=await loadPresenceBackupData(item);await deleteDocsInChunks(`presenceBackups/${id}/attendance`,data.records);await deleteDocsInChunks(`presenceBackups/${id}/rt`,data.rtRecords);await deleteDoc(doc(db,"presenceBackups",id));await audit("backup excluído",`${item.week||id} · ${item.total||item.records?.length||0} registros`);toast("Backup excluído.")}catch(error){console.error(error);toast(errMsg(error))}
 }
 on("backupCenterSearch","input",renderBackupCenter);
 on("backupCenterType","change",renderBackupCenter);
 
-function renderUnifiedPresenceBody(rows){return rows.map(item=>{const st=presenceStatus(item.status);return `<tr><td>${escapeHtml(item.date||"—")}</td><td>${escapeHtml(item.memberName||"—")}</td><td>${escapeHtml(item.clan||"—")}</td><td>${escapeHtml(presenceTypeLabel(item.kind))}</td><td>${escapeHtml(item.slot||"—")}</td><td><span class="presence-status-chip ${st.cls}">${st.icon} ${st.label}</span></td><td>${escapeHtml(item.note||"—")}</td><td>${escapeHtml(item.updatedByName||"—")}</td>${owner()?`<td><button class="btn danger mini" data-delete-attendance="${item.id}">Excluir</button></td>`:""}</tr>`}).join("")||`<tr><td colspan="9">Nenhum registro encontrado.</td></tr>`}
+function renderUnifiedPresenceBody(rows){return rows.map(item=>{const st=presenceStatus(item.status);return `<tr><td>${escapeHtml(item.date||"—")}</td><td>${escapeHtml(item.memberName||"—")}</td><td>${escapeHtml(item.clan||"—")}</td><td>${escapeHtml(presenceTypeLabel(item.kind))}</td><td>${escapeHtml(item.slot||"—")}</td><td><span class="presence-status-chip ${st.cls}">${st.icon} ${st.label}</span></td><td>${escapeHtml(item.note||"—")}</td><td>${escapeHtml(item.updatedByName||"—")}</td>${permissionEnabled("presence_delete")?`<td><button class="btn danger mini" data-delete-attendance="${item.id}">Excluir</button></td>`:""}</tr>`}).join("")||`<tr><td colspan="9">Nenhum registro encontrado.</td></tr>`}
 function filterUnifiedPresence(){const q=String(document.querySelector("[data-unified-presence-search]")?.value||"").toLowerCase(),date=document.querySelector("[data-unified-presence-date]")?.value||"",kind=document.querySelector("[data-unified-presence-kind]")?.value||"";const rows=recentAllPresenceRows().filter(item=>(!date||item.date===date)&&(!kind||item.kind===kind)&&(!q||`${item.memberName} ${item.clan} ${presenceTypeLabel(item.kind)} ${item.slot} ${presenceStatus(item.status).label}`.toLowerCase().includes(q)));const body=document.querySelector("[data-unified-presence-body]");if(body)body.innerHTML=renderUnifiedPresenceBody(rows)}
-function renderRecentPresenceBody(rows){return rows.map(item=>{const st=presenceStatus(item.status);return `<tr><td>${escapeHtml(item.date||"—")}</td><td>${escapeHtml(item.memberName||"—")}</td><td>${escapeHtml(item.clan||"—")}</td><td>${escapeHtml(item.slot||"—")}</td><td><span class="presence-status-chip ${st.cls}">${st.icon} ${st.label}</span></td><td>${escapeHtml(item.note||"—")}</td><td>${escapeHtml(item.updatedByName||"—")}</td>${owner()?`<td><button class="btn danger mini" data-delete-attendance="${item.id}">Excluir</button></td>`:""}</tr>`}).join("")||`<tr><td colspan="8">Nenhum registro encontrado.</td></tr>`}
+function renderRecentPresenceBody(rows){return rows.map(item=>{const st=presenceStatus(item.status);return `<tr><td>${escapeHtml(item.date||"—")}</td><td>${escapeHtml(item.memberName||"—")}</td><td>${escapeHtml(item.clan||"—")}</td><td>${escapeHtml(item.slot||"—")}</td><td><span class="presence-status-chip ${st.cls}">${st.icon} ${st.label}</span></td><td>${escapeHtml(item.note||"—")}</td><td>${escapeHtml(item.updatedByName||"—")}</td>${permissionEnabled("presence_delete")?`<td><button class="btn danger mini" data-delete-attendance="${item.id}">Excluir</button></td>`:""}</tr>`}).join("")||`<tr><td colspan="8">Nenhum registro encontrado.</td></tr>`}
 function filterRecentPresence(kind){const q=String(document.querySelector(`[data-recent-presence-search="${kind}"]`)?.value||"").toLowerCase(),date=document.querySelector(`[data-recent-presence-date="${kind}"]`)?.value||"";const rows=recentPresenceRows(kind).filter(item=>(!date||item.date===date)&&(!q||`${item.memberName} ${item.clan} ${item.slot} ${presenceStatus(item.status).label}`.toLowerCase().includes(q)));const body=document.querySelector(`[data-recent-presence-body="${kind}"]`);if(body)body.innerHTML=renderRecentPresenceBody(rows)}
 function populatePresenceMemberList(){const list=$("#presenceMemberOptions");if(list)list.innerHTML=state.members.map(m=>`<option value="${escapeHtml(m.name||"")}">${escapeHtml(m.clan||"")}</option>`).join("")}
 function updatePresenceSlotOptions(kind,selected=""){const select=$("#presenceModalSlot");if(!select)return;select.innerHTML=(TYPES[kind]||[]).map(slot=>`<option value="${escapeHtml(slot)}" ${slot===selected?"selected":""}>${escapeHtml(slot)}${kind==="eventos"?` · ${eventDay(slot)}`:""}</option>`).join("")}
-function openPresenceModal(kind="worldboss",record=null){if(!editor())return toast("Sem permissão para registrar presença.");populatePresenceMemberList();setValue("presenceModalUser",record?.memberName||"");setValue("presenceModalKind",kind);updatePresenceSlotOptions(kind,record?.slot||"");setValue("presenceModalDate",record?.date||todayIso());setValue("presenceModalNote",record?.note||"");document.querySelectorAll('[data-presence-status-choice]').forEach(btn=>btn.classList.toggle('active',Number(btn.dataset.presenceStatusChoice)===Number(record?.status||1)));$("#presenceModal").dataset.editingId=record?.id||"";$("#presenceModal").classList.remove("hidden")}
+function openPresenceModal(kind="worldboss",record=null){if(!(record?permissionEnabled("presence_edit"):permissionEnabled("presence_register")))return toast("Sem permissão para registrar ou editar presença.");populatePresenceMemberList();setValue("presenceModalUser",record?.memberName||"");setValue("presenceModalKind",kind);updatePresenceSlotOptions(kind,record?.slot||"");setValue("presenceModalDate",record?.date||todayIso());setValue("presenceModalNote",record?.note||"");document.querySelectorAll('[data-presence-status-choice]').forEach(btn=>btn.classList.toggle('active',Number(btn.dataset.presenceStatusChoice)===Number(record?.status||1)));$("#presenceModal").dataset.editingId=record?.id||"";$("#presenceModal").classList.remove("hidden")}
 function closePresenceModal(){$("#presenceModal")?.classList.add("hidden")}
 function selectedPresenceStatus(){return Number(document.querySelector('[data-presence-status-choice].active')?.dataset.presenceStatusChoice||1)}
 async function savePresenceFromModal(){
-  if(!editor())return toast("Sem permissão.");
+  if(!permissionEnabled("presence_register")&&!permissionEnabled("presence_edit"))return toast("Sem permissão.");
   const name=$("#presenceModalUser")?.value.trim(),member=state.members.find(m=>String(m.name||"").toLowerCase()===String(name||"").toLowerCase());
   if(!member)return toast("Selecione um usuário válido da lista.");
   const kind=$("#presenceModalKind").value,slot=$("#presenceModalSlot").value,date=$("#presenceModalDate").value,status=selectedPresenceStatus(),note=$("#presenceModalNote").value.trim();
@@ -676,6 +712,8 @@ async function savePresenceFromModal(){
   if(status===3&&!note)return toast("Informe o motivo da justificativa.");
   const id=(kind+"__"+date+"__"+member.id+"__"+slot).replace(/[^a-zA-Z0-9_-]/g,"_");
   const existing=state.attendance.find(item=>item.id===id||item.memberId===member.id&&item.kind===kind&&item.slot===slot&&item.date===date);
+  if(existing&&!permissionEnabled("presence_edit"))return toast("Sem permissão para editar uma presença existente.");
+  if(!existing&&!permissionEnabled("presence_register"))return toast("Sem permissão para registrar presença.");
   if(existing&&!confirm("Este usuário já possui um registro neste evento, data e horário. Deseja atualizar?"))return;
   const payload={memberId:member.id,userId:member.userId||member.id,memberName:member.name,clan:member.clan||"",role:member.role||"Membros",kind,slot,status,date,note,updatedBy:state.user.uid,updatedByName:state.profile?.name||state.user.email,updatedAt:serverTimestamp(),createdAt:existing?.createdAt||serverTimestamp()};
   try{
@@ -1153,8 +1191,8 @@ function renderAdvancedCenter(){
   const showLogin=byId("maintenanceShowLogin"); if(showLogin)showLogin.checked=maintenance.showLogin!==false; const showApp=byId("maintenanceShowApp"); if(showApp)showApp.checked=maintenance.showApp!==false; updateMaintenancePreview(); applyMaintenanceNotice();
 }
 function downloadJson(filename,data){const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
-on("checkUpdatesButton","click",()=>{setText("updateStatusText","Versão 22.8.0 instalada e verificada. Base oficial: V22.7.3.");toast("Verificação local concluída.")});
-on("createBackupButton","click",()=>{if(!owner())return;downloadJson(`77-team-backup-${new Date().toISOString().slice(0,10)}.json`,{version:"22.8.4",baseVersion:"22.7.3",exportedAt:new Date().toISOString(),members:state.members,attendance:state.attendance,users:state.users,events:state.events,notifications:state.sentNotifications,audit:state.audit,settings:state.settings});toast("Backup JSON gerado.")});
+on("checkUpdatesButton","click",()=>{setText("updateStatusText","Versão 22.8.5 instalada e verificada. Base oficial: V22.7.3.");toast("Verificação local concluída.")});
+on("createBackupButton","click",()=>{if(!owner())return;downloadJson(`77-team-backup-${new Date().toISOString().slice(0,10)}.json`,{version:"22.8.5",baseVersion:"22.7.3",exportedAt:new Date().toISOString(),members:state.members,attendance:state.attendance,users:state.users,events:state.events,notifications:state.sentNotifications,audit:state.audit,settings:state.settings});toast("Backup JSON gerado.")});
 on("restoreBackupFile","change",async e=>{const file=e.target.files?.[0];if(!file)return;try{const data=JSON.parse(await file.text());setText("restoreBackupInfo",`Arquivo válido: versão ${data.version||"não informada"}, exportado em ${data.exportedAt||"data não informada"}.`)}catch{setText("restoreBackupInfo","Arquivo inválido ou corrompido.")}});
 function maintenanceFormData(){return {enabled:byId("maintenanceModeToggle")?.checked===true,title:byId("maintenanceTitle")?.value.trim()||"Sistema em manutenção",message:byId("maintenanceMessage")?.value.trim()||"Estamos realizando melhorias. Algumas funções podem apresentar instabilidade.",imageUrl:byId("maintenanceImageUrl")?.value.trim()||"",expectedEnd:byId("maintenanceExpectedEnd")?.value||"",showLogin:byId("maintenanceShowLogin")?.checked!==false,showApp:byId("maintenanceShowApp")?.checked!==false}}
 function formatMaintenanceEnd(value){if(!value)return "";const d=new Date(value);return Number.isNaN(d.getTime())?"":`Previsão de término: ${d.toLocaleString("pt-BR")}`}
@@ -1174,13 +1212,13 @@ document.addEventListener("click",async e=>{
   const openPresence=e.target.closest("[data-open-presence-modal]");if(openPresence){openPresenceModal(openPresence.dataset.openPresenceModal);return}
   const backupPresence=e.target.closest("[data-backup-presence]");if(backupPresence){try{await createPresenceBackup()}catch(error){console.error(error);toast(errMsg(error))}return}
   const resetPresence=e.target.closest("[data-reset-presence]");if(resetPresence){await resetPresenceWithBackup();return}
-  const downloadBackup=e.target.closest("[data-download-presence-backup]");if(downloadBackup){downloadPresenceBackup(downloadBackup.dataset.downloadPresenceBackup);return}
-  const viewCenter=e.target.closest("[data-view-center-backup]");if(viewCenter){viewCenterBackup(viewCenter.dataset.viewCenterBackup);return}
-  const excelCenter=e.target.closest("[data-export-center-excel]");if(excelCenter){exportCenterBackupExcel(excelCenter.dataset.exportCenterExcel);return}
+  const downloadBackup=e.target.closest("[data-download-presence-backup]");if(downloadBackup){await downloadPresenceBackup(downloadBackup.dataset.downloadPresenceBackup);return}
+  const viewCenter=e.target.closest("[data-view-center-backup]");if(viewCenter){await viewCenterBackup(viewCenter.dataset.viewCenterBackup);return}
+  const excelCenter=e.target.closest("[data-export-center-excel]");if(excelCenter){await exportCenterBackupExcel(excelCenter.dataset.exportCenterExcel);return}
   const restoreCenter=e.target.closest("[data-restore-center-backup]");if(restoreCenter){await restoreCenterBackup(restoreCenter.dataset.restoreCenterBackup);return}
   const deleteCenter=e.target.closest("[data-delete-center-backup]");if(deleteCenter){await deleteCenterBackup(deleteCenter.dataset.deleteCenterBackup);return}
   const statusChoice=e.target.closest("[data-presence-status-choice]");if(statusChoice){document.querySelectorAll("[data-presence-status-choice]").forEach(btn=>btn.classList.toggle("active",btn===statusChoice));return}
-  const deleteAttendance=e.target.closest("[data-delete-attendance]");if(deleteAttendance&&owner()&&confirm("Excluir este registro de presença?")){await deleteDoc(doc(db,"attendance",deleteAttendance.dataset.deleteAttendance));await audit("presença excluída",deleteAttendance.dataset.deleteAttendance);toast("Registro excluído.");return}
+  const deleteAttendance=e.target.closest("[data-delete-attendance]");if(deleteAttendance&&permissionEnabled("presence_delete")&&confirm("Excluir este registro de presença?")){await deleteDoc(doc(db,"attendance",deleteAttendance.dataset.deleteAttendance));await audit("presença excluída",deleteAttendance.dataset.deleteAttendance);toast("Registro excluído.");return}
 
   const p=e.target.closest("[data-presence]");
   if(p&&permissionEnabled("presence_edit")){
@@ -1352,7 +1390,7 @@ Um registro será salvo em Gestão → RT Presença.`))return;
 
 $("#memberForm").onsubmit=async event=>{
   event.preventDefault();
-  if(!editor())return;
+  if(!permissionEnabled("members_edit"))return toast("Sem permissão para editar membros.");
 
   const name=$("#memberName").value.trim();
   const role=$("#memberRole").value;
@@ -1531,7 +1569,7 @@ async function uploadLoginAsset(processed,type){
   return {url:await getDownloadURL(snap.ref),path};
 }
 on("saveLoginCustomization","click",async()=>{
-  if(!owner())return toast("Somente o DEV pode personalizar a tela de login.");
+  if(!permissionEnabled("login_customize"))return toast("Sem permissão para personalizar a tela de login.");
   const button=byId("saveLoginCustomization");if(button)button.disabled=true;
   try{
     const previous=loginCustomization();
@@ -1921,7 +1959,7 @@ window.TeamManagerCanOpenPage=canOpenPage;
 
 
 function applyRestrictedVisibility(){
-  const allowed=editor();
+  const allowed=permissionEnabled("access_staff");
 
   ["staff-hub","presencas","registros"].forEach(page=>{
     const section=byId(page);
@@ -2372,7 +2410,7 @@ function renderCharactersTableV71(rows){
 }
 
 function renderCharacterCenter(){
-  if(!editor())return;
+  if(!permissionEnabled("character_view"))return;
   const allRows=characterCenterRows();
   populateCharacterFilters(allRows);
   renderCharacterOverview(allRows);
@@ -2416,7 +2454,7 @@ function openCharacterDetails(item){
 }
 
 function openResponsibleCharacterEditor(item){
-  if(!editor()||!item)return;
+  if(!permissionEnabled("character_edit")||!item)return;
   state.editingCharacterUserId=item.id;
   const c=item.character||{};
   setText("responsibleCharacterName",item.nickname||"Personagem");
@@ -2442,7 +2480,7 @@ on("closeCharacterEditDrawer","click",()=>{
 
 on("responsibleCharacterForm","submit",async event=>{
   event.preventDefault();
-  if(!editor()||!state.editingCharacterUserId)return;
+  if(!permissionEnabled("character_edit")||!state.editingCharacterUserId)return;
   const target=characterCenterRows().find(item=>item.id===state.editingCharacterUserId);
   if(!target)return;
   const character={
@@ -2993,7 +3031,7 @@ function settingsPayload(section){
 }
 
 async function saveSettingsSection(section){
-  if(!owner())return toast("Apenas a Liderança pode alterar configurações.");
+  if(!permissionEnabled("settings_edit"))return toast("Sem permissão para alterar configurações.");
 
   try{
     const payload=settingsPayload(section);
@@ -3583,7 +3621,7 @@ function downloadStaffCsvFile(){
 }
 
 function renderStaffCommandCenter(){
-  if(!editor())return;
+  if(!permissionEnabled("access_staff"))return;
   renderStaffOverview();
   renderStaffCards();
   renderStaffPending();
@@ -4027,7 +4065,7 @@ function renderLevelSystem(){
 
 on("xpAdjustmentForm","submit",async event=>{
   event.preventDefault();
-  if(!editor())return toast("Permissão negada.");
+  if(!permissionEnabled("support_manage"))return toast("Permissão negada.");
 
   const memberId=byId("xpAdjustmentMember")?.value||"";
   const amount=Math.trunc(Number(byId("xpAdjustmentAmount")?.value||0));
@@ -4347,7 +4385,7 @@ function renderSupport(){
   const activeTickets=supportTickets().filter(t=>t.status!=="resolved");
   setText("sidebarSupportBadge",activeTickets.length);
   setText("supportOpenCount",`${activeTickets.length} abertos`);
-  if(!editor()){scrollSupportChats();return}
+  if(!permissionEnabled("support_manage")){scrollSupportChats();return}
   const search=(byId("supportSearch")?.value||"").toLowerCase();
   let list=supportTickets().filter(t=>state.supportView==="finished"?t.status==="resolved":t.status!=="resolved");
   list=list.filter(t=>!search||String(t.ownerName).toLowerCase().includes(search)||t.ticketId.toLowerCase().includes(search)).sort((a,b)=>(b.last.createdAt?.toMillis?.()||0)-(a.last.createdAt?.toMillis?.()||0));
@@ -4381,11 +4419,11 @@ async function sendSupportMessage({ownerUid,ownerName,text,link,file,ticketId}){
   let currentTicket=ticketId;
   if(!currentTicket){const active=activeSupportTicketFor(ownerUid);currentTicket=active?.ticketId||newSupportTicketId(ownerUid)}
   const image=await uploadSupportImage(file,ownerUid,currentTicket);
-  await addDoc(collection(db,"supportMessages"),{ticketId:currentTicket,ownerUid,ownerName,senderUid:state.user.uid,senderName:state.profile?.name||state.user.email,senderRole:editor()?normalizeAccessRole(state.profile?.role):"member",text:cleanText,link:normalizedLink,imageUrl:image.url,imagePath:image.path,status:editor()?"waiting_user":"open",createdAt:serverTimestamp()});
+  await addDoc(collection(db,"supportMessages"),{ticketId:currentTicket,ownerUid,ownerName,senderUid:state.user.uid,senderName:state.profile?.name||state.user.email,senderRole:permissionEnabled("support_manage")?normalizeAccessRole(state.profile?.role):"member",text:cleanText,link:normalizedLink,imageUrl:image.url,imagePath:image.path,status:permissionEnabled("support_manage")?"waiting_user":"open",createdAt:serverTimestamp()});
 }
 on("profileSupportForm","submit",async e=>{e.preventDefault();try{await sendSupportMessage({ownerUid:state.user.uid,ownerName:state.profile?.name||state.user.email,text:byId("profileSupportText").value,link:byId("profileSupportLink").value,file:byId("profileSupportImage").files?.[0]});e.target.reset();byId("profileSupportText")?.focus();toast("Mensagem enviada aos responsáveis.");}catch(error){toast(error.message||errMsg(error))}});
-on("supportAdminForm","submit",async e=>{e.preventDefault();if(!editor()||!state.selectedSupportTicketId)return;const selected=supportTickets().find(t=>t.ticketId===state.selectedSupportTicketId);if(!selected||selected.status==="resolved")return;try{await sendSupportMessage({ownerUid:selected.ownerUid,ownerName:selected.ownerName,text:byId("supportAdminText").value,link:byId("supportAdminLink").value,file:byId("supportAdminImage").files?.[0],ticketId:selected.ticketId});e.target.reset();byId("supportAdminText")?.focus();await audit("Resposta de atendimento",`Resposta enviada em ${selected.ticketId} para ${selected.ownerName}`);toast("Resposta enviada.");}catch(error){toast(error.message||errMsg(error))}});
-on("supportStatusSelect","change",async e=>{if(!editor()||!state.selectedSupportTicketId)return;const selected=supportTickets().find(t=>t.ticketId===state.selectedSupportTicketId);if(!selected)return;try{await Promise.all(selected.msgs.map(m=>updateDoc(doc(db,"supportMessages",m.id),{status:e.target.value,statusUpdatedAt:serverTimestamp(),statusUpdatedBy:state.user.uid})));await audit("Status de atendimento",`${selected.ticketId}: ${supportStatusLabel(e.target.value)}`);if(e.target.value==="resolved"){state.supportView="finished";toast("Atendimento finalizado e movido para Finalizados.")}else toast("Status atualizado.");renderSupport();}catch(error){toast(errMsg(error))}});
+on("supportAdminForm","submit",async e=>{e.preventDefault();if(!permissionEnabled("support_manage")||!state.selectedSupportTicketId)return;const selected=supportTickets().find(t=>t.ticketId===state.selectedSupportTicketId);if(!selected||selected.status==="resolved")return;try{await sendSupportMessage({ownerUid:selected.ownerUid,ownerName:selected.ownerName,text:byId("supportAdminText").value,link:byId("supportAdminLink").value,file:byId("supportAdminImage").files?.[0],ticketId:selected.ticketId});e.target.reset();byId("supportAdminText")?.focus();await audit("Resposta de atendimento",`Resposta enviada em ${selected.ticketId} para ${selected.ownerName}`);toast("Resposta enviada.");}catch(error){toast(error.message||errMsg(error))}});
+on("supportStatusSelect","change",async e=>{if(!permissionEnabled("support_manage")||!state.selectedSupportTicketId)return;const selected=supportTickets().find(t=>t.ticketId===state.selectedSupportTicketId);if(!selected)return;try{await Promise.all(selected.msgs.map(m=>updateDoc(doc(db,"supportMessages",m.id),{status:e.target.value,statusUpdatedAt:serverTimestamp(),statusUpdatedBy:state.user.uid})));await audit("Status de atendimento",`${selected.ticketId}: ${supportStatusLabel(e.target.value)}`);if(e.target.value==="resolved"){state.supportView="finished";toast("Atendimento finalizado e movido para Finalizados.")}else toast("Status atualizado.");renderSupport();}catch(error){toast(errMsg(error))}});
 on("supportSearch","input",renderSupport);
 on("supportDeleteBtn","click",async()=>{if(!dev()||!state.selectedSupportTicketId)return;const selected=supportTickets().find(t=>t.ticketId===state.selectedSupportTicketId);if(!selected||selected.status!=="resolved")return;if(!confirm(`Excluir definitivamente ${selected.ticketId}? Esta ação não pode ser desfeita.`))return;try{for(const m of selected.msgs){if(m.imagePath){try{await deleteObject(storageRef(storage,m.imagePath))}catch(err){console.warn("Anexo não removido:",err)}}await deleteDoc(doc(db,"supportMessages",m.id))}await audit("Atendimento excluído",`${selected.ticketId} de ${selected.ownerName}`);state.selectedSupportTicketId="";state.selectedSupportOwnerUid="";toast("Atendimento excluído definitivamente.");}catch(error){toast(errMsg(error))}});
 document.addEventListener("click",e=>{
@@ -4431,7 +4469,7 @@ function renderPrivateChat(){
   setText("profileChatBadge",ownSession?`${ownMsgs.length} mensagens · Ativo`:"Novo chat disponível");
   if(byId("profileChatForm"))byId("profileChatForm").classList.remove("hidden");
   const ownBox=byId("profileChatMessages");if(ownBox)requestAnimationFrame(()=>ownBox.scrollTop=ownBox.scrollHeight);
-  if(!editor())return;
+  if(!permissionEnabled("support_manage"))return;
 
   document.querySelectorAll("[data-chat-view]").forEach(b=>b.classList.toggle("active",b.dataset.chatView===state.chatView));
   const search=(byId("chatSearch")?.value||"").trim().toLowerCase();
@@ -4476,12 +4514,12 @@ async function sendPrivateChat({ownerUid,ownerName,text,link,file,chatId}){
   if(current?.status==="finalized")throw new Error("Este chat foi finalizado. Inicie uma nova conversa.");
   const currentChatId=current?.chatId||newPrivateChatId(ownerUid);
   const image=await uploadChatImage(file,ownerUid,currentChatId);
-  await addDoc(collection(db,"chatMessages"),{chatId:currentChatId,chatStatus:"active",ownerUid,ownerName,senderUid:state.user.uid,senderName:state.profile?.name||state.user.email,senderRole:editor()?normalizeAccessRole(state.profile?.role):"member",text:cleanText,link:normalizedLink,imageUrl:image.url,imagePath:image.path,createdAt:serverTimestamp()});
+  await addDoc(collection(db,"chatMessages"),{chatId:currentChatId,chatStatus:"active",ownerUid,ownerName,senderUid:state.user.uid,senderName:state.profile?.name||state.user.email,senderRole:permissionEnabled("support_manage")?normalizeAccessRole(state.profile?.role):"member",text:cleanText,link:normalizedLink,imageUrl:image.url,imagePath:image.path,createdAt:serverTimestamp()});
   state.selectedChatId=currentChatId;
 }
 on("profileChatForm","submit",async e=>{e.preventDefault();try{await sendPrivateChat({ownerUid:state.user.uid,ownerName:state.profile?.name||state.user.email,text:byId("profileChatText").value,link:byId("profileChatLink").value,file:byId("profileChatImage").files?.[0]});e.target.reset();byId("profileChatText")?.focus();toast("Mensagem enviada no chat privado.");}catch(error){toast(error.message||errMsg(error))}});
-on("chatAdminForm","submit",async e=>{e.preventDefault();if(!editor()||!state.selectedChatOwnerUid)return;const user=state.users.find(u=>u.id===state.selectedChatOwnerUid);try{await sendPrivateChat({ownerUid:state.selectedChatOwnerUid,ownerName:user?.name||user?.email||"Usuário",text:byId("chatAdminText").value,link:byId("chatAdminLink").value,file:byId("chatAdminImage").files?.[0],chatId:state.selectedChatId});e.target.reset();byId("chatAdminText")?.focus();await audit("Chat privado",`Mensagem enviada para ${user?.name||user?.email||state.selectedChatOwnerUid}`);toast("Mensagem enviada.");}catch(error){toast(error.message||errMsg(error))}});
-on("chatFinishBtn","click",async()=>{if(!editor())return;const session=selectedChatSession()||activeChatFor(state.selectedChatOwnerUid);if(!session||session.status==="finalized")return;if(!confirm(`Finalizar o chat ${session.chatId} com ${session.ownerName}? A conversa ficará somente para consulta dos responsáveis.`))return;try{await Promise.all(session.msgs.map(m=>updateDoc(doc(db,"chatMessages",m.id),{chatStatus:"finalized",finalizedAt:serverTimestamp(),finalizedBy:state.user.uid})));await audit("Chat privado finalizado",`${session.chatId} com ${session.ownerName}`);state.chatView="finished";toast("Chat finalizado e movido para Finalizados.");renderPrivateChat()}catch(error){toast(errMsg(error))}});
+on("chatAdminForm","submit",async e=>{e.preventDefault();if(!permissionEnabled("support_manage")||!state.selectedChatOwnerUid)return;const user=state.users.find(u=>u.id===state.selectedChatOwnerUid);try{await sendPrivateChat({ownerUid:state.selectedChatOwnerUid,ownerName:user?.name||user?.email||"Usuário",text:byId("chatAdminText").value,link:byId("chatAdminLink").value,file:byId("chatAdminImage").files?.[0],chatId:state.selectedChatId});e.target.reset();byId("chatAdminText")?.focus();await audit("Chat privado",`Mensagem enviada para ${user?.name||user?.email||state.selectedChatOwnerUid}`);toast("Mensagem enviada.");}catch(error){toast(error.message||errMsg(error))}});
+on("chatFinishBtn","click",async()=>{if(!permissionEnabled("support_manage"))return;const session=selectedChatSession()||activeChatFor(state.selectedChatOwnerUid);if(!session||session.status==="finalized")return;if(!confirm(`Finalizar o chat ${session.chatId} com ${session.ownerName}? A conversa ficará somente para consulta dos responsáveis.`))return;try{await Promise.all(session.msgs.map(m=>updateDoc(doc(db,"chatMessages",m.id),{chatStatus:"finalized",finalizedAt:serverTimestamp(),finalizedBy:state.user.uid})));await audit("Chat privado finalizado",`${session.chatId} com ${session.ownerName}`);state.chatView="finished";toast("Chat finalizado e movido para Finalizados.");renderPrivateChat()}catch(error){toast(errMsg(error))}});
 on("chatSearch","input",renderPrivateChat);
 document.addEventListener("click",e=>{
   const view=e.target.closest("[data-chat-view]");if(view){state.chatView=view.dataset.chatView;state.selectedChatOwnerUid="";state.selectedChatId="";renderPrivateChat();return}
@@ -4579,7 +4617,7 @@ function populateRecordsFilters(){
 }
 function recordsRowsHtml(rows){return rows.map(item=>{const st=presenceStatus(item.status);return `<tr><td>${escapeHtml(item.date||"—")}</td><td><strong>${escapeHtml(item.memberName||"—")}</strong></td><td>${escapeHtml(item.clan||"—")}</td><td>${escapeHtml(presenceTypeLabel(item.kind))}</td><td>${escapeHtml(item.slot||"—")}</td><td><span class="presence-status-chip ${st.cls}">${st.icon} ${st.label}</span></td><td>${escapeHtml(item.note||"—")}</td><td>${escapeHtml(item.updatedByName||"—")}</td><td>${escapeHtml(recordTimestamp(item))}</td></tr>`}).join("")||'<tr><td colspan="9">Nenhum registro encontrado com os filtros selecionados.</td></tr>'}
 function renderRecordsCenter(){
-  if(!editor())return;const root=byId("registros");if(!root)return;populateRecordsFilters();
+  if(!permissionEnabled("access_staff"))return;const root=byId("registros");if(!root)return;populateRecordsFilters();
   const rows=recordsFilteredRows();setText("recordsResultCount",`${rows.length} registro${rows.length===1?"":"s"}`);setText("sidebarRecordsBadge",state.attendance.length);setText("recordsTotal",rows.length);setText("recordsPresent",rows.filter(x=>Number(x.status)===1).length);setText("recordsJustified",rows.filter(x=>Number(x.status)===3).length);setText("recordsAbsent",rows.filter(x=>Number(x.status)===-1).length);setText("recordsPanelTitle",recordsMode==="individual"?"Consulta Individual":"Consulta Geral");setHtml("recordsRows",recordsRowsHtml(rows));
   document.querySelectorAll("[data-record-mode]").forEach(btn=>btn.classList.toggle("primary",btn.dataset.recordMode===recordsMode));
   const member=byId("recordsMember");if(member){member.disabled=false;member.querySelector('option[value=""]')?.replaceChildren(document.createTextNode(recordsMode==="individual"?"Selecione um membro":"Todos os membros"));}
