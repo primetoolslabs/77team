@@ -183,8 +183,25 @@ function defaultRolePermissions(){
   return result;
 }
 function configuredRolePermissions(){return state.settings?.rolePermissions||defaultRolePermissions();}
+const PERMISSION_ALLOWED_ROLES=Object.freeze({
+  access_home:["dev","leadership","staff","member"],
+  access_staff:["dev","leadership","staff"],
+  access_admin:["dev","leadership"],access_advanced:["dev"],
+  presence_register:["dev","leadership","staff"],presence_edit:["dev","leadership","staff"],
+  presence_delete:["dev","leadership","staff"],presence_finalize:["dev","leadership","staff"],presence_reset:["dev","leadership","staff"],
+  requests_approve:["dev","leadership","staff"],requests_reject:["dev","leadership","staff"],roles_change:["dev","leadership"],
+  members_delete:["dev","leadership","staff"],members_edit:["dev","leadership","staff"],
+  character_view:["dev","leadership","staff","member"],character_edit:["dev","leadership","staff","member"],character_delete:["dev","leadership","staff","member"],
+  notifications_send:["dev","leadership","staff"],support_manage:["dev","leadership","staff"],
+  audit_view:["dev","leadership"],settings_view:["dev","leadership"],settings_edit:["dev"],login_customize:["dev"],
+  xp_manage:["dev","leadership","staff"]
+});
+function permissionRoleAllowed(key,role){return role==="dev"||(PERMISSION_ALLOWED_ROLES[key]||["leadership","staff","member"]).includes(role)}
+function permissionRequired(key,role){return role==="dev"||key==="access_home"}
 function permissionEnabled(key,role=currentAccessRole()){
   if(role==="dev")return true;
+  if(!permissionRoleAllowed(key,role))return false;
+  if(permissionRequired(key,role))return true;
   const item=ROLE_PERMISSION_DEFINITIONS.find(entry=>entry.key===key);
   const configured=configuredRolePermissions()?.[key];
   return configured?.[role] ?? item?.defaults?.[role] ?? false;
@@ -205,6 +222,8 @@ function pageArea(page){
 }
 function canOpenPage(page){
   if(state.onboardingRequired)return page==="meu-perfil"||page==="sobre";
+  if(page==="configuracoes")return permissionEnabled("access_admin")&&permissionEnabled("settings_view");
+  if(page==="auditoria"||page==="logs-sistema")return permissionEnabled(page==="auditoria"?"access_admin":"access_advanced")&&permissionEnabled("audit_view");
   const area=pageArea(page);
   return permissionEnabled(`access_${area}`);
 }
@@ -382,6 +401,10 @@ function applyPermissions(){
   document.body.dataset.rawAccessRole=String(state.profile?.accessRole||state.profile?.role||"");
   document.querySelectorAll("[data-save-settings]").forEach(button=>button.classList.toggle("hidden",!permissionEnabled("settings_edit")));
   document.querySelectorAll("#configuracoes input,#configuracoes select,#configuracoes textarea").forEach(field=>field.disabled=!permissionEnabled("settings_edit"));
+  byId("configuracoes")?.classList.toggle("hidden",!permissionEnabled("settings_view"));
+  byId("auditoria")?.classList.toggle("hidden",!permissionEnabled("audit_view"));
+  document.querySelectorAll('[data-page="configuracoes"]').forEach(button=>button.classList.toggle("hidden",!permissionEnabled("settings_view")));
+  document.querySelectorAll('[data-page="auditoria"]').forEach(button=>button.classList.toggle("hidden",!permissionEnabled("audit_view")));
 
   const displayName=state.profile?.name||state.profile?.email||"Usuário";
   const roleLabel=accessRoleLabel(currentAccessRole());
@@ -606,7 +629,7 @@ async function createPresenceBackup({automatic=false}={}){
   const rtRecords=state.rtPresence.map(item=>({...item,originalId:item.id}));
   if(!records.length&&!rtRecords.length){toast("Não existem dados de presença para salvar.");return null}
   const now=new Date(),week=isoWeek(todayIso()),counts=presenceBackupCounts(records),id=`${week}__${now.toISOString().replace(/[^0-9]/g,"").slice(0,14)}`;
-  const payload={week,counts,total:records.length,rtTotal:rtRecords.length,automatic,backupSchema:2,createdBy:state.user.uid,createdByName:state.profile?.name||state.user.email,createdAt:serverTimestamp(),createdAtText:now.toISOString(),sourceVersion:"22.8.9"};
+  const payload={week,counts,total:records.length,rtTotal:rtRecords.length,automatic,backupSchema:2,createdBy:state.user.uid,createdByName:state.profile?.name||state.user.email,createdAt:serverTimestamp(),createdAtText:now.toISOString(),sourceVersion:"22.9.0"};
   await setDoc(doc(db,"presenceBackups",id),payload);
   await writeBackupSubcollection(id,"attendance",records);
   await writeBackupSubcollection(id,"rt",rtRecords);
@@ -657,7 +680,7 @@ async function resetPresenceWithBackup(){
     toast("Reset interrompido. O backup e o registro de recuperação foram preservados. Tente novamente após verificar a conexão.");
   }
 }
-async function downloadPresenceBackup(id){const item=state.presenceBackups.find(row=>row.id===id);if(!item)return toast("Backup não encontrado.");const data=await loadPresenceBackupData(item);downloadJson(`presenca-${item.week||id}.json`,{version:"22.8.9",exportedAt:new Date().toISOString(),backup:{...item,...data}});}
+async function downloadPresenceBackup(id){const item=state.presenceBackups.find(row=>row.id===id);if(!item)return toast("Backup não encontrado.");const data=await loadPresenceBackupData(item);downloadJson(`presenca-${item.week||id}.json`,{version:"22.9.0",exportedAt:new Date().toISOString(),backup:{...item,...data}});}
 
 
 function backupCenterDateValue(item){return rtDateValue(item?.createdAt)||Date.parse(item?.createdAtText||0)||0}
@@ -1210,7 +1233,7 @@ function renderAdvancedCenter(){
   const showLogin=byId("maintenanceShowLogin"); if(showLogin)showLogin.checked=maintenance.showLogin!==false; const showApp=byId("maintenanceShowApp"); if(showApp)showApp.checked=maintenance.showApp!==false; updateMaintenancePreview(); applyMaintenanceNotice();
 }
 function downloadJson(filename,data){const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
-on("checkUpdatesButton","click",()=>{setText("updateStatusText","Versão 22.8.9 instalada e verificada. Base oficial: V22.8.5.");toast("Verificação local concluída.")});
+on("checkUpdatesButton","click",()=>{setText("updateStatusText","Versão 22.9.0 instalada e verificada. Base oficial: V22.8.5.");toast("Verificação local concluída.")});
 on("createBackupButton","click",async()=>{if(!owner())return;try{downloadJson(`77-team-backup-${new Date().toISOString().slice(0,10)}.json`,await completeBackupPayload());toast("Backup completo e seguro gerado.")}catch(error){toast(error.message||errMsg(error))}});
 on("restoreBackupFile","change",async e=>{const file=e.target.files?.[0];if(!file)return;try{const data=JSON.parse(await file.text());setText("restoreBackupInfo",`Arquivo válido: versão ${data.version||"não informada"}, exportado em ${data.exportedAt||"data não informada"}.`)}catch{setText("restoreBackupInfo","Arquivo inválido ou corrompido.")}});
 function maintenanceFormData(){return {enabled:byId("maintenanceModeToggle")?.checked===true,title:byId("maintenanceTitle")?.value.trim()||"Sistema em manutenção",message:byId("maintenanceMessage")?.value.trim()||"Estamos realizando melhorias. Algumas funções podem apresentar instabilidade.",imageUrl:byId("maintenanceImageUrl")?.value.trim()||"",expectedEnd:byId("maintenanceExpectedEnd")?.value||"",showLogin:byId("maintenanceShowLogin")?.checked!==false,showApp:byId("maintenanceShowApp")?.checked!==false}}
@@ -1646,7 +1669,7 @@ function updateLiveClock(){
 }
 updateLiveClock();
 setInterval(updateLiveClock,1000);
-if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js?v=22.8.9").catch(error=>console.warn("Service Worker indisponível:",error)));
+if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js?v=22.9.0").catch(error=>console.warn("Service Worker indisponível:",error)));
 
 function animateNumber(id,target,suffix=""){
   const el=byId(id);
@@ -2016,24 +2039,37 @@ function applyRestrictedVisibility(){
 function renderRolePermissionMatrix(){
   const host=byId("rolePermissionMatrix");
   if(!host)return;
+  if(rolePermissionsDirty&&host.children.length){updateRolePermissionSummary();return;}
   const roles=["dev","leadership","staff","member"];
   const configured=configuredRolePermissions();
   let currentGroup="";
   host.innerHTML=ROLE_PERMISSION_DEFINITIONS.map(item=>{
-    const groupRow=item.group!==currentGroup?`<tr class="permission-group-row"><th colspan="6">${escapeHtml(item.group)}</th></tr>`:"";
+    const groupRow=item.group!==currentGroup?`<tr class="permission-group-row"><th colspan="5"><span>${escapeHtml(item.group)}</span><span class="permission-group-actions"><button class="btn mini" data-permission-group-all="${escapeHtml(item.group)}" type="button">Marcar grupo</button><button class="btn mini" data-permission-group-none="${escapeHtml(item.group)}" type="button">Limpar grupo</button></span></th></tr>`:"";
     currentGroup=item.group;
     const cells=roles.map(role=>{
-      const checked=role==="dev"?true:(configured?.[item.key]?.[role] ?? item.defaults[role]);
-      return `<td><label class="permission-switch" title="${escapeHtml(accessRoleLabel(role))}"><input data-role-permission="${item.key}" data-permission-role="${role}" type="checkbox" ${checked?"checked":""} ${role==="dev"?"disabled":""}><span></span></label></td>`;
+      const allowed=permissionRoleAllowed(item.key,role),required=permissionRequired(item.key,role),checked=required?true:(allowed&&(configured?.[item.key]?.[role] ?? item.defaults[role]));
+      const title=!allowed?`${accessRoleLabel(role)}: bloqueado pela hierarquia`:required?`${accessRoleLabel(role)}: acesso mínimo obrigatório`:accessRoleLabel(role);
+      return `<td><label class="permission-switch" title="${escapeHtml(title)}"><input data-role-permission="${item.key}" data-permission-role="${role}" type="checkbox" ${checked?"checked":""} ${required||!allowed?"disabled":""}><span></span></label></td>`;
     }).join("");
-    return `${groupRow}<tr data-permission-row data-search="${escapeHtml((item.group+" "+item.label).toLowerCase())}"><th><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.key)}</small></th>${cells}</tr>`;
+    const locked=roles.slice(1).every(role=>!permissionRoleAllowed(item.key,role));
+    return `${groupRow}<tr class="${locked?"permission-locked":""}" data-permission-row data-search="${escapeHtml((item.group+" "+item.label+" "+item.key).toLowerCase())}" data-permission-group="${escapeHtml(item.group)}"><th><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.key)}</small></th>${cells}</tr>`;
   }).join("");
+  updateRolePermissionSummary();
+  updateRolePermissionControls();
 }
+function updateRolePermissionSummary(){
+  const host=byId("rolePermissionSummary");if(!host)return;
+  const roles=["dev","leadership","staff","member"];
+  host.innerHTML=roles.map(role=>{const inputs=[...document.querySelectorAll(`[data-permission-role="${role}"]`)],enabled=role==="dev"?ROLE_PERMISSION_DEFINITIONS.length:inputs.filter(input=>input.checked&&!input.disabled).length,available=role==="dev"?ROLE_PERMISSION_DEFINITIONS.length:inputs.filter(input=>!input.disabled).length;return `<article><strong>${escapeHtml(accessRoleLabel(role))}</strong><span>${enabled} de ${available} permissões ativas</span></article>`}).join("");
+}
+let rolePermissionsDirty=false;
+function updateRolePermissionControls(){const button=byId("saveRolePermissions");if(button)button.disabled=!rolePermissionsDirty}
+function markRolePermissionsDirty(){rolePermissionsDirty=true;const status=byId("rolePermissionStatus");if(status){status.textContent="Alterações pendentes. Clique em Salvar permissões.";status.classList.add("permission-status-dirty");status.classList.remove("permission-status-saved")}updateRolePermissionSummary();updateRolePermissionControls()}
 function collectRolePermissions(){
   const result=defaultRolePermissions();
   document.querySelectorAll("[data-role-permission]").forEach(input=>{
     const key=input.dataset.rolePermission, role=input.dataset.permissionRole;
-    if(result[key])result[key][role]=role==="dev"?true:input.checked;
+    if(result[key])result[key][role]=permissionRequired(key,role)|| (permissionRoleAllowed(key,role)&&input.checked);
   });
   return result;
 }
@@ -2045,9 +2081,12 @@ async function saveConfigurableRolePermissions(){
     await setDoc(doc(db,"settings","app"),{rolePermissions,updatedAt:serverTimestamp(),updatedBy:state.user.uid},{merge:true});
     state.settings={...state.settings,rolePermissions};
     setText("rolePermissionStatus","Permissões salvas com sucesso.");
-    applyPermissions(); render(); toast("Matriz de permissões atualizada.");
+    byId("rolePermissionStatus")?.classList.remove("permission-status-dirty");byId("rolePermissionStatus")?.classList.add("permission-status-saved");
+    rolePermissionsDirty=false;
+    await audit("permissões de cargos atualizadas",`${Object.values(rolePermissions).reduce((sum,roles)=>sum+Object.values(roles).filter(Boolean).length,0)} permissões ativas`);
+    applyPermissions(); render(); toast("Matriz de permissões atualizada para todos os cargos.");
   }catch(error){toast(errMsg(error));setText("rolePermissionStatus","Não foi possível salvar.");}
-  finally{if(button)button.disabled=false;}
+  finally{updateRolePermissionControls();}
 }
 
 function numberOrZero(value){
@@ -3266,7 +3305,7 @@ function backupPayload(){
   return serializeBackupValue({
     format:"77-team-manager-backup",
     backupSchema:3,
-    version:"22.8.9",
+    version:"22.9.0",
     generatedAt:new Date().toISOString(),
     projectId:firebaseConfig.projectId,
     collections:{
@@ -3359,8 +3398,8 @@ function validateBackupPayload(payload){
   validateBackupValue(payload);
   if(!payload||payload.format!=="77-team-manager-backup")throw new Error("Formato de backup incompatível.");
   if(payload.projectId!==firebaseConfig.projectId)throw new Error("Este backup pertence a outro projeto Firebase.");
-  if(Number(payload.backupSchema||0)!==3)throw new Error("Schema de backup incompatível. Use um backup completo V22.8.5, V22.8.6, V22.8.7, V22.8.8 ou V22.8.9 schema 3.");
-  if(!["22.8.5","22.8.6","22.8.7","22.8.8","22.8.9"].includes(String(payload.version||"")))throw new Error("Versão de backup incompatível.");
+  if(Number(payload.backupSchema||0)!==3)throw new Error("Schema de backup incompatível. Use um backup completo V22.8.5 a V22.9.0 com schema 3.");
+  if(!["22.8.5","22.8.6","22.8.7","22.8.8","22.8.9","22.9.0"].includes(String(payload.version||"")))throw new Error("Versão de backup incompatível.");
   if(!payload.collections||typeof payload.collections!=="object"||Array.isArray(payload.collections))throw new Error("Coleções do backup ausentes.");
   const allowed=["users","members","attendance","events","notifications","notificationReads","rtPresence","presenceBackups","resetJobs","xpLogs","audit","supportMessages","chatMessages"];
   for(const name of allowed)if(!Array.isArray(payload.collections[name]))throw new Error(`Coleção obrigatória ausente: ${name}.`);
@@ -4866,11 +4905,31 @@ on("recordsClear","click",()=>{["recordsSearch","recordsMember","recordsDateFrom
 on("saveRolePermissions","click",saveConfigurableRolePermissions);
 on("resetRolePermissions","click",()=>{
   if(!owner())return toast("Somente o DEV pode alterar permissões.");
+  if(!confirm("Restaurar todas as permissões para o padrão seguro? As alterações só serão publicadas após clicar em Salvar permissões."))return;
+  rolePermissionsDirty=false;
   state.settings={...state.settings,rolePermissions:defaultRolePermissions()};
   renderRolePermissionMatrix();
-  setText("rolePermissionStatus","Padrão restaurado localmente. Clique em Salvar permissões.");
+  markRolePermissionsDirty();
+  setText("rolePermissionStatus","Padrão seguro carregado. Clique em Salvar permissões.");
 });
 on("rolePermissionSearch","input",event=>{
   const term=String(event.target.value||"").trim().toLowerCase();
   document.querySelectorAll("[data-permission-row]").forEach(row=>row.classList.toggle("hidden",term&&!row.dataset.search.includes(term)));
+  document.querySelectorAll(".permission-group-row").forEach(group=>{let next=group.nextElementSibling,visible=false;while(next&&!next.classList.contains("permission-group-row")){if(next.matches("[data-permission-row]")&&!next.classList.contains("hidden"))visible=true;next=next.nextElementSibling}group.classList.toggle("hidden",!visible)});
 });
+document.addEventListener("change",event=>{if(event.target.matches("[data-role-permission]"))markRolePermissionsDirty()});
+document.addEventListener("click",event=>{
+  const all=event.target.closest("[data-permission-role-all]"),none=event.target.closest("[data-permission-role-none]");
+  const groupAll=event.target.closest("[data-permission-group-all]"),groupNone=event.target.closest("[data-permission-group-none]");
+  if(!all&&!none&&!groupAll&&!groupNone)return;
+  if(!owner())return toast("Somente o DEV pode alterar permissões.");
+  if(groupAll||groupNone){
+    const group=(groupAll||groupNone).dataset.permissionGroupAll||(groupAll||groupNone).dataset.permissionGroupNone;
+    document.querySelectorAll(`[data-permission-row][data-permission-group="${CSS.escape(group)}"] input[data-role-permission]`).forEach(input=>{if(!input.disabled)input.checked=Boolean(groupAll)});
+    markRolePermissionsDirty();return;
+  }
+  const role=(all||none).dataset.permissionRoleAll||(all||none).dataset.permissionRoleNone,checked=Boolean(all);
+  document.querySelectorAll(`[data-permission-role="${role}"]`).forEach(input=>{if(!input.disabled)input.checked=checked});
+  markRolePermissionsDirty();
+});
+window.addEventListener("beforeunload",event=>{if(!rolePermissionsDirty)return;event.preventDefault();event.returnValue=""});

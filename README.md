@@ -1,6 +1,6 @@
-# 77 TEAM Manager V22.8.9 Hotfix — Sem App Check
+# 77 TEAM Manager V22.9.0 Hotfix — Cargos e Permissões
 
-Esta versão remove completamente o Firebase App Check e preserva todas as correções da V22.8.8. Mantenha Firestore e Storage em **Monitorando** ou **Não aplicado**, sem enforcement. Consulte `CHANGELOG-V22.8.9.md` e `PUBLICACAO-V22.8.9.md`.
+Esta versão torna a aba **Cargos e Permissões** operacional e mantém o Firebase App Check removido. Mantenha Firestore e Storage em **Monitorando** ou **Não aplicado**, sem enforcement. Consulte `CHANGELOG-V22.9.0.md` e `PUBLICACAO-V22.9.0.md`.
 
 ## Sétima auditoria — 13 achados corrigidos
 
