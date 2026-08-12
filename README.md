@@ -1,6 +1,6 @@
-# 77 TEAM Manager V22.9.1 Hotfix — AVANÇADO
+# 77 TEAM Manager V22.9.2 Hotfix — ADMINISTRAÇÃO
 
-Esta versão conclui a revisão funcional da aba **AVANÇADO** e mantém as melhorias de Cargos e Permissões. O Firebase App Check continua removido; mantenha Firestore e Storage em **Monitorando** ou **Não aplicado**, sem enforcement. Consulte `CHANGELOG-V22.9.1.md` e `PUBLICACAO-V22.9.1.md`.
+Esta versão conclui a revisão funcional da categoria **ADMINISTRAÇÃO** e mantém as melhorias do AVANÇADO e de Cargos e Permissões. O Firebase App Check continua removido; mantenha Firestore e Storage em **Monitorando** ou **Não aplicado**. Consulte `CHANGELOG-V22.9.2.md` e `PUBLICACAO-V22.9.2.md`.
 
 ## Sétima auditoria — 13 achados corrigidos
 

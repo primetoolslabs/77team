@@ -182,7 +182,7 @@ service cloud.firestore {
     match /attendance/{id} {
       allow read: if editor() || (signedIn() && resource.data.userId == request.auth.uid);
       allow create: if dev() || (permission('presence_register', false)
-        && request.resource.data.keys().hasOnly(['memberId','userId','memberName','clan','role','kind','slot','status','date','note','updatedBy','updatedByName','updatedAt'])
+        && request.resource.data.keys().hasOnly(['memberId','userId','memberName','clan','role','kind','slot','status','date','note','updatedBy','updatedByName','createdAt','updatedAt'])
         && request.resource.data.memberId is string && request.resource.data.userId is string
         && request.resource.data.memberName is string && request.resource.data.memberName.size() <= 120
         && request.resource.data.kind in ['worldboss','purgatorio','eventos']
@@ -324,7 +324,15 @@ service cloud.firestore {
     }
     match /settings/{id} {
       allow read: if id == 'app' || (id == 'private' && dev());
-      allow write: if (id == 'app' && permission('settings_edit', false)) || (id == 'private' && dev());
+      allow create: if (id == 'app' && permission('settings_edit', false)) || (id == 'private' && dev());
+      allow update: if (id == 'app' && (
+          permission('settings_edit', false)
+          || (leadership()
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['staffJournal','updatedAt'])
+            && request.resource.data.staffJournal is list
+            && request.resource.data.staffJournal.size() <= 300)
+        )) || (id == 'private' && dev());
+      allow delete: if dev();
     }
     match /xpLogs/{id} {
       allow read: if editor();

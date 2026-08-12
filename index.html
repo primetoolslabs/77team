@@ -5,10 +5,10 @@
 <meta charset="utf-8"/>
 <meta content="width=device-width,initial-scale=1,viewport-fit=cover" name="viewport"/>
 <meta content="#09070f" name="theme-color"/>
-<title>77 TEAM Manager V22.9.1 Hotfix</title>
+<title>77 TEAM Manager V22.9.2 Hotfix</title>
 <link href="manifest.json" rel="manifest"/>
 <link href="icons/icon-192.png" rel="icon"/>
-<link href="css/style.css?v=22.9.1" rel="stylesheet"/>
+<link href="css/style.css?v=22.9.2" rel="stylesheet"/>
 </head>
 <body>
 <div class="loading" id="loading">
@@ -60,7 +60,7 @@
 <div class="login-v222-safe"><strong>🛡 SEUS DADOS PROTEGIDOS</strong><span>Autenticação segura e base original preservada.</span></div>
 </main>
 </div>
-<footer class="login-v222-footer">© 2026 77 TEAM Manager • V22.9.1 Hotfix • Desenvolvido por <strong>PrimeTools Labs</strong></footer>
+<footer class="login-v222-footer">© 2026 77 TEAM Manager • V22.9.2 Hotfix • Desenvolvido por <strong>PrimeTools Labs</strong></footer>
 </section>
 <div class="app hidden" id="app">
 <aside class="sidebar sidebar-v13" id="sidebar">
@@ -92,7 +92,7 @@
 <button aria-label="Abrir menu" class="menu-toggle" id="menuButton" type="button">☰</button>
 <div>
 <h2>Bem-vindo, <span id="welcomeName">Usuário</span>!</h2>
-<p>Gestão completa da 77 TEAM <span class="manager-version-badge">Manager</span><span class="stable-badge" id="systemVersion">v22.9.1 Hotfix</span></p>
+<p>Gestão completa da 77 TEAM <span class="manager-version-badge">Manager</span><span class="stable-badge" id="systemVersion">v22.9.2 Hotfix</span></p>
 </div>
 </div>
 <div class="topbar-center">
@@ -994,8 +994,8 @@
 <div class="settings-grid">
 <article class="settings-card">
 <h3>Aprovação e cadastro</h3>
-<label class="toggle-row"><span>Aprovação manual de novos membros</span><input checked="" id="cfgManualApproval" type="checkbox"/></label>
-<label class="toggle-row"><span>Exigir personagem preenchido</span><input id="cfgRequireCharacter" type="checkbox"/></label>
+<label class="toggle-row"><span>Aprovação manual obrigatória</span><input checked="" disabled id="cfgManualApproval" type="checkbox"/></label>
+<p class="settings-note">Novas contas permanecem pendentes até aprovação.</p>
 </article>
 <article class="settings-card">
 <h3>Perfil do membro</h3>
@@ -1003,27 +1003,11 @@
 <label class="toggle-row"><span>Permitir troca de avatar</span><input checked="" id="cfgAllowAvatar" type="checkbox"/></label>
 <label class="toggle-row"><span>Permitir troca de senha</span><input checked="" id="cfgAllowPassword" type="checkbox"/></label>
 </article>
-<article class="settings-card span-2">
-<h3>Inatividade</h3>
-<div class="form-grid-3">
-<label>Dias para alerta<input id="cfgInactiveWarningDays" min="1" type="number" value="15"/></label>
-<label>Dias para considerar inativo<input id="cfgInactiveDays" min="1" type="number" value="30"/></label>
-<label>Ação automática<select id="cfgInactiveAction"><option value="none">Nenhuma</option><option value="notify">Notificar Staff</option><option value="block">Bloquear conta</option></select></label>
-</div>
-</article>
 </div>
 </section>
 <section class="settings-tab" data-settings-panel="permissions">
-<div class="settings-page-head"><div><span>CONFIGURAÇÕES</span><h2>Permissões</h2><p>Visibilidade dos módulos por perfil.</p></div><button class="btn primary" data-save-settings="permissions" type="button">Salvar</button></div>
-<article class="settings-card">
-<div class="table-wrap">
-<table class="permissions-table">
-<thead><tr><th>Módulo</th><th>Liderança</th><th>Staff</th><th>Membro</th></tr></thead>
-<tbody id="permissionsRows"></tbody>
-</table>
-</div>
-<p class="settings-note">As regras críticas da Liderança permanecem protegidas pelo Firestore.</p>
-</article>
+<div class="settings-page-head"><div><span>CONFIGURAÇÕES</span><h2>Permissões</h2><p>Existe uma única matriz oficial de permissões.</p></div></div>
+<article class="settings-card"><h3>Matriz unificada</h3><p>As permissões da interface e do Firestore são administradas em AVANÇADO → Cargos e Permissões.</p><button class="btn primary owner-only" data-page-jump="permissoes-cargos" type="button">Abrir Cargos e Permissões</button><p class="settings-note">Somente o DEV pode alterar a matriz oficial.</p></article>
 </section>
 <section class="settings-tab" data-settings-panel="attendance">
 <div class="settings-page-head"><div><span>CONFIGURAÇÕES</span><h2>Presenças</h2><p>Horários, pontuação e regras de registro.</p></div><button class="btn primary" data-save-settings="attendance" type="button">Salvar</button></div>
@@ -1034,20 +1018,12 @@
 <label>WorldBoss<input id="cfgWorldbossSchedule" value="10H,12H,20H,22H,00H"/></label>
 <label>Purgatório<input id="cfgPurgatorioSchedule" value="06H,12H,18H,00H"/></label>
 <label>Eventos<input id="cfgEventsSchedule" value="Guerra de Vale,Defesa de Crista,Evento de Vale,Saque de Castelo"/></label>
-<label>Tolerância em minutos<input id="cfgAttendanceTolerance" min="0" type="number" value="15"/></label>
 </div>
-</article>
-<article class="settings-card">
-<h3>Pontuação</h3>
-<label>Presença<input id="cfgPresencePoints" min="0" type="number" value="100"/></label>
-<label>Evento<input id="cfgEventPoints" min="0" type="number" value="150"/></label>
-<label>Ausência<input id="cfgAbsencePoints" type="number" value="0"/></label>
 </article>
 <article class="settings-card">
 <h3>Regras</h3>
 <label class="toggle-row"><span>Exigir observação em ausência</span><input id="cfgAbsenceReason" type="checkbox"/></label>
-<label class="toggle-row"><span>Fechamento automático</span><input id="cfgAutoCloseAttendance" type="checkbox"/></label>
-<label class="toggle-row"><span>Notificar faltas</span><input checked="" id="cfgNotifyAbsence" type="checkbox"/></label>
+<p class="settings-note">Quando ativado, uma ausência exige observação.</p>
 </article>
 </div>
 </section>
@@ -1071,15 +1047,8 @@
 <div class="settings-grid">
 <article class="settings-card">
 <h3>Alertas internos</h3>
-<label class="toggle-row"><span>Novo membro</span><input checked="" id="cfgNotifyNewMember" type="checkbox"/></label>
-<label class="toggle-row"><span>Atualização de personagem</span><input checked="" id="cfgNotifyCharacter" type="checkbox"/></label>
 <label class="toggle-row"><span>Evento criado</span><input checked="" id="cfgNotifyEvent" type="checkbox"/></label>
-<label class="toggle-row"><span>Meta concluída</span><input checked="" id="cfgNotifyGoal" type="checkbox"/></label>
-</article>
-<article class="settings-card">
-<h3>Integração opcional</h3>
-<label>Webhook do Discord<input id="cfgDiscordWebhook" placeholder="https://discord.com/api/webhooks/..." type="password"/></label>
-<p class="settings-note">O endereço fica salvo no Firestore. Não o publique em repositórios públicos.</p>
+<p class="settings-note">Publica uma notificação geral ao criar um evento no calendário.</p>
 </article>
 </div>
 </section>
@@ -1126,14 +1095,14 @@
 <section class="settings-tab" data-settings-panel="security">
 <div class="settings-page-head"><div><span>CONFIGURAÇÕES</span><h2>Segurança</h2><p>Políticas de sessão e proteção administrativa.</p></div><button class="btn primary" data-save-settings="security" type="button">Salvar</button></div>
 <div class="settings-grid">
-<article class="settings-card"><h3>Sessão</h3><label>Tempo máximo em minutos<input id="cfgSessionMinutes" min="15" type="number" value="480"/></label><label class="toggle-row"><span>Exigir login recente para ações críticas</span><input checked="" id="cfgRecentLoginCritical" type="checkbox"/></label></article>
-<article class="settings-card"><h3>Auditoria</h3><label class="toggle-row"><span>Registrar alterações administrativas</span><input checked="" id="cfgAuditChanges" type="checkbox"/></label><label class="toggle-row"><span>Alertar tentativas negadas</span><input checked="" id="cfgDeniedAlerts" type="checkbox"/></label></article>
+<article class="settings-card"><h3>Sessão</h3><label>Tempo máximo sem atividade (minutos)<input id="cfgSessionMinutes" max="1440" min="15" type="number" value="480"/></label><p class="settings-note">O usuário será desconectado depois desse período sem interação.</p></article>
+<article class="settings-card"><h3>Auditoria</h3><label class="toggle-row"><span>Registrar alterações administrativas</span><input checked="" id="cfgAuditChanges" type="checkbox"/></label><p class="settings-note">Eventos críticos continuam registrados por segurança.</p></article>
 </div>
 </section>
 <section class="settings-tab" data-settings-panel="system">
 <div class="settings-page-head"><div><span>CONFIGURAÇÕES</span><h2>Sistema</h2><p>Saúde e estatísticas técnicas da aplicação.</p></div><button class="btn" id="refreshSystemHealth" type="button">Atualizar</button></div>
 <div class="system-health-grid">
-<article><span>Versão</span><strong>22.9.1</strong><small>Hotfix atual</small></article>
+<article><span>Versão</span><strong>22.9.2</strong><small>Hotfix atual</small></article>
 <article><span>Projeto Firebase</span><strong id="systemProjectId">—</strong><small>Conectado</small></article>
 <article><span>Usuários</span><strong id="systemUsersCount">0</strong><small>Perfis</small></article>
 <article><span>Membros</span><strong id="systemMembersCount">0</strong><small>Ativos</small></article>
@@ -1148,7 +1117,7 @@
 <article class="settings-card about-enterprise-card">
 <img alt="Nova logo 77 TEAM Manager" src="assets/logo-77-team-manager-nova.webp?v=22.8.5"/>
 <h2>77 TEAM Manager</h2>
-<strong>Versão 22.9.1 Hotfix</strong>
+<strong>Versão 22.9.2 Hotfix</strong>
 <p>Plataforma de gestão de membros, presenças, personagens, metas, eventos e inteligência administrativa da 77 TEAM.</p>
 <div class="version-history"><span>v7.0 Player Center</span><span>v7.1 Central de Personagens</span><span>v13.2 Central de Histórico</span><span>v14 Menu por Permissões</span></div>
 </article>
@@ -1158,7 +1127,7 @@
 </section>
 <section class="page page-animate owner-only advanced-page" id="atualizacoes">
 <div class="page-head"><div><h2>🚀 Atualizações</h2><p>Central de implantação do 77 TEAM Manager.</p></div></div>
-<div class="advanced-grid"><article class="panel"><div class="panel-head"><h3>Versão do sistema</h3></div><div class="panel-body advanced-card"><strong>22.9.1 Hotfix</strong><p id="updateStatusText">Aguardando verificação do manifesto.</p><div class="version-details"><span>Base oficial: 22.8.5</span><span>Compilação: 12/08/2026</span></div><button class="btn primary" id="checkUpdatesButton" type="button">Verificar atualização</button></div></article><article class="panel"><div class="panel-head"><h3>Novidades da V22.9.1</h3></div><div class="panel-body"><ul class="release-notes"><li>AVANÇADO revisado módulo por módulo.</li><li>Restauração controlada conectada ao restoreJob.</li><li>Diagnóstico real do Firestore com tempo de resposta.</li><li>Sessões conectadas registradas por dispositivo.</li><li>Status público do GitHub configurável.</li><li>Formulários protegidos contra perda por snapshots.</li></ul></div></article><article class="panel"><div class="panel-head"><h3>Repositório GitHub</h3></div><div class="panel-body stack"><p>Consulte repositórios públicos sem armazenar tokens no navegador.</p><label>Repositório<input id="githubRepository" placeholder="organizacao/repositorio" maxlength="180"/></label><div class="button-row"><button class="btn" id="saveGithubRepository" type="button">Salvar</button><button class="btn primary" id="checkGithubButton" type="button">Consultar GitHub</button></div><p class="muted" id="githubUpdateStatus">Nenhum repositório configurado.</p></div></article></div>
+<div class="advanced-grid"><article class="panel"><div class="panel-head"><h3>Versão do sistema</h3></div><div class="panel-body advanced-card"><strong>22.9.2 Hotfix</strong><p id="updateStatusText">Aguardando verificação do manifesto.</p><div class="version-details"><span>Base oficial: 22.8.5</span><span>Compilação: 12/08/2026</span></div><button class="btn primary" id="checkUpdatesButton" type="button">Verificar atualização</button></div></article><article class="panel"><div class="panel-head"><h3>Novidades da V22.9.2</h3></div><div class="panel-body"><ul class="release-notes"><li>ADMINISTRAÇÃO revisada módulo por módulo.</li><li>Staff reconhece DEV, Liderança e Staff.</li><li>Configurações operacionais aplicadas ao sistema.</li><li>Matriz duplicada de permissões removida.</li><li>Backup Central alinhado às regras de restauração.</li><li>Auditoria com pesquisa e exportação CSV.</li></ul></div></article><article class="panel"><div class="panel-head"><h3>Repositório GitHub</h3></div><div class="panel-body stack"><p>Consulte repositórios públicos sem armazenar tokens no navegador.</p><label>Repositório<input id="githubRepository" placeholder="organizacao/repositorio" maxlength="180"/></label><div class="button-row"><button class="btn" id="saveGithubRepository" type="button">Salvar</button><button class="btn primary" id="checkGithubButton" type="button">Consultar GitHub</button></div><p class="muted" id="githubUpdateStatus">Nenhum repositório configurado.</p></div></article></div>
 </section>
 <section class="page page-animate owner-only advanced-page" id="backup"><div class="page-head"><div><h2>💾 Backup e restauração</h2><p>Exporte, valide e restaure dados com rollback persistente.</p></div></div><div class="advanced-grid"><article class="panel"><div class="panel-head"><h3>Novo backup</h3></div><div class="panel-body"><p>Gera um backup completo com projeto, versão, coleções e subcoleções semanais.</p><button class="btn primary" id="createBackupButton" type="button">Gerar backup JSON</button></div></article><article class="panel"><div class="panel-head"><h3>Restauração controlada</h3></div><div class="panel-body stack"><p>O arquivo é validado antes de qualquer gravação. Em caso de falha, o restoreJob executa rollback.</p><input accept="application/json" id="restoreBackupFile" type="file"/><button class="btn primary" disabled id="restoreAdvancedBackup" type="button">Restaurar backup validado</button><p class="muted" id="restoreBackupInfo">Selecione um backup completo.</p></div></article></div></section>
 <section class="page page-animate owner-only advanced-page" id="logs-sistema"><div class="page-head"><div><h2>📋 Logs do sistema</h2><p>Registros de auditoria e eventos operacionais.</p></div></div><article class="panel"><div class="table-wrap"><table><thead><tr><th>Data</th><th>Usuário</th><th>Ação</th><th>Detalhes</th></tr></thead><tbody id="advancedLogsRows"></tbody></table></div></article></section>
@@ -1233,7 +1202,7 @@
 <div><span>DESENVOLVIDO POR</span><h3>PrimeTools Labs</h3><p>Tecnologia • Soluções • Resultados</p></div>
 </div>
 <div class="about-v152-meta">
-<div><span>Versão</span><strong>22.9.1 Hotfix</strong></div>
+<div><span>Versão</span><strong>22.9.2 Hotfix</strong></div>
 <div><span>Tecnologias</span><strong>HTML5, CSS3, JavaScript e Firebase</strong></div>
 <div><span>Licença</span><strong>Uso exclusivo da 77 TEAM</strong></div>
 </div>
@@ -1253,7 +1222,7 @@
 </section>
 
 <section class="page owner-only" id="auditoria">
-<div class="panel"><div class="panel-head"><h3>Auditoria</h3></div>
+<div class="panel"><div class="panel-head"><div><h3>Auditoria</h3><p>Pesquise e exporte os registros administrativos.</p></div><div class="button-row"><input id="auditSearch" placeholder="Pesquisar registros..." type="search"/><button class="btn" id="exportAuditCsv" type="button">Exportar CSV</button></div></div>
 <div class="panel-body table-wrap"><table><thead><tr><th>Data</th><th>Usuário</th><th>Ação</th><th>Detalhes</th></tr></thead><tbody id="auditRows"></tbody></table></div></div>
 </section>
 <footer class="app-footer">© 2026 77 TEAM Manager — Desenvolvido por PrimeTools Labs.</footer>
@@ -1358,7 +1327,7 @@
 </div>
 <div class="global-search-results hidden" id="globalSearchResults"></div>
 <div class="toast" id="toast"></div>
-<script src="js/ui.js?v=22.9.1"></script>
-<script src="js/main.js?v=22.9.1" type="module"></script>
+<script src="js/ui.js?v=22.9.2"></script>
+<script src="js/main.js?v=22.9.2" type="module"></script>
 </body>
 </html>

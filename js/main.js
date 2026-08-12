@@ -40,6 +40,12 @@ const REQUEST_ACCESS_OPTIONS={
   staff:MEMBER_ROLES.map(role=>({value:`member:${role}`,label:role}))
 };
 const TYPES={worldboss:["10H","12H","20H","22H","00H"],purgatorio:["06H","12H","18H","00H"],eventos:["Guerra de Vale","Defesa de Crista","Evento de Vale","Saque de Castelo"]};
+function configuredPresenceSlots(kind){
+  const attendance=state.settings?.attendance||{},key=kind==="worldboss"?"worldbossSchedule":kind==="purgatorio"?"purgatorioSchedule":"eventsSchedule";
+  const rows=String(attendance[key]||"").split(",").map(item=>item.trim()).filter(Boolean).slice(0,30);
+  return rows.length?rows:TYPES[kind]||[];
+}
+function configuredEventEnabled(kind){const cfg=state.settings?.events||{};return kind==="worldboss"?cfg.worldbossEnabled!==false:kind==="purgatorio"?cfg.purgatorioEnabled!==false:cfg.customEventsEnabled!==false}
 
 const state={user:null,profile:null,onboardingRequired:false,members:[],attendance:[],rtPresence:[],users:[],audit:[],events:[],notifications:[],sentNotifications:[],notificationReads:[],settings:{},xpLogs:[],supportMessages:[],selectedSupportOwnerUid:"",selectedSupportTicketId:"",supportView:"active",chatMessages:[],selectedChatOwnerUid:"",selectedChatId:"",chatView:"active",chatSearch:"",editingCharacterUserId:"",presenceFilters:{},presenceBackups:[],sessions:[],unsubs:[]};
 
@@ -395,16 +401,21 @@ onAuthStateChanged(auth,async user=>{
 
 function applyPermissions(){
   $$(".owner-only").forEach(el=>el.classList.toggle("hidden",!owner()));
-  $$(".admin-only").forEach(el=>el.classList.toggle("hidden",!administrator()));
+  $$(".admin-only").forEach(el=>el.classList.toggle("hidden",!permissionEnabled("access_admin")));
   $$(".editor-only").forEach(el=>el.classList.toggle("hidden",!editor()));
   document.body.dataset.accessRole=currentAccessRole();
   document.body.dataset.rawAccessRole=String(state.profile?.accessRole||state.profile?.role||"");
   document.querySelectorAll("[data-save-settings]").forEach(button=>button.classList.toggle("hidden",!permissionEnabled("settings_edit")));
   document.querySelectorAll("#configuracoes input,#configuracoes select,#configuracoes textarea").forEach(field=>field.disabled=!permissionEnabled("settings_edit"));
   byId("configuracoes")?.classList.toggle("hidden",!permissionEnabled("settings_view"));
-  byId("auditoria")?.classList.toggle("hidden",!permissionEnabled("audit_view"));
+  byId("auditoria")?.classList.toggle("hidden",!(permissionEnabled("access_admin")&&permissionEnabled("audit_view")));
   document.querySelectorAll('[data-page="configuracoes"]').forEach(button=>button.classList.toggle("hidden",!permissionEnabled("settings_view")));
-  document.querySelectorAll('[data-page="auditoria"]').forEach(button=>button.classList.toggle("hidden",!permissionEnabled("audit_view")));
+  document.querySelectorAll('[data-page="auditoria"]').forEach(button=>button.classList.toggle("hidden",!(permissionEnabled("access_admin")&&permissionEnabled("audit_view"))));
+  byId("profileNicknameForm")?.classList.toggle("policy-disabled",state.settings?.team?.allowNickname===false);
+  byId("profileAvatarForm")?.classList.toggle("policy-disabled",state.settings?.team?.allowAvatar===false);
+  byId("profilePasswordForm")?.classList.toggle("policy-disabled",state.settings?.team?.allowPassword===false);
+  byId("staffNoticeForm")?.classList.toggle("hidden",!permissionEnabled("notifications_send"));
+  byId("xpAdjustmentForm")?.classList.toggle("hidden",!permissionEnabled("xp_manage"));
 
   const displayName=state.profile?.name||state.profile?.email||"Usuário";
   const roleLabel=accessRoleLabel(currentAccessRole());
@@ -550,10 +561,11 @@ function subscribeAll(){
     if(privateSettings.notificationsPrivate){state.settings.notifications={...(state.settings.notifications||{}),...privateSettings.notificationsPrivate};loadSettingsForm();}
   },error=>console.warn("Configurações privadas indisponíveis:",error)));
 }
-async function audit(action,details){if(!state.user||!editor())return;try{await addDoc(collection(db,"audit"),{userId:state.user.uid,userName:state.profile?.name||state.profile?.email||"Usuário",action:String(action||"").slice(0,160),details:String(details||"").slice(0,2000),createdAt:serverTimestamp()})}catch{}}
+async function audit(action,details){if(!state.user||!editor())return;const label=String(action||"");const critical=/dev|cargo|permiss|restaur|rollback|exclu|senha|seguran|login|sessão|backup/i.test(label);if(state.settings?.security?.auditChanges===false&&!critical)return;try{await addDoc(collection(db,"audit"),{userId:state.user.uid,userName:state.profile?.name||state.profile?.email||"Usuário",action:label.slice(0,160),details:String(details||"").slice(0,2000),createdAt:serverTimestamp()})}catch{}}
 
 let sessionHeartbeatTimer=null;
 let sessionHeartbeatCreated=false;
+let lastUserActivity=Date.now();
 function browserSessionId(){
   let id=sessionStorage.getItem("77team-session-id");
   if(!id){id=(crypto.randomUUID?.()||`${Date.now()}-${Math.random()}`).replace(/[^A-Za-z0-9-]/g,"");sessionStorage.setItem("77team-session-id",id)}
@@ -568,8 +580,9 @@ async function writeSessionHeartbeat(online=true){
 }
 function startSessionHeartbeat(){
   clearInterval(sessionHeartbeatTimer);writeSessionHeartbeat(true);
-  sessionHeartbeatTimer=setInterval(()=>writeSessionHeartbeat(document.visibilityState!=="hidden"),45000);
+  sessionHeartbeatTimer=setInterval(async()=>{const limit=Math.max(15,Math.min(1440,Number(state.settings?.security?.sessionMinutes||480)))*60000;if(Date.now()-lastUserActivity>limit){toast("Sessão encerrada por inatividade.");await writeSessionHeartbeat(false);clearSubs();await signOut(auth);return}writeSessionHeartbeat(document.visibilityState!=="hidden")},45000);
 }
+['pointerdown','keydown','touchstart','scroll'].forEach(name=>window.addEventListener(name,()=>{lastUserActivity=Date.now()},{passive:true}));
 document.addEventListener("visibilitychange",()=>{if(state.user)writeSessionHeartbeat(document.visibilityState!=="hidden")});
 
 function stats(name){const rows=state.attendance.filter(x=>x.memberName===name),p=rows.filter(x=>x.status===1||x.status===2).length,a=rows.filter(x=>x.status===-1).length,j=rows.filter(x=>x.status===3).length,t=p+a;return{present:p,absent:a,justified:j,rate:t?Math.round(p/t*100):0}}
@@ -650,7 +663,7 @@ async function createPresenceBackup({automatic=false}={}){
   const rtRecords=state.rtPresence.map(item=>({...item,originalId:item.id}));
   if(!records.length&&!rtRecords.length){toast("Não existem dados de presença para salvar.");return null}
   const now=new Date(),week=isoWeek(todayIso()),counts=presenceBackupCounts(records),id=`${week}__${now.toISOString().replace(/[^0-9]/g,"").slice(0,14)}`;
-  const payload={week,counts,total:records.length,rtTotal:rtRecords.length,automatic,backupSchema:2,createdBy:state.user.uid,createdByName:state.profile?.name||state.user.email,createdAt:serverTimestamp(),createdAtText:now.toISOString(),sourceVersion:"22.9.1"};
+  const payload={week,counts,total:records.length,rtTotal:rtRecords.length,automatic,backupSchema:2,createdBy:state.user.uid,createdByName:state.profile?.name||state.user.email,createdAt:serverTimestamp(),createdAtText:now.toISOString(),sourceVersion:"22.9.2"};
   await setDoc(doc(db,"presenceBackups",id),payload);
   await writeBackupSubcollection(id,"attendance",records);
   await writeBackupSubcollection(id,"rt",rtRecords);
@@ -701,7 +714,7 @@ async function resetPresenceWithBackup(){
     toast("Reset interrompido. O backup e o registro de recuperação foram preservados. Tente novamente após verificar a conexão.");
   }
 }
-async function downloadPresenceBackup(id){const item=state.presenceBackups.find(row=>row.id===id);if(!item)return toast("Backup não encontrado.");const data=await loadPresenceBackupData(item);downloadJson(`presenca-${item.week||id}.json`,{version:"22.9.1",exportedAt:new Date().toISOString(),backup:{...item,...data}});}
+async function downloadPresenceBackup(id){const item=state.presenceBackups.find(row=>row.id===id);if(!item)return toast("Backup não encontrado.");const data=await loadPresenceBackupData(item);downloadJson(`presenca-${item.week||id}.json`,{version:"22.9.2",exportedAt:new Date().toISOString(),backup:{...item,...data}});}
 
 
 function backupCenterDateValue(item){return rtDateValue(item?.createdAt)||Date.parse(item?.createdAtText||0)||0}
@@ -720,7 +733,7 @@ function renderBackupCenter(){
   setText("backupCenterTotal",String(state.presenceBackups.length));
   setText("backupCenterLatest",latest?presenceBackupDate(latest.createdAt||latest.createdAtText):"Nunca");
   setText("backupCenterResponsible",latest?.createdByName||"—");
-  list.innerHTML=rows.map(item=>{const counts=item.counts||presenceBackupCounts(item.records||[]);return `<article class="backup-center-card"><div class="backup-center-main"><span class="backup-kind">💾 Backup de Presença</span><strong>${escapeHtml(item.week||"Semana não informada")}</strong><small>${escapeHtml(presenceBackupDate(item.createdAt||item.createdAtText))} · ${item.automatic?"Automático":"Manual"}</small></div><div class="backup-center-stats"><span>🟢 ${Number(counts.present||0)}</span><span>🟡 ${Number(counts.justified||0)}</span><span>🔴 ${Number(counts.absent||0)}</span><span>📋 ${Number(item.total||item.records?.length||0)}</span><span>🧾 ${Number(item.rtTotal||item.rtRecords?.length||0)} RTs</span></div><div class="backup-center-owner"><small>Responsável</small><b>${escapeHtml(item.createdByName||"—")}</b></div><div class="backup-center-actions"><button class="btn mini" data-view-center-backup="${escapeHtml(item.id)}">👁 Visualizar</button><button class="btn mini" data-download-presence-backup="${escapeHtml(item.id)}">JSON</button><button class="btn mini" data-export-center-excel="${escapeHtml(item.id)}">Excel</button>${administrator()?`<button class="btn mini" data-restore-center-backup="${escapeHtml(item.id)}">♻ Restaurar</button>`:""}${owner()?`<button class="btn danger mini" data-delete-center-backup="${escapeHtml(item.id)}">🗑 Excluir</button>`:""}</div></article>`}).join("")||`<div class="empty-state">Nenhum backup encontrado.</div>`;
+  list.innerHTML=rows.map(item=>{const counts=item.counts||presenceBackupCounts(item.records||[]);return `<article class="backup-center-card"><div class="backup-center-main"><span class="backup-kind">💾 Backup de Presença</span><strong>${escapeHtml(item.week||"Semana não informada")}</strong><small>${escapeHtml(presenceBackupDate(item.createdAt||item.createdAtText))} · ${item.automatic?"Automático":"Manual"}</small></div><div class="backup-center-stats"><span>🟢 ${Number(counts.present||0)}</span><span>🟡 ${Number(counts.justified||0)}</span><span>🔴 ${Number(counts.absent||0)}</span><span>📋 ${Number(item.total||item.records?.length||0)}</span><span>🧾 ${Number(item.rtTotal||item.rtRecords?.length||0)} RTs</span></div><div class="backup-center-owner"><small>Responsável</small><b>${escapeHtml(item.createdByName||"—")}</b></div><div class="backup-center-actions"><button class="btn mini" data-view-center-backup="${escapeHtml(item.id)}">👁 Visualizar</button><button class="btn mini" data-download-presence-backup="${escapeHtml(item.id)}">JSON</button><button class="btn mini" data-export-center-excel="${escapeHtml(item.id)}">Excel</button>${owner()?`<button class="btn mini" data-restore-center-backup="${escapeHtml(item.id)}">♻ Restaurar</button><button class="btn danger mini" data-delete-center-backup="${escapeHtml(item.id)}">🗑 Excluir</button>`:""}</div></article>`}).join("")||`<div class="empty-state">Nenhum backup encontrado.</div>`;
 }
 async function viewCenterBackup(id){
   const item=state.presenceBackups.find(row=>row.id===id);if(!item)return toast("Backup não encontrado.");
@@ -737,7 +750,7 @@ async function exportCenterBackupExcel(id){
   const blob=new Blob(["\ufeff"+html],{type:"application/vnd.ms-excel"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`backup-presenca-${item.week||id}.xls`;a.click();URL.revokeObjectURL(a.href);audit("download de backup",`${item.week||id} · Excel`);
 }
 async function restoreCenterBackup(id){
-  if(!administrator())return toast("Somente DEV e Liderança podem restaurar backups.");
+  if(!owner())return toast("Somente o DEV pode restaurar backups.");
   const item=state.presenceBackups.find(row=>row.id===id);if(!item)return toast("Backup não encontrado.");
   const data=await loadPresenceBackupData(item);
   const records=data.records,rtRecords=data.rtRecords;
@@ -762,8 +775,8 @@ function filterUnifiedPresence(){const q=String(document.querySelector("[data-un
 function renderRecentPresenceBody(rows){return rows.map(item=>{const st=presenceStatus(item.status);return `<tr><td>${escapeHtml(item.date||"—")}</td><td>${escapeHtml(item.memberName||"—")}</td><td>${escapeHtml(item.clan||"—")}</td><td>${escapeHtml(item.slot||"—")}</td><td><span class="presence-status-chip ${st.cls}">${st.icon} ${st.label}</span></td><td>${escapeHtml(item.note||"—")}</td><td>${escapeHtml(item.updatedByName||"—")}</td>${permissionEnabled("presence_delete")?`<td><button class="btn danger mini" data-delete-attendance="${escapeHtml(item.id)}">Excluir</button></td>`:""}</tr>`}).join("")||`<tr><td colspan="8">Nenhum registro encontrado.</td></tr>`}
 function filterRecentPresence(kind){const q=String(document.querySelector(`[data-recent-presence-search="${kind}"]`)?.value||"").toLowerCase(),date=document.querySelector(`[data-recent-presence-date="${kind}"]`)?.value||"";const rows=recentPresenceRows(kind).filter(item=>(!date||item.date===date)&&(!q||`${item.memberName} ${item.clan} ${item.slot} ${presenceStatus(item.status).label}`.toLowerCase().includes(q)));const body=document.querySelector(`[data-recent-presence-body="${kind}"]`);if(body)body.innerHTML=renderRecentPresenceBody(rows)}
 function populatePresenceMemberList(){const list=$("#presenceMemberOptions");if(list)list.innerHTML=state.members.map(m=>`<option value="${escapeHtml(m.name||"")}">${escapeHtml(m.clan||"")}</option>`).join("")}
-function updatePresenceSlotOptions(kind,selected=""){const select=$("#presenceModalSlot");if(!select)return;select.innerHTML=(TYPES[kind]||[]).map(slot=>`<option value="${escapeHtml(slot)}" ${slot===selected?"selected":""}>${escapeHtml(slot)}${kind==="eventos"?` · ${eventDay(slot)}`:""}</option>`).join("")}
-function openPresenceModal(kind="worldboss",record=null){if(!(record?permissionEnabled("presence_edit"):permissionEnabled("presence_register")))return toast("Sem permissão para registrar ou editar presença.");populatePresenceMemberList();setValue("presenceModalUser",record?.memberName||"");setValue("presenceModalKind",kind);updatePresenceSlotOptions(kind,record?.slot||"");setValue("presenceModalDate",record?.date||todayIso());setValue("presenceModalNote",record?.note||"");document.querySelectorAll('[data-presence-status-choice]').forEach(btn=>btn.classList.toggle('active',Number(btn.dataset.presenceStatusChoice)===Number(record?.status||1)));$("#presenceModal").dataset.editingId=record?.id||"";$("#presenceModal").classList.remove("hidden")}
+function updatePresenceSlotOptions(kind,selected=""){const select=$("#presenceModalSlot");if(!select)return;select.innerHTML=configuredPresenceSlots(kind).map(slot=>`<option value="${escapeHtml(slot)}" ${slot===selected?"selected":""}>${escapeHtml(slot)}${kind==="eventos"?` · ${eventDay(slot)}`:""}</option>`).join("")}
+function openPresenceModal(kind="worldboss",record=null){if(!configuredEventEnabled(kind))return toast("Este tipo de evento foi desativado nas Configurações.");if(!(record?permissionEnabled("presence_edit"):permissionEnabled("presence_register")))return toast("Sem permissão para registrar ou editar presença.");populatePresenceMemberList();setValue("presenceModalUser",record?.memberName||"");setValue("presenceModalKind",kind);updatePresenceSlotOptions(kind,record?.slot||"");setValue("presenceModalDate",record?.date||todayIso());setValue("presenceModalNote",record?.note||"");document.querySelectorAll('[data-presence-status-choice]').forEach(btn=>btn.classList.toggle('active',Number(btn.dataset.presenceStatusChoice)===Number(record?.status||1)));$("#presenceModal").dataset.editingId=record?.id||"";$("#presenceModal").classList.remove("hidden")}
 function closePresenceModal(){$("#presenceModal")?.classList.add("hidden")}
 function selectedPresenceStatus(){return Number(document.querySelector('[data-presence-status-choice].active')?.dataset.presenceStatusChoice||1)}
 async function savePresenceFromModal(){
@@ -771,8 +784,10 @@ async function savePresenceFromModal(){
   const name=$("#presenceModalUser")?.value.trim(),member=state.members.find(m=>String(m.name||"").toLowerCase()===String(name||"").toLowerCase());
   if(!member)return toast("Selecione um usuário válido da lista.");
   const kind=$("#presenceModalKind").value,slot=$("#presenceModalSlot").value,date=$("#presenceModalDate").value,status=selectedPresenceStatus(),note=$("#presenceModalNote").value.trim();
+  if(!configuredEventEnabled(kind))return toast("Este tipo de evento foi desativado nas Configurações.");
   if(!kind||!slot||!date||![-1,1,3].includes(status))return toast("Preencha todos os campos obrigatórios.");
   if(status===3&&!note)return toast("Informe o motivo da justificativa.");
+  if(status===-1&&state.settings?.attendance?.requireAbsenceReason===true&&!note)return toast("As Configurações exigem uma observação para registrar ausência.");
   const id=(kind+"__"+date+"__"+member.id+"__"+slot).replace(/[^a-zA-Z0-9_-]/g,"_");
   const existing=state.attendance.find(item=>item.id===id||item.memberId===member.id&&item.kind===kind&&item.slot===slot&&item.date===date);
   if(existing&&!permissionEnabled("presence_edit"))return toast("Sem permissão para editar uma presença existente.");
@@ -1228,7 +1243,7 @@ function render(){
   const pending=state.users.filter(u=>normalizeAccessRole(u.role)==="member"&&u.status==="pending");
   const requestOptions=REQUEST_ACCESS_OPTIONS[owner()?"dev":leadership()?"leadership":"staff"]||[];
   $("#requestRows").innerHTML=pending.map(u=>`<tr><td>${escapeHtml(u.name)}</td><td>${escapeHtml(u.email)}</td><td><select data-clan="${escapeHtml(u.id)}">${'<option value="">Clã</option>'+CLANS.map(x=>`<option>${x}</option>`).join("")}</select></td><td><select data-role="${escapeHtml(u.id)}">${requestOptions.map(option=>`<option value="${option.value}">${option.label}</option>`).join("")}</select></td><td><div class="request-actions"><button class="btn primary" data-approve="${escapeHtml(u.id)}" type="button">Aprovar</button><button class="btn danger" data-reject="${escapeHtml(u.id)}" type="button">Rejeitar</button></div></td></tr>`).join("")||"<tr><td colspan='5'>Nenhuma solicitação pendente.</td></tr>";
-  $("#auditRows").innerHTML=state.audit.map(a=>`<tr><td>${a.createdAt?.toDate?a.createdAt.toDate().toLocaleString("pt-BR"):"—"}</td><td>${escapeHtml(a.userName||"—")}</td><td>${escapeHtml(a.action)}</td><td>${escapeHtml(a.details||"")}</td></tr>`).join("");
+  renderAuditTable();
   renderNotifications();renderCalendar();renderStatistics();updatePdfMemberOptions();renderOwnProfile();renderCharacterProfile();renderCharactersTable();renderCharacterCenter();renderHistoryCenter();renderGoals();renderSystemHealth();renderStaffCommandCenter();renderLevelSystem();renderAdvancedCenter();scheduleProgressionSync();applyRestrictedVisibility();
 }
 
@@ -1253,7 +1268,7 @@ function renderAdvancedCenter(){
   const logs=state.audit.slice().sort((a,b)=>(b.createdAt?.toMillis?.()||0)-(a.createdAt?.toMillis?.()||0));
   setHtml("advancedLogsRows",logs.map(a=>`<tr><td>${a.createdAt?.toDate?a.createdAt.toDate().toLocaleString("pt-BR"):"—"}</td><td>${escapeHtml(a.userName||"—")}</td><td>${escapeHtml(a.action||"—")}</td><td>${escapeHtml(a.details||"")}</td></tr>`).join("")||'<tr><td colspan="4">Nenhum log disponível.</td></tr>');
   setHtml("firebaseStatusCards",[diagnosticCard("Autenticação",advancedDiagnostics.auth),diagnosticCard("Cloud Firestore",advancedDiagnostics.firestore),diagnosticCard("Listeners em tempo real",advancedDiagnostics.listeners)].join(""));
-  setHtml("servicesStatusGrid",[diagnosticCard("Aplicação web",{ok:true,text:`V22.9.1 carregada · ${location.protocol==="https:"?"HTTPS":"ambiente local"}`}),diagnosticCard("Firebase Auth",advancedDiagnostics.auth),diagnosticCard("Cloud Firestore",advancedDiagnostics.firestore),diagnosticCard("PWA / Service Worker",advancedDiagnostics.pwa),diagnosticCard("GitHub",{ok:githubDiagnostics.ok,text:githubDiagnostics.text})].join(""));
+  setHtml("servicesStatusGrid",[diagnosticCard("Aplicação web",{ok:true,text:`V22.9.2 carregada · ${location.protocol==="https:"?"HTTPS":"ambiente local"}`}),diagnosticCard("Firebase Auth",advancedDiagnostics.auth),diagnosticCard("Cloud Firestore",advancedDiagnostics.firestore),diagnosticCard("PWA / Service Worker",advancedDiagnostics.pwa),diagnosticCard("GitHub",{ok:githubDiagnostics.ok,text:githubDiagnostics.text})].join(""));
   renderSessions();renderGithubStatus();
   setHtml("systemStatsGrid",[
     ["Usuários",state.users.filter(user=>resolveAccessRole(user)!=="dev").length],["Membros",visibleMembers().length],["Presenças",state.attendance.length],["Eventos",state.events.length],["Notificações",state.sentNotifications.length||state.notifications.length],["Logs",state.audit.length]
@@ -1263,6 +1278,10 @@ function renderAdvancedCenter(){
   if(!maintenanceFormDirty){const toggle=byId("maintenanceModeToggle");if(toggle)toggle.checked=maintenance.enabled===true;setValue("maintenanceTitle",maintenance.title||"Sistema em manutenção");setValue("maintenanceMessage",maintenance.message||"Estamos realizando melhorias. Algumas funções podem apresentar instabilidade.");setValue("maintenanceImageUrl",maintenance.imageUrl||"");setValue("maintenanceExpectedEnd",maintenance.expectedEnd||"");const showLogin=byId("maintenanceShowLogin");if(showLogin)showLogin.checked=maintenance.showLogin!==false;const showApp=byId("maintenanceShowApp");if(showApp)showApp.checked=maintenance.showApp!==false;updateMaintenancePreview()}
   applyMaintenanceNotice();
 }
+function filteredAuditRows(){const term=String(byId("auditSearch")?.value||"").trim().toLowerCase();return state.audit.slice().sort((a,b)=>(b.createdAt?.toMillis?.()||0)-(a.createdAt?.toMillis?.()||0)).filter(item=>!term||`${item.userName||""} ${item.action||""} ${item.details||""}`.toLowerCase().includes(term))}
+function renderAuditTable(){const host=byId("auditRows");if(!host)return;host.innerHTML=filteredAuditRows().map(a=>`<tr><td>${a.createdAt?.toDate?a.createdAt.toDate().toLocaleString("pt-BR"):"—"}</td><td>${escapeHtml(a.userName||"—")}</td><td>${escapeHtml(a.action||"—")}</td><td>${escapeHtml(a.details||"")}</td></tr>`).join("")||'<tr><td colspan="4">Nenhum registro encontrado.</td></tr>'}
+on("auditSearch","input",renderAuditTable);
+on("exportAuditCsv","click",()=>{const rows=[["Data","Usuário","Ação","Detalhes"],...filteredAuditRows().map(item=>[item.createdAt?.toDate?item.createdAt.toDate().toLocaleString("pt-BR"):"",item.userName||"",item.action||"",item.details||""])],csv=rows.map(row=>row.map(value=>`"${String(value).replaceAll('"','""')}"`).join(";")).join("\n"),blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}),url=URL.createObjectURL(blob),link=document.createElement("a");link.href=url;link.download=`auditoria-77-team-${todayIso()}.csv`;link.click();URL.revokeObjectURL(url)});
 function downloadJson(filename,data){const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
 async function runFirebaseDiagnostics(){
   const started=performance.now();advancedDiagnostics.auth={ok:!!auth.currentUser,text:auth.currentUser?`Autenticado como ${auth.currentUser.email||auth.currentUser.uid}`:"Sem usuário autenticado"};
@@ -1275,7 +1294,7 @@ async function checkGithub(){
   setText("githubUpdateStatus","Consultando GitHub...");
   try{const [repoResponse,runsResponse,releaseResponse]=await Promise.all([fetch(`https://api.github.com/repos/${repository}`,{headers:{Accept:"application/vnd.github+json"}}),fetch(`https://api.github.com/repos/${repository}/actions/runs?per_page=1`,{headers:{Accept:"application/vnd.github+json"}}),fetch(`https://api.github.com/repos/${repository}/releases/latest`,{headers:{Accept:"application/vnd.github+json"}})]);if(!repoResponse.ok)throw new Error(`Repositório indisponível (${repoResponse.status})`);const repo=await repoResponse.json(),runs=runsResponse.ok?await runsResponse.json():null,release=releaseResponse.ok?await releaseResponse.json():null,lastRun=runs?.workflow_runs?.[0];githubDiagnostics={ok:true,configured:true,repository,text:`${repo.full_name} · branch ${repo.default_branch} · atualizado ${new Date(repo.updated_at).toLocaleString("pt-BR")}`,workflows:lastRun?`${lastRun.name}: ${lastRun.conclusion||lastRun.status}`:"Nenhuma execução pública",release:release?.tag_name||"Nenhuma release publicada",testedAt:new Date().toISOString()};setText("githubUpdateStatus","Consulta concluída com sucesso.");renderAdvancedCenter();return true}catch(error){githubDiagnostics={ok:false,configured:true,repository,text:error.message||"Falha ao consultar GitHub",workflows:"Indisponível",release:"Indisponível"};setText("githubUpdateStatus",githubDiagnostics.text);renderAdvancedCenter();return false}
 }
-on("checkUpdatesButton","click",async()=>{const button=byId("checkUpdatesButton");if(button)button.disabled=true;try{const response=await fetch(`manifest.json?check=${Date.now()}`,{cache:"no-store"});if(!response.ok)throw new Error("Manifesto indisponível");const manifest=await response.json(),repository=state.settings?.advanced?.githubRepository||"";let message=`Versão publicada: ${manifest.version_name||manifest.version||"não informada"}. Versão carregada: 22.9.1.`;if(repository){await checkGithub();if(githubDiagnostics.release!=="Nenhuma release publicada"&&githubDiagnostics.release!=="Indisponível")message+=` GitHub: ${githubDiagnostics.release}.`}setText("updateStatusText",message);toast("Verificação concluída.")}catch(error){setText("updateStatusText",`Falha na verificação: ${error.message}`)}finally{if(button)button.disabled=false}});
+on("checkUpdatesButton","click",async()=>{const button=byId("checkUpdatesButton");if(button)button.disabled=true;try{const response=await fetch(`manifest.json?check=${Date.now()}`,{cache:"no-store"});if(!response.ok)throw new Error("Manifesto indisponível");const manifest=await response.json(),repository=state.settings?.advanced?.githubRepository||"";let message=`Versão publicada: ${manifest.version_name||manifest.version||"não informada"}. Versão carregada: 22.9.2.`;if(repository){await checkGithub();if(githubDiagnostics.release!=="Nenhuma release publicada"&&githubDiagnostics.release!=="Indisponível")message+=` GitHub: ${githubDiagnostics.release}.`}setText("updateStatusText",message);toast("Verificação concluída.")}catch(error){setText("updateStatusText",`Falha na verificação: ${error.message}`)}finally{if(button)button.disabled=false}});
 on("createBackupButton","click",async()=>{if(!owner())return;try{downloadJson(`77-team-backup-${new Date().toISOString().slice(0,10)}.json`,await completeBackupPayload());toast("Backup completo e seguro gerado.")}catch(error){toast(error.message||errMsg(error))}});
 on("restoreBackupFile","change",async e=>{const file=e.target.files?.[0],button=byId("restoreAdvancedBackup");validatedAdvancedBackup=null;if(button)button.disabled=true;if(!file)return;if(file.size>50*1024*1024)return setText("restoreBackupInfo","Arquivo acima do limite seguro de 50 MB.");try{const data=JSON.parse(await file.text());validateBackupPayload(data);validatedAdvancedBackup=data;if(button)button.disabled=false;setText("restoreBackupInfo",`✓ Backup validado: V${data.version}, projeto ${data.projectId}, schema ${data.backupSchema}, gerado em ${new Date(data.generatedAt).toLocaleString("pt-BR")}.`)}catch(error){setText("restoreBackupInfo",`✕ Backup recusado: ${error.message||"arquivo inválido"}`)}});
 on("restoreAdvancedBackup","click",async()=>{if(!owner()||!validatedAdvancedBackup)return;if(!confirm("Restaurar este backup validado? Um restoreJob persistente fará rollback automático em caso de falha."))return;const button=byId("restoreAdvancedBackup");button.disabled=true;setText("restoreBackupInfo","Restauração controlada em andamento. Não feche esta página...");try{const jobId=await restoreBackupPayload(validatedAdvancedBackup);setText("restoreBackupInfo",`✓ Restauração concluída. restoreJob: ${jobId}`);validatedAdvancedBackup=null;toast("Backup restaurado com rollback protegido.")}catch(error){setText("restoreBackupInfo",`✕ Restauração revertida: ${error.message||error}`);button.disabled=false}});
@@ -1328,13 +1347,13 @@ document.addEventListener("click",async e=>{
   }
   const bulk=e.target.closest("[data-presence-bulk]");
   if(bulk&&permissionEnabled("presence_edit")){
-    const kind=bulk.dataset.kind,status=Number(bulk.dataset.presenceBulk),filter=presenceFilter(kind),slots=filter.slot==="all"?TYPES[kind]:[filter.slot],members=state.members.filter(m=>(!filter.clan||m.clan===filter.clan)&&(!filter.search||String(m.name||"").toLowerCase().includes(filter.search.toLowerCase())));
+    const kind=bulk.dataset.kind,status=Number(bulk.dataset.presenceBulk),filter=presenceFilter(kind),slots=filter.slot==="all"?configuredPresenceSlots(kind):[filter.slot],members=state.members.filter(m=>(!filter.clan||m.clan===filter.clan)&&(!filter.search||String(m.name||"").toLowerCase().includes(filter.search.toLowerCase())));
     if(!confirm(`${status===1?"Marcar como presentes":status===-1?"Marcar como ausentes":"Limpar"} ${members.length*slots.length} registros?`))return;
     const batch=writeBatch(db);for(const member of members)for(const slot of slots){const id=(kind+"__"+filter.date+"__"+member.id+"__"+slot).replace(/[^a-zA-Z0-9_-]/g,"_"),ref=doc(db,"attendance",id);if(status===0)batch.delete(ref);else batch.set(ref,{memberId:member.id,userId:member.userId||member.id,memberName:member.name,clan:member.clan,role:member.role,kind,slot,status,date:filter.date,note:"",updatedBy:state.user.uid,updatedByName:state.profile?.name||state.user.email,updatedAt:serverTimestamp()},{merge:true})}await batch.commit();await audit("presença em massa",`${kind} · ${filter.date} · ${members.length*slots.length} registros`);toast("Marcações atualizadas.");
   }
   const review=e.target.closest("[data-presence-review]");
   if(review&&permissionEnabled("presence_finalize")){
-    const kind=review.dataset.presenceReview,filter=presenceFilter(kind),slots=filter.slot==="all"?TYPES[kind]:[filter.slot];
+    const kind=review.dataset.presenceReview,filter=presenceFilter(kind),slots=filter.slot==="all"?configuredPresenceSlots(kind):[filter.slot];
     const members=state.members.filter(m=>(!filter.clan||m.clan===filter.clan)&&(!filter.search||String(m.name||"").toLowerCase().includes(filter.search.toLowerCase())));
     const records=[];
     members.forEach(member=>slots.forEach(slot=>{
@@ -1546,7 +1565,7 @@ document.addEventListener("click",async event=>{
   const del=event.target.closest("[data-delete-notification]");
   if(del&&owner()){try{await deleteDoc(doc(db,"notifications",del.dataset.deleteNotification));toast("Notificação excluída.")}catch(error){toast(errMsg(error))}}
 });
-$("#newCalendarEvent").onclick=()=>$("#eventModal").classList.remove("hidden");
+$("#newCalendarEvent").onclick=()=>{if(state.settings?.events?.customEventsEnabled===false)return toast("A criação de eventos foi desativada nas Configurações.");$("#eventModal").classList.remove("hidden")};
 $("#closeEventModal").onclick=()=>$("#eventModal").classList.add("hidden");
 document.addEventListener("click",event=>{
   if(event.target.closest("[data-close-drawer]"))$("#memberDrawer").classList.add("hidden");
@@ -1555,8 +1574,11 @@ document.addEventListener("click",event=>{
 });
 $("#eventForm").onsubmit=async event=>{
   event.preventDefault();if(!editor())return;
+  if(state.settings?.events?.customEventsEnabled===false)return toast("A criação de eventos foi desativada nas Configurações.");
+  const month=String($("#eventDate").value||"").slice(0,7),limit=Math.max(1,Number(state.settings?.events?.maxMonthlyEvents||20));
+  if(state.events.filter(item=>String(item.date||"").startsWith(month)).length>=limit)return toast(`Limite de ${limit} eventos no mês atingido.`);
   await addDoc(collection(db,"events"),{title:$("#eventTitle").value.trim(),date:$("#eventDate").value,type:$("#eventType").value,description:$("#eventDescription").value.trim(),createdBy:state.user.uid,createdAt:serverTimestamp()});
-  await addDoc(collection(db,"notifications"),{title:"Novo evento",message:`${$("#eventTitle").value} em ${$("#eventDate").value}`,type:"info",targetType:"all",createdBy:state.user.uid,createdByName:state.profile?.name||"Staff",createdAt:serverTimestamp()});
+  if(state.settings?.notifications?.event!==false)await addDoc(collection(db,"notifications"),{title:"Novo evento",message:`${$("#eventTitle").value} em ${$("#eventDate").value}`,type:"info",targetType:"all",createdBy:state.user.uid,createdByName:state.profile?.name||"Staff",createdAt:serverTimestamp()});
   event.target.reset();$("#eventModal").classList.add("hidden");toast("Evento criado.");
 };
 
@@ -1719,7 +1741,7 @@ function updateLiveClock(){
 }
 updateLiveClock();
 setInterval(updateLiveClock,1000);
-if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js?v=22.9.1").catch(error=>console.warn("Service Worker indisponível:",error)));
+if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js?v=22.9.2").catch(error=>console.warn("Service Worker indisponível:",error)));
 
 function animateNumber(id,target,suffix=""){
   const el=byId(id);
@@ -1941,6 +1963,7 @@ function resizeAvatar(file){
 on("profileNicknameForm","submit",async event=>{
   event.preventDefault();
   if(!state.user)return;
+  if(state.settings?.team?.allowNickname===false)return toast("A alteração de perfil foi desativada pelo DEV.");
   const name=(byId("profileNicknameInput")?.value||"").trim();
   const displayName=(byId("profileDisplayNameInput")?.value||name).trim();
   const discord=(byId("profileDiscordInput")?.value||"").trim();
@@ -1964,6 +1987,7 @@ on("profileNicknameForm","submit",async event=>{
 });
 on("profileAvatarForm","submit",async event=>{
   event.preventDefault();
+  if(state.settings?.team?.allowAvatar===false)return toast("A troca de avatar foi desativada pelo DEV.");
 
   try{
     const input=byId("profileAvatarInput");
@@ -1996,6 +2020,7 @@ on("profileAvatarForm","submit",async event=>{
   }
 });
 on("removeProfileAvatar","click",async()=>{
+  if(state.settings?.team?.allowAvatar===false)return toast("A troca de avatar foi desativada pelo DEV.");
   try{
     await updateDoc(doc(db,"users",state.user.uid),{avatarDataUrl:"",updatedAt:serverTimestamp()});
     state.profile.avatarDataUrl="";renderOwnProfile();renderCharacterProfile();renderCharactersTable();renderCharacterCenter();renderHistoryCenter();renderGoals();renderSystemHealth();renderStaffCommandCenter();applyRestrictedVisibility();toast("Avatar removido.");
@@ -2003,6 +2028,7 @@ on("removeProfileAvatar","click",async()=>{
 });
 on("profilePasswordForm","submit",async event=>{
   event.preventDefault();
+  if(state.settings?.team?.allowPassword===false)return toast("A alteração de e-mail e senha foi desativada pelo DEV.");
   if(!auth.currentUser)return toast("Entre novamente para alterar a segurança.");
   const newEmail=(byId("profileEmailInput")?.value||"").trim().toLowerCase();
   const currentPassword=byId("profileCurrentPassword")?.value||"";
@@ -2143,6 +2169,13 @@ function numberOrZero(value){
   const number=Number(value);
   return Number.isFinite(number)&&number>=0?number:0;
 }
+function validateConfiguredCharacter(character){
+  const cfg=state.settings?.characters||{},classes=(cfg.classes||[]).map(item=>String(item).trim().toLowerCase()).filter(Boolean);
+  if(classes.length&&!classes.includes(String(character.className||"").toLowerCase()))return `Classe não permitida. Use: ${(cfg.classes||[]).join(", ")}.`;
+  const limits={power:Number(cfg.maxPower??999999999),level:Number(cfg.maxLevel??999),codex:Number(cfg.maxCodex??9999),mandalla:Number(cfg.maxMandalla??9999),chi1:Number(cfg.maxChi??9999),chi2:Number(cfg.maxChi??9999),chi3:Number(cfg.maxChi??9999),wildernessTraining:Number(cfg.maxWilderness??9999)};
+  for(const [field,limit] of Object.entries(limits))if(Number(character[field]||0)>limit)return `${field} excede o limite configurado (${limit}).`;
+  return "";
+}
 
 function currentCharacterData(){
   return state.profile?.character||{};
@@ -2244,6 +2277,7 @@ on("characterForm","submit",async event=>{
     toast("Informe a classe do personagem.");
     return;
   }
+  const characterError=validateConfiguredCharacter(character);if(characterError)return toast(characterError);
 
   try{
     await updateDoc(
@@ -2625,6 +2659,7 @@ on("responsibleCharacterForm","submit",async event=>{
     constitution:numberOrZero(byId("responsibleCharacterConstitution")?.value),
     wildernessTraining:numberOrZero(byId("responsibleCharacterWildernessTraining")?.value)
   };
+  const characterError=validateConfiguredCharacter(character);if(characterError)return toast(characterError);
   if(!character.className){toast("Informe a classe do personagem.");return;}
   if(!confirm(`Salvar as alterações do personagem de ${target.nickname}?`))return;
   try{
@@ -3084,26 +3119,16 @@ function settingsPayload(section){
       website:cfgValue("cfgWebsite")
     }),
     team:()=>({
-      manualApproval:cfgValue("cfgManualApproval"),
-      requireCharacter:cfgValue("cfgRequireCharacter"),
+      manualApproval:true,
       allowNickname:cfgValue("cfgAllowNickname"),
       allowAvatar:cfgValue("cfgAllowAvatar"),
-      allowPassword:cfgValue("cfgAllowPassword"),
-      inactiveWarningDays:cfgValue("cfgInactiveWarningDays"),
-      inactiveDays:cfgValue("cfgInactiveDays"),
-      inactiveAction:cfgValue("cfgInactiveAction")
+      allowPassword:cfgValue("cfgAllowPassword")
     }),
     attendance:()=>({
       worldbossSchedule:cfgValue("cfgWorldbossSchedule"),
       purgatorioSchedule:cfgValue("cfgPurgatorioSchedule"),
       eventsSchedule:cfgValue("cfgEventsSchedule"),
-      toleranceMinutes:cfgValue("cfgAttendanceTolerance"),
-      presencePoints:cfgValue("cfgPresencePoints"),
-      eventPoints:cfgValue("cfgEventPoints"),
-      absencePoints:cfgValue("cfgAbsencePoints"),
-      requireAbsenceReason:cfgValue("cfgAbsenceReason"),
-      autoClose:cfgValue("cfgAutoCloseAttendance"),
-      notifyAbsence:cfgValue("cfgNotifyAbsence")
+      requireAbsenceReason:cfgValue("cfgAbsenceReason")
     }),
     events:()=>({
       worldbossEnabled:cfgValue("cfgWorldbossEnabled"),
@@ -3123,11 +3148,7 @@ function settingsPayload(section){
       maxWilderness:cfgValue("cfgMaxWilderness")
     }),
     notifications:()=>({
-      newMember:cfgValue("cfgNotifyNewMember"),
-      character:cfgValue("cfgNotifyCharacter"),
-      event:cfgValue("cfgNotifyEvent"),
-      goal:cfgValue("cfgNotifyGoal"),
-      discordWebhook:cfgValue("cfgDiscordWebhook")
+      event:cfgValue("cfgNotifyEvent")
     }),
     appearance:()=>({
       theme:cfgValue("cfgThemeName","purple"),
@@ -3138,21 +3159,9 @@ function settingsPayload(section){
     }),
     security:()=>({
       sessionMinutes:cfgValue("cfgSessionMinutes"),
-      recentLoginCritical:cfgValue("cfgRecentLoginCritical"),
-      auditChanges:cfgValue("cfgAuditChanges"),
-      deniedAlerts:cfgValue("cfgDeniedAlerts")
+      auditChanges:cfgValue("cfgAuditChanges")
     })
   };
-
-  if(section==="permissions"){
-    const permissions={};
-    ["owner","staff","member"].forEach(role=>{
-      permissions[role]=SETTINGS_MODULES.filter(module=>
-        byId(`perm-${role}-${module}`)?.checked
-      );
-    });
-    return permissions;
-  }
 
   return maps[section]?.()||{};
 }
@@ -3163,17 +3172,16 @@ async function saveSettingsSection(section){
   try{
     const payload=settingsPayload(section);
     if(section==="notifications"){
-      const {discordWebhook="",...publicNotifications}=payload;
-      await setDoc(doc(db,"settings","app"),{notifications:publicNotifications,updatedAt:serverTimestamp(),updatedBy:state.user.uid},{merge:true});
-      await setDoc(doc(db,"settings","private"),{notificationsPrivate:{discordWebhook},updatedAt:serverTimestamp(),updatedBy:state.user.uid},{merge:true});
-      try{await updateDoc(doc(db,"settings","app"),{"notifications.discordWebhook":deleteField()})}catch{}
-      state.settings={...state.settings,notifications:{...publicNotifications,discordWebhook}};
+      await setDoc(doc(db,"settings","app"),{notifications:payload,updatedAt:serverTimestamp(),updatedBy:state.user.uid},{merge:true});
+      state.settings={...state.settings,notifications:payload};
     }else{
       await setDoc(doc(db,"settings","app"),{[section]:payload,updatedAt:serverTimestamp(),updatedBy:state.user.uid},{merge:true});
       state.settings={...state.settings,[section]:payload};
     }
     if(section==="appearance")applyEnterpriseAppearance();
     if(section==="general")renderSettingsPreview();
+    settingsFormDirty=false;
+    await audit("configurações atualizadas",section);
     toast("Configurações salvas.");
   }catch(error){
     toast(errMsg(error));
@@ -3201,7 +3209,9 @@ function renderPermissionMatrix(){
   </tr>`).join("");
 }
 
-function loadSettingsForm(){
+let settingsFormDirty=false;
+function loadSettingsForm(force=false){
+  if(settingsFormDirty&&!force)return;
   const settings=activeSettings();
 
   const g=settings.general||{};
@@ -3355,7 +3365,7 @@ function backupPayload(){
   return serializeBackupValue({
     format:"77-team-manager-backup",
     backupSchema:3,
-    version:"22.9.1",
+    version:"22.9.2",
     generatedAt:new Date().toISOString(),
     projectId:firebaseConfig.projectId,
     collections:{
@@ -3448,8 +3458,8 @@ function validateBackupPayload(payload){
   validateBackupValue(payload);
   if(!payload||payload.format!=="77-team-manager-backup")throw new Error("Formato de backup incompatível.");
   if(payload.projectId!==firebaseConfig.projectId)throw new Error("Este backup pertence a outro projeto Firebase.");
-  if(Number(payload.backupSchema||0)!==3)throw new Error("Schema de backup incompatível. Use um backup completo V22.8.5 a V22.9.1 com schema 3.");
-  if(!["22.8.5","22.8.6","22.8.7","22.8.8","22.8.9","22.9.0","22.9.1"].includes(String(payload.version||"")))throw new Error("Versão de backup incompatível.");
+  if(Number(payload.backupSchema||0)!==3)throw new Error("Schema de backup incompatível. Use um backup completo V22.8.5 a V22.9.2 com schema 3.");
+  if(!["22.8.5","22.8.6","22.8.7","22.8.8","22.8.9","22.9.0","22.9.1","22.9.2"].includes(String(payload.version||"")))throw new Error("Versão de backup incompatível.");
   if(!payload.collections||typeof payload.collections!=="object"||Array.isArray(payload.collections))throw new Error("Coleções do backup ausentes.");
   const allowed=["users","members","attendance","events","notifications","notificationReads","rtPresence","presenceBackups","resetJobs","xpLogs","audit","supportMessages","chatMessages"];
   for(const name of allowed)if(!Array.isArray(payload.collections[name]))throw new Error(`Coleção obrigatória ausente: ${name}.`);
@@ -3670,6 +3680,7 @@ document.addEventListener("click",async event=>{
 
   const themeButton=event.target.closest("[data-theme-choice]");
   if(themeButton){
+    settingsFormDirty=true;
     const theme=themeButton.dataset.themeChoice;
     setCfgValue("cfgThemeName",theme);
     setCfgValue("cfgPrimaryColor",THEME_COLORS[theme]);
@@ -3686,12 +3697,15 @@ document.addEventListener("click",async event=>{
   }
 });
 
+document.addEventListener("input",event=>{if(event.target.closest("#configuracoes")&&!event.target.matches("#settingsSearch"))settingsFormDirty=true});
+document.addEventListener("change",event=>{if(event.target.closest("#configuracoes"))settingsFormDirty=true});
+
 ["cfgTeamName","cfgDescription"].forEach(id=>on(id,"input",renderSettingsPreview));
 
 
 function staffRows(){
   return state.users
-    .filter(user=>["owner","staff"].includes(user.role)&&user.status!=="pending")
+    .filter(user=>["dev","leadership","staff"].includes(resolveAccessRole(user))&&user.status!=="pending"&&user.active!==false)
     .map(user=>{
       const member=state.members.find(item=>
         item.userId===user.id||
@@ -3703,7 +3717,7 @@ function staffRows(){
         id:user.id,
         name:user.name||user.email||"Staff",
         email:user.email||"—",
-        role:user.role,
+        role:resolveAccessRole(user),
         avatar:user.avatarDataUrl||"",
         clan:member.clan||user.clan||"Sem clã",
         character:user.character||{},
@@ -3754,7 +3768,7 @@ function renderStaffCards(){
       <div class="staff-card-avatar">${staffAvatarHtml(item)}</div>
       <div class="staff-card-copy">
         <h3>${escapeHtml(item.name)}</h3>
-        <p>${item.role==="owner"?"Liderança":"Staff"} · ${escapeHtml(item.clan)}</p>
+        <p>${escapeHtml(accessRoleLabel(item.role))} · ${escapeHtml(item.clan)}</p>
         <small>${escapeHtml(item.email)}</small>
       </div>
       <div class="staff-card-stats">
@@ -3875,7 +3889,7 @@ function openStaffDetails(item){
     <div class="staff-drawer-hero">
       <div class="staff-drawer-avatar">${staffAvatarHtml(item)}</div>
       <h2>${escapeHtml(item.name)}</h2>
-      <p>${item.role==="owner"?"Liderança":"Staff"} · ${escapeHtml(item.clan)}</p>
+      <p>${escapeHtml(accessRoleLabel(item.role))} · ${escapeHtml(item.clan)}</p>
       <small>${escapeHtml(item.email)}</small>
     </div>
     <div class="staff-drawer-grid">
@@ -3898,7 +3912,7 @@ function printStaffReport(){
   if(!popup||!popup.document)return toast("Permita pop-ups para gerar o PDF.");
 
   const body=rows.map(item=>`<tr>
-    <td>${escapeHtml(item.name)}</td><td>${item.role==="owner"?"Liderança":"Staff"}</td>
+    <td>${escapeHtml(item.name)}</td><td>${escapeHtml(accessRoleLabel(item.role))}</td>
     <td>${escapeHtml(item.clan)}</td><td>${item.stat.present}</td><td>${item.stat.rate}%</td>
     <td>${escapeHtml(item.character.className||"—")}</td><td>${Number(item.character.power||0).toLocaleString("pt-BR")}</td>
   </tr>`).join("");
@@ -3921,7 +3935,7 @@ function downloadStaffCsvFile(){
     ["Nome","Cargo","Clã","E-mail","Presenças","Ausências","Taxa","Classe","Power"],
     ...rows.map(item=>[
       item.name,
-      item.role==="owner"?"Liderança":"Staff",
+      accessRoleLabel(item.role),
       item.clan,
       item.email,
       item.stat.present,
@@ -4027,6 +4041,7 @@ on("notificationAdminForm","submit",async event=>{
 });
 on("staffNoticeForm","submit",async event=>{
   event.preventDefault();
+  if(!permissionEnabled("notifications_send"))return toast("Sem permissão para publicar avisos.");
   const title=String(byId("staffNoticeTitle")?.value||"").trim();
   const message=String(byId("staffNoticeMessage")?.value||"").trim();
   if(!title||!message)return;
@@ -4982,4 +4997,4 @@ document.addEventListener("click",event=>{
   document.querySelectorAll(`[data-permission-role="${role}"]`).forEach(input=>{if(!input.disabled)input.checked=checked});
   markRolePermissionsDirty();
 });
-window.addEventListener("beforeunload",event=>{if(!rolePermissionsDirty&&!maintenanceFormDirty&&!loginCustomizationDirty)return;event.preventDefault();event.returnValue=""});
+window.addEventListener("beforeunload",event=>{if(!rolePermissionsDirty&&!maintenanceFormDirty&&!loginCustomizationDirty&&!settingsFormDirty)return;event.preventDefault();event.returnValue=""});
