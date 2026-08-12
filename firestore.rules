@@ -94,7 +94,7 @@ service cloud.firestore {
         )
         || dev()
         || (
-          leadership() && pendingMember() && approvalFields()
+          leadership() && permission('requests_approve', true) && pendingMember() && approvalFields()
           && (isMemberRole(accessRoleOf(request.resource.data)) || isStaffRole(accessRoleOf(request.resource.data)))
           && request.resource.data.active == true && request.resource.data.status == 'approved'
           && request.resource.data.roleUpdatedBy == request.auth.uid
@@ -327,6 +327,10 @@ service cloud.firestore {
       allow create: if (id == 'app' && permission('settings_edit', false)) || (id == 'private' && dev());
       allow update: if (id == 'app' && (
           permission('settings_edit', false)
+          || (editor() && permission('goals_manage', true)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['goals','updatedAt'])
+            && request.resource.data.goals is list
+            && request.resource.data.goals.size() <= 200)
           || (leadership()
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['staffJournal','updatedAt'])
             && request.resource.data.staffJournal is list

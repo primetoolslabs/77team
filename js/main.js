@@ -182,6 +182,7 @@ const ROLE_PERMISSION_DEFINITIONS=Object.freeze([
   {group:"Administração",key:"settings_edit",label:"Alterar Configurações",defaults:{dev:true,leadership:false,staff:false,member:false}},
   {group:"Avançado",key:"login_customize",label:"Personalizar tela de login",defaults:{dev:true,leadership:false,staff:false,member:false}},
   {group:"Progressão",key:"xp_manage",label:"Gerenciar XP dos membros",defaults:{dev:true,leadership:true,staff:true,member:false}}
+  ,{group:"Gestão",key:"goals_manage",label:"Criar e remover metas",defaults:{dev:true,leadership:true,staff:true,member:false}}
 ]);
 function defaultRolePermissions(){
   const result={};
@@ -200,7 +201,7 @@ const PERMISSION_ALLOWED_ROLES=Object.freeze({
   character_view:["dev","leadership","staff","member"],character_edit:["dev","leadership","staff","member"],character_delete:["dev","leadership","staff","member"],
   notifications_send:["dev","leadership","staff"],support_manage:["dev","leadership","staff"],
   audit_view:["dev","leadership"],settings_view:["dev","leadership"],settings_edit:["dev"],login_customize:["dev"],
-  xp_manage:["dev","leadership","staff"]
+  xp_manage:["dev","leadership","staff"],goals_manage:["dev","leadership","staff"]
 });
 function permissionRoleAllowed(key,role){return role==="dev"||(PERMISSION_ALLOWED_ROLES[key]||["leadership","staff","member"]).includes(role)}
 function permissionRequired(key,role){return role==="dev"||key==="access_home"}
@@ -228,12 +229,18 @@ function pageArea(page){
 }
 function canOpenPage(page){
   if(state.onboardingRequired)return page==="meu-perfil"||page==="sobre";
+  if(page==="personagens")return permissionEnabled("access_staff")&&permissionEnabled("character_view");
+  if(page==="solicitacoes")return permissionEnabled("access_staff")&&(permissionEnabled("requests_approve")||permissionEnabled("requests_reject"));
+  if(page==="notificacoes")return permissionEnabled("access_staff")&&permissionEnabled("notifications_send");
+  if(page==="atendimento"||page==="chat")return permissionEnabled("access_staff")&&permissionEnabled("support_manage");
+  if(page==="metas")return permissionEnabled("access_staff")&&permissionEnabled("goals_manage");
   if(page==="configuracoes")return permissionEnabled("access_admin")&&permissionEnabled("settings_view");
   if(page==="auditoria"||page==="logs-sistema")return permissionEnabled(page==="auditoria"?"access_admin":"access_advanced")&&permissionEnabled("audit_view");
   const area=pageArea(page);
   return permissionEnabled(`access_${area}`);
 }
 function permissionMessage(page){
+  if(["personagens","solicitacoes","notificacoes","atendimento","chat","metas"].includes(page))return "Seu cargo não possui a permissão necessária para este módulo.";
   const area=pageArea(page);
   if(area==="advanced")return "Esta área é exclusiva do DEV.";
   if(area==="admin")return "Esta área é exclusiva do DEV e da Liderança.";
@@ -411,6 +418,9 @@ function applyPermissions(){
   byId("auditoria")?.classList.toggle("hidden",!(permissionEnabled("access_admin")&&permissionEnabled("audit_view")));
   document.querySelectorAll('[data-page="configuracoes"]').forEach(button=>button.classList.toggle("hidden",!permissionEnabled("settings_view")));
   document.querySelectorAll('[data-page="auditoria"]').forEach(button=>button.classList.toggle("hidden",!(permissionEnabled("access_admin")&&permissionEnabled("audit_view"))));
+  ["personagens","solicitacoes","notificacoes","atendimento","chat","metas"].forEach(page=>{
+    const allowed=canOpenPage(page);byId(page)?.classList.toggle("hidden",!allowed);document.querySelectorAll(`[data-page="${page}"],[data-page-jump="${page}"]`).forEach(button=>button.classList.toggle("hidden",!allowed));
+  });
   byId("profileNicknameForm")?.classList.toggle("policy-disabled",state.settings?.team?.allowNickname===false);
   byId("profileAvatarForm")?.classList.toggle("policy-disabled",state.settings?.team?.allowAvatar===false);
   byId("profilePasswordForm")?.classList.toggle("policy-disabled",state.settings?.team?.allowPassword===false);
@@ -663,7 +673,7 @@ async function createPresenceBackup({automatic=false}={}){
   const rtRecords=state.rtPresence.map(item=>({...item,originalId:item.id}));
   if(!records.length&&!rtRecords.length){toast("Não existem dados de presença para salvar.");return null}
   const now=new Date(),week=isoWeek(todayIso()),counts=presenceBackupCounts(records),id=`${week}__${now.toISOString().replace(/[^0-9]/g,"").slice(0,14)}`;
-  const payload={week,counts,total:records.length,rtTotal:rtRecords.length,automatic,backupSchema:2,createdBy:state.user.uid,createdByName:state.profile?.name||state.user.email,createdAt:serverTimestamp(),createdAtText:now.toISOString(),sourceVersion:"22.9.2"};
+  const payload={week,counts,total:records.length,rtTotal:rtRecords.length,automatic,backupSchema:2,createdBy:state.user.uid,createdByName:state.profile?.name||state.user.email,createdAt:serverTimestamp(),createdAtText:now.toISOString(),sourceVersion:"22.9.3"};
   await setDoc(doc(db,"presenceBackups",id),payload);
   await writeBackupSubcollection(id,"attendance",records);
   await writeBackupSubcollection(id,"rt",rtRecords);
@@ -714,7 +724,7 @@ async function resetPresenceWithBackup(){
     toast("Reset interrompido. O backup e o registro de recuperação foram preservados. Tente novamente após verificar a conexão.");
   }
 }
-async function downloadPresenceBackup(id){const item=state.presenceBackups.find(row=>row.id===id);if(!item)return toast("Backup não encontrado.");const data=await loadPresenceBackupData(item);downloadJson(`presenca-${item.week||id}.json`,{version:"22.9.2",exportedAt:new Date().toISOString(),backup:{...item,...data}});}
+async function downloadPresenceBackup(id){const item=state.presenceBackups.find(row=>row.id===id);if(!item)return toast("Backup não encontrado.");const data=await loadPresenceBackupData(item);downloadJson(`presenca-${item.week||id}.json`,{version:"22.9.3",exportedAt:new Date().toISOString(),backup:{...item,...data}});}
 
 
 function backupCenterDateValue(item){return rtDateValue(item?.createdAt)||Date.parse(item?.createdAtText||0)||0}
@@ -1242,7 +1252,7 @@ function render(){
   $("#rankingRows").innerHTML=rank.map((r,i)=>`<tr><td>${i+1}</td><td>${escapeHtml(r.name)}</td><td>${escapeHtml(r.clan||"—")}</td><td>${roleBadge(r.role)}</td><td>${r.present}</td><td>${r.rate}%</td></tr>`).join("");
   const pending=state.users.filter(u=>normalizeAccessRole(u.role)==="member"&&u.status==="pending");
   const requestOptions=REQUEST_ACCESS_OPTIONS[owner()?"dev":leadership()?"leadership":"staff"]||[];
-  $("#requestRows").innerHTML=pending.map(u=>`<tr><td>${escapeHtml(u.name)}</td><td>${escapeHtml(u.email)}</td><td><select data-clan="${escapeHtml(u.id)}">${'<option value="">Clã</option>'+CLANS.map(x=>`<option>${x}</option>`).join("")}</select></td><td><select data-role="${escapeHtml(u.id)}">${requestOptions.map(option=>`<option value="${option.value}">${option.label}</option>`).join("")}</select></td><td><div class="request-actions"><button class="btn primary" data-approve="${escapeHtml(u.id)}" type="button">Aprovar</button><button class="btn danger" data-reject="${escapeHtml(u.id)}" type="button">Rejeitar</button></div></td></tr>`).join("")||"<tr><td colspan='5'>Nenhuma solicitação pendente.</td></tr>";
+  $("#requestRows").innerHTML=pending.map(u=>`<tr><td>${escapeHtml(u.name)}</td><td>${escapeHtml(u.email)}</td><td><select data-clan="${escapeHtml(u.id)}">${'<option value="">Clã</option>'+CLANS.map(x=>`<option>${x}</option>`).join("")}</select></td><td><select data-role="${escapeHtml(u.id)}">${requestOptions.map(option=>`<option value="${option.value}">${option.label}</option>`).join("")}</select></td><td><div class="request-actions">${permissionEnabled("requests_approve")?`<button class="btn primary" data-approve="${escapeHtml(u.id)}" type="button">Aprovar</button>`:""}${permissionEnabled("requests_reject")?`<button class="btn danger" data-reject="${escapeHtml(u.id)}" type="button">Rejeitar</button>`:""}</div></td></tr>`).join("")||"<tr><td colspan='5'>Nenhuma solicitação pendente.</td></tr>";
   renderAuditTable();
   renderNotifications();renderCalendar();renderStatistics();updatePdfMemberOptions();renderOwnProfile();renderCharacterProfile();renderCharactersTable();renderCharacterCenter();renderHistoryCenter();renderGoals();renderSystemHealth();renderStaffCommandCenter();renderLevelSystem();renderAdvancedCenter();scheduleProgressionSync();applyRestrictedVisibility();
 }
@@ -1268,7 +1278,7 @@ function renderAdvancedCenter(){
   const logs=state.audit.slice().sort((a,b)=>(b.createdAt?.toMillis?.()||0)-(a.createdAt?.toMillis?.()||0));
   setHtml("advancedLogsRows",logs.map(a=>`<tr><td>${a.createdAt?.toDate?a.createdAt.toDate().toLocaleString("pt-BR"):"—"}</td><td>${escapeHtml(a.userName||"—")}</td><td>${escapeHtml(a.action||"—")}</td><td>${escapeHtml(a.details||"")}</td></tr>`).join("")||'<tr><td colspan="4">Nenhum log disponível.</td></tr>');
   setHtml("firebaseStatusCards",[diagnosticCard("Autenticação",advancedDiagnostics.auth),diagnosticCard("Cloud Firestore",advancedDiagnostics.firestore),diagnosticCard("Listeners em tempo real",advancedDiagnostics.listeners)].join(""));
-  setHtml("servicesStatusGrid",[diagnosticCard("Aplicação web",{ok:true,text:`V22.9.2 carregada · ${location.protocol==="https:"?"HTTPS":"ambiente local"}`}),diagnosticCard("Firebase Auth",advancedDiagnostics.auth),diagnosticCard("Cloud Firestore",advancedDiagnostics.firestore),diagnosticCard("PWA / Service Worker",advancedDiagnostics.pwa),diagnosticCard("GitHub",{ok:githubDiagnostics.ok,text:githubDiagnostics.text})].join(""));
+  setHtml("servicesStatusGrid",[diagnosticCard("Aplicação web",{ok:true,text:`V22.9.3 carregada · ${location.protocol==="https:"?"HTTPS":"ambiente local"}`}),diagnosticCard("Firebase Auth",advancedDiagnostics.auth),diagnosticCard("Cloud Firestore",advancedDiagnostics.firestore),diagnosticCard("PWA / Service Worker",advancedDiagnostics.pwa),diagnosticCard("GitHub",{ok:githubDiagnostics.ok,text:githubDiagnostics.text})].join(""));
   renderSessions();renderGithubStatus();
   setHtml("systemStatsGrid",[
     ["Usuários",state.users.filter(user=>resolveAccessRole(user)!=="dev").length],["Membros",visibleMembers().length],["Presenças",state.attendance.length],["Eventos",state.events.length],["Notificações",state.sentNotifications.length||state.notifications.length],["Logs",state.audit.length]
@@ -1294,7 +1304,7 @@ async function checkGithub(){
   setText("githubUpdateStatus","Consultando GitHub...");
   try{const [repoResponse,runsResponse,releaseResponse]=await Promise.all([fetch(`https://api.github.com/repos/${repository}`,{headers:{Accept:"application/vnd.github+json"}}),fetch(`https://api.github.com/repos/${repository}/actions/runs?per_page=1`,{headers:{Accept:"application/vnd.github+json"}}),fetch(`https://api.github.com/repos/${repository}/releases/latest`,{headers:{Accept:"application/vnd.github+json"}})]);if(!repoResponse.ok)throw new Error(`Repositório indisponível (${repoResponse.status})`);const repo=await repoResponse.json(),runs=runsResponse.ok?await runsResponse.json():null,release=releaseResponse.ok?await releaseResponse.json():null,lastRun=runs?.workflow_runs?.[0];githubDiagnostics={ok:true,configured:true,repository,text:`${repo.full_name} · branch ${repo.default_branch} · atualizado ${new Date(repo.updated_at).toLocaleString("pt-BR")}`,workflows:lastRun?`${lastRun.name}: ${lastRun.conclusion||lastRun.status}`:"Nenhuma execução pública",release:release?.tag_name||"Nenhuma release publicada",testedAt:new Date().toISOString()};setText("githubUpdateStatus","Consulta concluída com sucesso.");renderAdvancedCenter();return true}catch(error){githubDiagnostics={ok:false,configured:true,repository,text:error.message||"Falha ao consultar GitHub",workflows:"Indisponível",release:"Indisponível"};setText("githubUpdateStatus",githubDiagnostics.text);renderAdvancedCenter();return false}
 }
-on("checkUpdatesButton","click",async()=>{const button=byId("checkUpdatesButton");if(button)button.disabled=true;try{const response=await fetch(`manifest.json?check=${Date.now()}`,{cache:"no-store"});if(!response.ok)throw new Error("Manifesto indisponível");const manifest=await response.json(),repository=state.settings?.advanced?.githubRepository||"";let message=`Versão publicada: ${manifest.version_name||manifest.version||"não informada"}. Versão carregada: 22.9.2.`;if(repository){await checkGithub();if(githubDiagnostics.release!=="Nenhuma release publicada"&&githubDiagnostics.release!=="Indisponível")message+=` GitHub: ${githubDiagnostics.release}.`}setText("updateStatusText",message);toast("Verificação concluída.")}catch(error){setText("updateStatusText",`Falha na verificação: ${error.message}`)}finally{if(button)button.disabled=false}});
+on("checkUpdatesButton","click",async()=>{const button=byId("checkUpdatesButton");if(button)button.disabled=true;try{const response=await fetch(`manifest.json?check=${Date.now()}`,{cache:"no-store"});if(!response.ok)throw new Error("Manifesto indisponível");const manifest=await response.json(),repository=state.settings?.advanced?.githubRepository||"";let message=`Versão publicada: ${manifest.version_name||manifest.version||"não informada"}. Versão carregada: 22.9.3.`;if(repository){await checkGithub();if(githubDiagnostics.release!=="Nenhuma release publicada"&&githubDiagnostics.release!=="Indisponível")message+=` GitHub: ${githubDiagnostics.release}.`}setText("updateStatusText",message);toast("Verificação concluída.")}catch(error){setText("updateStatusText",`Falha na verificação: ${error.message}`)}finally{if(button)button.disabled=false}});
 on("createBackupButton","click",async()=>{if(!owner())return;try{downloadJson(`77-team-backup-${new Date().toISOString().slice(0,10)}.json`,await completeBackupPayload());toast("Backup completo e seguro gerado.")}catch(error){toast(error.message||errMsg(error))}});
 on("restoreBackupFile","change",async e=>{const file=e.target.files?.[0],button=byId("restoreAdvancedBackup");validatedAdvancedBackup=null;if(button)button.disabled=true;if(!file)return;if(file.size>50*1024*1024)return setText("restoreBackupInfo","Arquivo acima do limite seguro de 50 MB.");try{const data=JSON.parse(await file.text());validateBackupPayload(data);validatedAdvancedBackup=data;if(button)button.disabled=false;setText("restoreBackupInfo",`✓ Backup validado: V${data.version}, projeto ${data.projectId}, schema ${data.backupSchema}, gerado em ${new Date(data.generatedAt).toLocaleString("pt-BR")}.`)}catch(error){setText("restoreBackupInfo",`✕ Backup recusado: ${error.message||"arquivo inválido"}`)}});
 on("restoreAdvancedBackup","click",async()=>{if(!owner()||!validatedAdvancedBackup)return;if(!confirm("Restaurar este backup validado? Um restoreJob persistente fará rollback automático em caso de falha."))return;const button=byId("restoreAdvancedBackup");button.disabled=true;setText("restoreBackupInfo","Restauração controlada em andamento. Não feche esta página...");try{const jobId=await restoreBackupPayload(validatedAdvancedBackup);setText("restoreBackupInfo",`✓ Restauração concluída. restoreJob: ${jobId}`);validatedAdvancedBackup=null;toast("Backup restaurado com rollback protegido.")}catch(error){setText("restoreBackupInfo",`✕ Restauração revertida: ${error.message||error}`);button.disabled=false}});
@@ -1741,7 +1751,7 @@ function updateLiveClock(){
 }
 updateLiveClock();
 setInterval(updateLiveClock,1000);
-if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js?v=22.9.2").catch(error=>console.warn("Service Worker indisponível:",error)));
+if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js?v=22.9.3").catch(error=>console.warn("Service Worker indisponível:",error)));
 
 function animateNumber(id,target,suffix=""){
   const el=byId(id);
@@ -3365,7 +3375,7 @@ function backupPayload(){
   return serializeBackupValue({
     format:"77-team-manager-backup",
     backupSchema:3,
-    version:"22.9.2",
+    version:"22.9.3",
     generatedAt:new Date().toISOString(),
     projectId:firebaseConfig.projectId,
     collections:{
@@ -3458,8 +3468,8 @@ function validateBackupPayload(payload){
   validateBackupValue(payload);
   if(!payload||payload.format!=="77-team-manager-backup")throw new Error("Formato de backup incompatível.");
   if(payload.projectId!==firebaseConfig.projectId)throw new Error("Este backup pertence a outro projeto Firebase.");
-  if(Number(payload.backupSchema||0)!==3)throw new Error("Schema de backup incompatível. Use um backup completo V22.8.5 a V22.9.2 com schema 3.");
-  if(!["22.8.5","22.8.6","22.8.7","22.8.8","22.8.9","22.9.0","22.9.1","22.9.2"].includes(String(payload.version||"")))throw new Error("Versão de backup incompatível.");
+  if(Number(payload.backupSchema||0)!==3)throw new Error("Schema de backup incompatível. Use um backup completo V22.8.5 a V22.9.3 com schema 3.");
+  if(!["22.8.5","22.8.6","22.8.7","22.8.8","22.8.9","22.9.0","22.9.1","22.9.2","22.9.3"].includes(String(payload.version||"")))throw new Error("Versão de backup incompatível.");
   if(!payload.collections||typeof payload.collections!=="object"||Array.isArray(payload.collections))throw new Error("Coleções do backup ausentes.");
   const allowed=["users","members","attendance","events","notifications","notificationReads","rtPresence","presenceBackups","resetJobs","xpLogs","audit","supportMessages","chatMessages"];
   for(const name of allowed)if(!Array.isArray(payload.collections[name]))throw new Error(`Coleção obrigatória ausente: ${name}.`);
@@ -3623,7 +3633,7 @@ function renderGoals(){
       <div class="goal-item-head"><div><strong>${escapeHtml(goal.title)}</strong><small>${goal.deadline?`Prazo: ${escapeHtml(formatHistoryDate(goal.deadline))}`:"Sem prazo"}</small></div><span>${goal.progress}%</span></div>
       <div class="goal-progress"><i style="width:${goal.progress}%"></i></div>
       <p>${goal.current.toLocaleString("pt-BR")} de ${Number(goal.target).toLocaleString("pt-BR")}</p>
-      <button class="btn danger" data-delete-goal="${escapeHtml(goal.id)}" type="button">Remover</button>
+      ${permissionEnabled("goals_manage")?`<button class="btn danger" data-delete-goal="${escapeHtml(goal.id)}" type="button">Remover</button>`:""}
     </article>
   `).join("")||'<p class="empty-state">Nenhuma meta cadastrada.</p>');
 }
@@ -3653,6 +3663,7 @@ on("restoreCompleteBackup","click",async()=>{
 
 on("goalForm","submit",async event=>{
   event.preventDefault();
+  if(!permissionEnabled("goals_manage"))return toast("Sem permissão para gerenciar metas.");
   const goals=[...(activeSettings().goals||[])];
   goals.push({
     id:crypto.randomUUID?.()||String(Date.now()),
@@ -3689,7 +3700,7 @@ document.addEventListener("click",async event=>{
   }
 
   const deleteGoal=event.target.closest("[data-delete-goal]");
-  if(deleteGoal&&owner()){
+  if(deleteGoal&&permissionEnabled("goals_manage")){
     const goals=(activeSettings().goals||[]).filter(goal=>goal.id!==deleteGoal.dataset.deleteGoal);
     await setDoc(doc(db,"settings","app"),{goals,updatedAt:serverTimestamp()},{merge:true});
     state.settings={...state.settings,goals};
@@ -4753,7 +4764,7 @@ async function sendSupportMessage({ownerUid,ownerName,text,link,file,ticketId}){
   let currentTicket=ticketId;
   if(!currentTicket){const active=activeSupportTicketFor(ownerUid);currentTicket=active?.ticketId||newSupportTicketId(ownerUid)}
   const image=await uploadSupportImage(file,ownerUid,currentTicket);
-  await addDoc(collection(db,"supportMessages"),{ticketId:currentTicket,ownerUid,ownerName,senderUid:state.user.uid,senderName:state.profile?.name||state.user.email,senderRole:permissionEnabled("support_manage")?normalizeAccessRole(state.profile?.role):"member",text:cleanText,link:normalizedLink,imageUrl:image.url,imagePath:image.path,status:permissionEnabled("support_manage")?"waiting_user":"open",createdAt:serverTimestamp()});
+  try{await addDoc(collection(db,"supportMessages"),{ticketId:currentTicket,ownerUid,ownerName,senderUid:state.user.uid,senderName:state.profile?.name||state.user.email,senderRole:permissionEnabled("support_manage")?currentAccessRole():"member",text:cleanText,link:normalizedLink,imageUrl:image.url,imagePath:image.path,status:permissionEnabled("support_manage")?"waiting_user":"open",createdAt:serverTimestamp()})}catch(error){if(image.path)try{await deleteObject(storageRef(storage,image.path))}catch{}throw error}
 }
 on("profileSupportForm","submit",async e=>{e.preventDefault();try{await sendSupportMessage({ownerUid:state.user.uid,ownerName:state.profile?.name||state.user.email,text:byId("profileSupportText").value,link:byId("profileSupportLink").value,file:byId("profileSupportImage").files?.[0]});e.target.reset();byId("profileSupportText")?.focus();toast("Mensagem enviada aos responsáveis.");}catch(error){toast(error.message||errMsg(error))}});
 on("supportAdminForm","submit",async e=>{e.preventDefault();if(!permissionEnabled("support_manage")||!state.selectedSupportTicketId)return;const selected=supportTickets().find(t=>t.ticketId===state.selectedSupportTicketId);if(!selected||selected.status==="resolved")return;try{await sendSupportMessage({ownerUid:selected.ownerUid,ownerName:selected.ownerName,text:byId("supportAdminText").value,link:byId("supportAdminLink").value,file:byId("supportAdminImage").files?.[0],ticketId:selected.ticketId});e.target.reset();byId("supportAdminText")?.focus();await audit("Resposta de atendimento",`Resposta enviada em ${selected.ticketId} para ${selected.ownerName}`);toast("Resposta enviada.");}catch(error){toast(error.message||errMsg(error))}});
@@ -4827,6 +4838,7 @@ function renderPrivateChat(){
   const finalized=session?.status==="finalized";
   if(byId("chatAdminForm"))byId("chatAdminForm").classList.toggle("hidden",!selected||finalized||state.chatView==="finished");
   if(byId("chatFinishBtn"))byId("chatFinishBtn").classList.toggle("hidden",!session||finalized||state.chatView==="finished");
+  if(byId("chatDeleteBtn"))byId("chatDeleteBtn").classList.toggle("hidden",!session||!finalized||!dev());
   const box=byId("chatAdminMessages");if(box)requestAnimationFrame(()=>box.scrollTop=box.scrollHeight);
 }
 async function uploadChatImage(file,ownerUid,chatId){
@@ -4848,12 +4860,13 @@ async function sendPrivateChat({ownerUid,ownerName,text,link,file,chatId}){
   if(current?.status==="finalized")throw new Error("Este chat foi finalizado. Inicie uma nova conversa.");
   const currentChatId=current?.chatId||newPrivateChatId(ownerUid);
   const image=await uploadChatImage(file,ownerUid,currentChatId);
-  await addDoc(collection(db,"chatMessages"),{chatId:currentChatId,chatStatus:"active",ownerUid,ownerName,senderUid:state.user.uid,senderName:state.profile?.name||state.user.email,senderRole:permissionEnabled("support_manage")?normalizeAccessRole(state.profile?.role):"member",text:cleanText,link:normalizedLink,imageUrl:image.url,imagePath:image.path,createdAt:serverTimestamp()});
+  try{await addDoc(collection(db,"chatMessages"),{chatId:currentChatId,chatStatus:"active",ownerUid,ownerName,senderUid:state.user.uid,senderName:state.profile?.name||state.user.email,senderRole:permissionEnabled("support_manage")?currentAccessRole():"member",text:cleanText,link:normalizedLink,imageUrl:image.url,imagePath:image.path,createdAt:serverTimestamp()})}catch(error){if(image.path)try{await deleteObject(storageRef(storage,image.path))}catch{}throw error}
   state.selectedChatId=currentChatId;
 }
 on("profileChatForm","submit",async e=>{e.preventDefault();try{await sendPrivateChat({ownerUid:state.user.uid,ownerName:state.profile?.name||state.user.email,text:byId("profileChatText").value,link:byId("profileChatLink").value,file:byId("profileChatImage").files?.[0]});e.target.reset();byId("profileChatText")?.focus();toast("Mensagem enviada no chat privado.");}catch(error){toast(error.message||errMsg(error))}});
 on("chatAdminForm","submit",async e=>{e.preventDefault();if(!permissionEnabled("support_manage")||!state.selectedChatOwnerUid)return;const user=state.users.find(u=>u.id===state.selectedChatOwnerUid);try{await sendPrivateChat({ownerUid:state.selectedChatOwnerUid,ownerName:user?.name||user?.email||"Usuário",text:byId("chatAdminText").value,link:byId("chatAdminLink").value,file:byId("chatAdminImage").files?.[0],chatId:state.selectedChatId});e.target.reset();byId("chatAdminText")?.focus();await audit("Chat privado",`Mensagem enviada para ${user?.name||user?.email||state.selectedChatOwnerUid}`);toast("Mensagem enviada.");}catch(error){toast(error.message||errMsg(error))}});
 on("chatFinishBtn","click",async()=>{if(!permissionEnabled("support_manage"))return;const session=selectedChatSession()||activeChatFor(state.selectedChatOwnerUid);if(!session||session.status==="finalized")return;if(!confirm(`Finalizar o chat ${session.chatId} com ${session.ownerName}? A conversa ficará somente para consulta dos responsáveis.`))return;try{await Promise.all(session.msgs.map(m=>updateDoc(doc(db,"chatMessages",m.id),{chatStatus:"finalized",finalizedAt:serverTimestamp(),finalizedBy:state.user.uid})));await audit("Chat privado finalizado",`${session.chatId} com ${session.ownerName}`);state.chatView="finished";toast("Chat finalizado e movido para Finalizados.");renderPrivateChat()}catch(error){toast(errMsg(error))}});
+on("chatDeleteBtn","click",async()=>{if(!dev())return;const session=selectedChatSession();if(!session||session.status!=="finalized")return;if(!confirm(`Excluir definitivamente o chat ${session.chatId}?`))return;try{for(const message of session.msgs){if(message.imagePath)try{await deleteObject(storageRef(storage,message.imagePath))}catch{}await deleteDoc(doc(db,"chatMessages",message.id))}await audit("Chat privado excluído",`${session.chatId} com ${session.ownerName}`);state.selectedChatId="";state.selectedChatOwnerUid="";toast("Chat excluído definitivamente.")}catch(error){toast(errMsg(error))}});
 on("chatSearch","input",renderPrivateChat);
 document.addEventListener("click",e=>{
   const view=e.target.closest("[data-chat-view]");if(view){state.chatView=view.dataset.chatView;state.selectedChatOwnerUid="";state.selectedChatId="";renderPrivateChat();return}

@@ -200,7 +200,7 @@
     if(title)title.textContent=category.title;
     if(icon)icon.textContent=category.icon;
     if(list){
-      list.innerHTML=category.items.map(([id,itemIcon,label])=>`<button type="button" data-page-jump="${id}" class="${id===page?'active':''}"><span>${itemIcon}</span><span>${label}</span></button>`).join("");
+      list.innerHTML=category.items.filter(([id])=>typeof window.TeamManagerCanOpenPage!=="function"||window.TeamManagerCanOpenPage(id)).map(([id,itemIcon,label])=>`<button type="button" data-page-jump="${id}" class="${id===page?'active':''}"><span>${itemIcon}</span><span>${label}</span></button>`).join("");
     }
     const current=category.items.find(item=>item[0]===page);
     if(breadcrumb)breadcrumb.textContent=`${category.title} > ${current?.[2]||category.title}`;
