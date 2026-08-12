@@ -1,4 +1,4 @@
-# 77 TEAM Manager V22.8.5 Hotfix
+# 77 TEAM Manager V22.8.6 Hotfix
 
 ## Quinta auditoria — configuração obrigatória do primeiro DEV
 
