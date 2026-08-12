@@ -251,6 +251,21 @@ service cloud.firestore {
       allow read, create, update, delete: if dev();
       match /rollback/{snapshotId} { allow read, create, update, delete: if dev(); }
     }
+    match /sessions/{id} {
+      allow read, list: if dev();
+      allow create, update: if active()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.accessRole == roleKey()
+        && request.resource.data.keys().hasOnly(['userId','userName','email','accessRole','sessionId','online','device','createdAt','lastSeen','updatedAt'])
+        && request.resource.data.userName is string && request.resource.data.userName.size() <= 120
+        && request.resource.data.email is string && request.resource.data.email.size() <= 254
+        && request.resource.data.sessionId is string && request.resource.data.sessionId.size() <= 80
+        && request.resource.data.device is string && request.resource.data.device.size() <= 300
+        && request.resource.data.lastSeen == request.time
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if dev() || (active() && resource.data.userId == request.auth.uid);
+    }
     match /notifications/{id} {
       allow read: if editor() || (active() && (
         resource.data.get('targetType','all') == 'all'

@@ -41,7 +41,7 @@ const REQUEST_ACCESS_OPTIONS={
 };
 const TYPES={worldboss:["10H","12H","20H","22H","00H"],purgatorio:["06H","12H","18H","00H"],eventos:["Guerra de Vale","Defesa de Crista","Evento de Vale","Saque de Castelo"]};
 
-const state={user:null,profile:null,onboardingRequired:false,members:[],attendance:[],rtPresence:[],users:[],audit:[],events:[],notifications:[],sentNotifications:[],notificationReads:[],settings:{},xpLogs:[],supportMessages:[],selectedSupportOwnerUid:"",selectedSupportTicketId:"",supportView:"active",chatMessages:[],selectedChatOwnerUid:"",selectedChatId:"",chatView:"active",chatSearch:"",editingCharacterUserId:"",presenceFilters:{},presenceBackups:[],unsubs:[]};
+const state={user:null,profile:null,onboardingRequired:false,members:[],attendance:[],rtPresence:[],users:[],audit:[],events:[],notifications:[],sentNotifications:[],notificationReads:[],settings:{},xpLogs:[],supportMessages:[],selectedSupportOwnerUid:"",selectedSupportTicketId:"",supportView:"active",chatMessages:[],selectedChatOwnerUid:"",selectedChatId:"",chatView:"active",chatSearch:"",editingCharacterUserId:"",presenceFilters:{},presenceBackups:[],sessions:[],unsubs:[]};
 
 function toast(msg){const el=$("#toast");el.textContent=msg;el.classList.add("show");clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.remove("show"),3000)}
 function errMsg(e){return ({'auth/invalid-credential':'E-mail ou senha incorretos.','auth/user-disabled':'Esta conta foi desativada.','auth/too-many-requests':'Muitas tentativas. Aguarde alguns minutos e tente novamente.','auth/network-request-failed':'Falha de conexão. Verifique sua internet.','auth/email-already-in-use':'Este e-mail já existe.','auth/weak-password':'A senha precisa ter pelo menos 6 caracteres.','permission-denied':'Permissão negada. Publique o firestore.rules novo.'})[e?.code]||`${e?.code||'erro'}: ${e?.message||'Falha inesperada'}`}
@@ -347,7 +347,7 @@ $("#signupForm").onsubmit=async e=>{
 };
 
 $("#sidebarLogout").onclick=()=>$("#logoutButton").click();
-$("#logoutButton").onclick=async()=>{clearSubs();await signOut(auth)};
+$("#logoutButton").onclick=async()=>{await writeSessionHeartbeat(false);clearInterval(sessionHeartbeatTimer);clearSubs();await signOut(auth)};
 
 onAuthStateChanged(auth,async user=>{
   state.user=user;
@@ -376,7 +376,7 @@ onAuthStateChanged(auth,async user=>{
     }
     // Compatibilidade: contas antigas sem os campos de primeiro acesso continuam liberadas.
     state.onboardingRequired=state.profile.profileCompleted===false || state.profile.firstLogin===true;
-    showOnly("app");applyPermissions();subscribeAll();
+    showOnly("app");applyPermissions();subscribeAll();startSessionHeartbeat();if(owner())setTimeout(runFirebaseDiagnostics,900);
     if(owner())setTimeout(recoverInterruptedRestoreJobs,1200);
     if(recoveredDevProfile){
       toast("Perfil DEV recuperado e criado em Firestore → users.");
@@ -544,12 +544,33 @@ function subscribeAll(){
     state.unsubs.push(onSnapshot(chatQuery,s=>{state.chatMessages=s.docs.map(d=>({id:d.id,...d.data()}));renderPrivateChat();},error=>console.error("Falha ao carregar chat privado:",error)));
   }
   state.unsubs.push(onSnapshot(doc(db,"settings","app"),s=>{state.settings=s.exists()?s.data():{};loadSettingsForm();applyLoginCustomization();loadLoginCustomizationForm();renderGoals();render()}));
+  if(owner())state.unsubs.push(onSnapshot(collection(db,"sessions"),snapshot=>{state.sessions=snapshot.docs.map(item=>({id:item.id,...item.data()}));renderAdvancedCenter()},error=>console.error("Falha ao carregar sessões:",error)));
   if(owner()) state.unsubs.push(onSnapshot(doc(db,"settings","private"),s=>{
     const privateSettings=s.exists()?s.data():{};
     if(privateSettings.notificationsPrivate){state.settings.notifications={...(state.settings.notifications||{}),...privateSettings.notificationsPrivate};loadSettingsForm();}
   },error=>console.warn("Configurações privadas indisponíveis:",error)));
 }
 async function audit(action,details){if(!state.user||!editor())return;try{await addDoc(collection(db,"audit"),{userId:state.user.uid,userName:state.profile?.name||state.profile?.email||"Usuário",action:String(action||"").slice(0,160),details:String(details||"").slice(0,2000),createdAt:serverTimestamp()})}catch{}}
+
+let sessionHeartbeatTimer=null;
+let sessionHeartbeatCreated=false;
+function browserSessionId(){
+  let id=sessionStorage.getItem("77team-session-id");
+  if(!id){id=(crypto.randomUUID?.()||`${Date.now()}-${Math.random()}`).replace(/[^A-Za-z0-9-]/g,"");sessionStorage.setItem("77team-session-id",id)}
+  return id.slice(0,80);
+}
+async function writeSessionHeartbeat(online=true){
+  if(!state.user||!state.profile)return;
+  const sessionId=browserSessionId(),ref=doc(db,"sessions",`${state.user.uid}_${sessionId}`);
+  const payload={userId:state.user.uid,userName:String(state.profile.name||state.profile.email||"Usuário").slice(0,120),email:String(state.user.email||"").slice(0,254),accessRole:currentAccessRole(),sessionId,online,device:String(navigator.userAgent||"Navegador").slice(0,300),lastSeen:serverTimestamp(),updatedAt:serverTimestamp()};
+  if(!sessionHeartbeatCreated)payload.createdAt=serverTimestamp();
+  try{await setDoc(ref,payload,{merge:true});sessionHeartbeatCreated=true}catch(error){console.warn("Sessão não registrada:",error)}
+}
+function startSessionHeartbeat(){
+  clearInterval(sessionHeartbeatTimer);writeSessionHeartbeat(true);
+  sessionHeartbeatTimer=setInterval(()=>writeSessionHeartbeat(document.visibilityState!=="hidden"),45000);
+}
+document.addEventListener("visibilitychange",()=>{if(state.user)writeSessionHeartbeat(document.visibilityState!=="hidden")});
 
 function stats(name){const rows=state.attendance.filter(x=>x.memberName===name),p=rows.filter(x=>x.status===1||x.status===2).length,a=rows.filter(x=>x.status===-1).length,j=rows.filter(x=>x.status===3).length,t=p+a;return{present:p,absent:a,justified:j,rate:t?Math.round(p/t*100):0}}
 function todayIso(){return new Date().toISOString().slice(0,10)}
@@ -629,7 +650,7 @@ async function createPresenceBackup({automatic=false}={}){
   const rtRecords=state.rtPresence.map(item=>({...item,originalId:item.id}));
   if(!records.length&&!rtRecords.length){toast("Não existem dados de presença para salvar.");return null}
   const now=new Date(),week=isoWeek(todayIso()),counts=presenceBackupCounts(records),id=`${week}__${now.toISOString().replace(/[^0-9]/g,"").slice(0,14)}`;
-  const payload={week,counts,total:records.length,rtTotal:rtRecords.length,automatic,backupSchema:2,createdBy:state.user.uid,createdByName:state.profile?.name||state.user.email,createdAt:serverTimestamp(),createdAtText:now.toISOString(),sourceVersion:"22.9.0"};
+  const payload={week,counts,total:records.length,rtTotal:rtRecords.length,automatic,backupSchema:2,createdBy:state.user.uid,createdByName:state.profile?.name||state.user.email,createdAt:serverTimestamp(),createdAtText:now.toISOString(),sourceVersion:"22.9.1"};
   await setDoc(doc(db,"presenceBackups",id),payload);
   await writeBackupSubcollection(id,"attendance",records);
   await writeBackupSubcollection(id,"rt",rtRecords);
@@ -680,7 +701,7 @@ async function resetPresenceWithBackup(){
     toast("Reset interrompido. O backup e o registro de recuperação foram preservados. Tente novamente após verificar a conexão.");
   }
 }
-async function downloadPresenceBackup(id){const item=state.presenceBackups.find(row=>row.id===id);if(!item)return toast("Backup não encontrado.");const data=await loadPresenceBackupData(item);downloadJson(`presenca-${item.week||id}.json`,{version:"22.9.0",exportedAt:new Date().toISOString(),backup:{...item,...data}});}
+async function downloadPresenceBackup(id){const item=state.presenceBackups.find(row=>row.id===id);if(!item)return toast("Backup não encontrado.");const data=await loadPresenceBackupData(item);downloadJson(`presenca-${item.week||id}.json`,{version:"22.9.1",exportedAt:new Date().toISOString(),backup:{...item,...data}});}
 
 
 function backupCenterDateValue(item){return rtDateValue(item?.createdAt)||Date.parse(item?.createdAtText||0)||0}
@@ -1212,37 +1233,63 @@ function render(){
 }
 
 
+let maintenanceFormDirty=false;
+let validatedAdvancedBackup=null;
+let advancedDiagnostics={auth:{ok:false,text:"Aguardando teste"},firestore:{ok:false,text:"Aguardando teste"},listeners:{ok:false,text:"Aguardando teste"},pwa:{ok:false,text:"Aguardando teste"},testedAt:""};
+let githubDiagnostics={ok:false,configured:false,repository:"",text:"Nenhum repositório configurado",workflows:"—",release:"—",testedAt:""};
+function diagnosticCard(name,result){return `<article class="panel"><div class="panel-body advanced-card"><span class="service-light ${result.ok?"ok":"warning"}"></span><strong>${escapeHtml(name)}</strong><p>${escapeHtml(result.text||"—")}</p></div></article>`}
+function sessionTime(value){const date=value?.toDate?.()||new Date(value||0);return Number.isNaN(date.getTime())?0:date.getTime()}
+function renderSessions(){
+  const host=byId("activeSessionsList");if(!host)return;
+  const now=Date.now(),rows=state.sessions.slice().sort((a,b)=>sessionTime(b.lastSeen)-sessionTime(a.lastSeen));
+  host.innerHTML=rows.map(item=>{const active=item.online!==false&&now-sessionTime(item.lastSeen)<120000;return `<div class="session-row"><div><strong>${escapeHtml(item.userName||item.email||"Usuário")}</strong><p>${escapeHtml(item.email||"")} · ${escapeHtml(accessRoleLabel(resolveAccessRole(item)))} · ${escapeHtml(item.device||"Navegador")}</p><small>Último sinal: ${sessionTime(item.lastSeen)?new Date(sessionTime(item.lastSeen)).toLocaleString("pt-BR"):"aguardando"}</small></div><span class="service-chip ${active?"ok":"warning"}">${active?"Conectado":"Inativo"}</span></div>`}).join("")||"<p>Nenhuma sessão registrada. Publique o novo firestore.rules e entre novamente.</p>";
+}
+function renderGithubStatus(){
+  const host=byId("githubStatusCards");if(!host)return;
+  host.innerHTML=[diagnosticCard("Repositório",{ok:githubDiagnostics.ok,text:githubDiagnostics.text}),diagnosticCard("Workflows",{ok:githubDiagnostics.ok,text:githubDiagnostics.workflows}),diagnosticCard("Última versão",{ok:githubDiagnostics.ok,text:githubDiagnostics.release})].join("");
+}
 function renderAdvancedCenter(){
   if(!owner())return;
   const logs=state.audit.slice().sort((a,b)=>(b.createdAt?.toMillis?.()||0)-(a.createdAt?.toMillis?.()||0));
   setHtml("advancedLogsRows",logs.map(a=>`<tr><td>${a.createdAt?.toDate?a.createdAt.toDate().toLocaleString("pt-BR"):"—"}</td><td>${escapeHtml(a.userName||"—")}</td><td>${escapeHtml(a.action||"—")}</td><td>${escapeHtml(a.details||"")}</td></tr>`).join("")||'<tr><td colspan="4">Nenhum log disponível.</td></tr>');
-  const firebaseOk=!!state.user;
-  setHtml("firebaseStatusCards",[
-    ["Autenticação",firebaseOk?"Conectado":"Desconectado"],["Firestore",firebaseOk?"Sincronizado":"Indisponível"],["Realtime listeners",state.unsubs.length?"Ativos":"Inativos"]
-  ].map(([name,status])=>`<article class="panel"><div class="panel-body advanced-card"><span class="service-light ${status.match(/Conectado|Sincronizado|Ativos/)?"ok":"warning"}"></span><strong>${name}</strong><p>${status}</p></div></article>`).join(""));
-  setHtml("servicesStatusGrid",[
-    ["Aplicação web","Operacional"],["Firebase Auth",firebaseOk?"Operacional":"Verificar"],["Cloud Firestore",firebaseOk?"Operacional":"Verificar"],["GitHub Actions","Não configurado"]
-  ].map(([name,status])=>`<article class="panel"><div class="panel-body advanced-card"><span class="service-light ${status==="Operacional"?"ok":"warning"}"></span><strong>${name}</strong><p>${status}</p></div></article>`).join(""));
-  setHtml("activeSessionsList",state.user?`<div class="session-row"><div><strong>${escapeHtml(state.profile?.name||state.user.email||"DEV")}</strong><p>${escapeHtml(state.user.email||"")} · Esta sessão</p></div><span class="service-chip ok">Conectado</span></div>`:"<p>Nenhuma sessão identificada.</p>");
+  setHtml("firebaseStatusCards",[diagnosticCard("Autenticação",advancedDiagnostics.auth),diagnosticCard("Cloud Firestore",advancedDiagnostics.firestore),diagnosticCard("Listeners em tempo real",advancedDiagnostics.listeners)].join(""));
+  setHtml("servicesStatusGrid",[diagnosticCard("Aplicação web",{ok:true,text:`V22.9.1 carregada · ${location.protocol==="https:"?"HTTPS":"ambiente local"}`}),diagnosticCard("Firebase Auth",advancedDiagnostics.auth),diagnosticCard("Cloud Firestore",advancedDiagnostics.firestore),diagnosticCard("PWA / Service Worker",advancedDiagnostics.pwa),diagnosticCard("GitHub",{ok:githubDiagnostics.ok,text:githubDiagnostics.text})].join(""));
+  renderSessions();renderGithubStatus();
   setHtml("systemStatsGrid",[
     ["Usuários",state.users.filter(user=>resolveAccessRole(user)!=="dev").length],["Membros",visibleMembers().length],["Presenças",state.attendance.length],["Eventos",state.events.length],["Notificações",state.sentNotifications.length||state.notifications.length],["Logs",state.audit.length]
   ].map(([label,value])=>`<article class="card"><span>${label}</span><strong>${Number(value||0).toLocaleString("pt-BR")}</strong><small>Dados carregados nesta sessão</small></article>`).join(""));
+  const repository=state.settings?.advanced?.githubRepository||"";if(byId("githubRepository")&&document.activeElement!==byId("githubRepository"))setValue("githubRepository",repository);
   const maintenance=state.settings?.maintenance||{};
-  const toggle=byId("maintenanceModeToggle"); if(toggle)toggle.checked=maintenance.enabled===true;
-  setValue("maintenanceTitle",maintenance.title||"Sistema em manutenção"); setValue("maintenanceMessage",maintenance.message||"Estamos realizando melhorias. Algumas funções podem apresentar instabilidade."); setValue("maintenanceImageUrl",maintenance.imageUrl||""); setValue("maintenanceExpectedEnd",maintenance.expectedEnd||"");
-  const showLogin=byId("maintenanceShowLogin"); if(showLogin)showLogin.checked=maintenance.showLogin!==false; const showApp=byId("maintenanceShowApp"); if(showApp)showApp.checked=maintenance.showApp!==false; updateMaintenancePreview(); applyMaintenanceNotice();
+  if(!maintenanceFormDirty){const toggle=byId("maintenanceModeToggle");if(toggle)toggle.checked=maintenance.enabled===true;setValue("maintenanceTitle",maintenance.title||"Sistema em manutenção");setValue("maintenanceMessage",maintenance.message||"Estamos realizando melhorias. Algumas funções podem apresentar instabilidade.");setValue("maintenanceImageUrl",maintenance.imageUrl||"");setValue("maintenanceExpectedEnd",maintenance.expectedEnd||"");const showLogin=byId("maintenanceShowLogin");if(showLogin)showLogin.checked=maintenance.showLogin!==false;const showApp=byId("maintenanceShowApp");if(showApp)showApp.checked=maintenance.showApp!==false;updateMaintenancePreview()}
+  applyMaintenanceNotice();
 }
 function downloadJson(filename,data){const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
-on("checkUpdatesButton","click",()=>{setText("updateStatusText","Versão 22.9.0 instalada e verificada. Base oficial: V22.8.5.");toast("Verificação local concluída.")});
+async function runFirebaseDiagnostics(){
+  const started=performance.now();advancedDiagnostics.auth={ok:!!auth.currentUser,text:auth.currentUser?`Autenticado como ${auth.currentUser.email||auth.currentUser.uid}`:"Sem usuário autenticado"};
+  try{const snap=await getDoc(doc(db,"settings","app"));advancedDiagnostics.firestore={ok:true,text:`Leitura confirmada em ${Math.round(performance.now()-started)} ms · settings/app ${snap.exists()?"encontrado":"ainda não criado"}`}}catch(error){advancedDiagnostics.firestore={ok:false,text:errMsg(error)}}
+  advancedDiagnostics.listeners={ok:state.unsubs.length>0,text:`${state.unsubs.length} listener(s) registrado(s)`};advancedDiagnostics.pwa={ok:"serviceWorker" in navigator&&!!navigator.serviceWorker.controller,text:"serviceWorker" in navigator?(navigator.serviceWorker.controller?"Service Worker controlando esta página":"Disponível; recarregue para assumir o controle"):"Não suportado pelo navegador"};advancedDiagnostics.testedAt=new Date().toISOString();renderAdvancedCenter();return advancedDiagnostics;
+}
+async function checkGithub(){
+  const repository=String(byId("githubRepository")?.value||state.settings?.advanced?.githubRepository||"").trim();
+  if(!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository)){githubDiagnostics={ok:false,configured:false,repository,text:"Informe no formato organizacao/repositorio",workflows:"Não consultado",release:"Não consultada"};renderAdvancedCenter();return false}
+  setText("githubUpdateStatus","Consultando GitHub...");
+  try{const [repoResponse,runsResponse,releaseResponse]=await Promise.all([fetch(`https://api.github.com/repos/${repository}`,{headers:{Accept:"application/vnd.github+json"}}),fetch(`https://api.github.com/repos/${repository}/actions/runs?per_page=1`,{headers:{Accept:"application/vnd.github+json"}}),fetch(`https://api.github.com/repos/${repository}/releases/latest`,{headers:{Accept:"application/vnd.github+json"}})]);if(!repoResponse.ok)throw new Error(`Repositório indisponível (${repoResponse.status})`);const repo=await repoResponse.json(),runs=runsResponse.ok?await runsResponse.json():null,release=releaseResponse.ok?await releaseResponse.json():null,lastRun=runs?.workflow_runs?.[0];githubDiagnostics={ok:true,configured:true,repository,text:`${repo.full_name} · branch ${repo.default_branch} · atualizado ${new Date(repo.updated_at).toLocaleString("pt-BR")}`,workflows:lastRun?`${lastRun.name}: ${lastRun.conclusion||lastRun.status}`:"Nenhuma execução pública",release:release?.tag_name||"Nenhuma release publicada",testedAt:new Date().toISOString()};setText("githubUpdateStatus","Consulta concluída com sucesso.");renderAdvancedCenter();return true}catch(error){githubDiagnostics={ok:false,configured:true,repository,text:error.message||"Falha ao consultar GitHub",workflows:"Indisponível",release:"Indisponível"};setText("githubUpdateStatus",githubDiagnostics.text);renderAdvancedCenter();return false}
+}
+on("checkUpdatesButton","click",async()=>{const button=byId("checkUpdatesButton");if(button)button.disabled=true;try{const response=await fetch(`manifest.json?check=${Date.now()}`,{cache:"no-store"});if(!response.ok)throw new Error("Manifesto indisponível");const manifest=await response.json(),repository=state.settings?.advanced?.githubRepository||"";let message=`Versão publicada: ${manifest.version_name||manifest.version||"não informada"}. Versão carregada: 22.9.1.`;if(repository){await checkGithub();if(githubDiagnostics.release!=="Nenhuma release publicada"&&githubDiagnostics.release!=="Indisponível")message+=` GitHub: ${githubDiagnostics.release}.`}setText("updateStatusText",message);toast("Verificação concluída.")}catch(error){setText("updateStatusText",`Falha na verificação: ${error.message}`)}finally{if(button)button.disabled=false}});
 on("createBackupButton","click",async()=>{if(!owner())return;try{downloadJson(`77-team-backup-${new Date().toISOString().slice(0,10)}.json`,await completeBackupPayload());toast("Backup completo e seguro gerado.")}catch(error){toast(error.message||errMsg(error))}});
-on("restoreBackupFile","change",async e=>{const file=e.target.files?.[0];if(!file)return;try{const data=JSON.parse(await file.text());setText("restoreBackupInfo",`Arquivo válido: versão ${data.version||"não informada"}, exportado em ${data.exportedAt||"data não informada"}.`)}catch{setText("restoreBackupInfo","Arquivo inválido ou corrompido.")}});
+on("restoreBackupFile","change",async e=>{const file=e.target.files?.[0],button=byId("restoreAdvancedBackup");validatedAdvancedBackup=null;if(button)button.disabled=true;if(!file)return;if(file.size>50*1024*1024)return setText("restoreBackupInfo","Arquivo acima do limite seguro de 50 MB.");try{const data=JSON.parse(await file.text());validateBackupPayload(data);validatedAdvancedBackup=data;if(button)button.disabled=false;setText("restoreBackupInfo",`✓ Backup validado: V${data.version}, projeto ${data.projectId}, schema ${data.backupSchema}, gerado em ${new Date(data.generatedAt).toLocaleString("pt-BR")}.`)}catch(error){setText("restoreBackupInfo",`✕ Backup recusado: ${error.message||"arquivo inválido"}`)}});
+on("restoreAdvancedBackup","click",async()=>{if(!owner()||!validatedAdvancedBackup)return;if(!confirm("Restaurar este backup validado? Um restoreJob persistente fará rollback automático em caso de falha."))return;const button=byId("restoreAdvancedBackup");button.disabled=true;setText("restoreBackupInfo","Restauração controlada em andamento. Não feche esta página...");try{const jobId=await restoreBackupPayload(validatedAdvancedBackup);setText("restoreBackupInfo",`✓ Restauração concluída. restoreJob: ${jobId}`);validatedAdvancedBackup=null;toast("Backup restaurado com rollback protegido.")}catch(error){setText("restoreBackupInfo",`✕ Restauração revertida: ${error.message||error}`);button.disabled=false}});
 function maintenanceFormData(){return {enabled:byId("maintenanceModeToggle")?.checked===true,title:byId("maintenanceTitle")?.value.trim()||"Sistema em manutenção",message:byId("maintenanceMessage")?.value.trim()||"Estamos realizando melhorias. Algumas funções podem apresentar instabilidade.",imageUrl:byId("maintenanceImageUrl")?.value.trim()||"",expectedEnd:byId("maintenanceExpectedEnd")?.value||"",showLogin:byId("maintenanceShowLogin")?.checked!==false,showApp:byId("maintenanceShowApp")?.checked!==false}}
 function formatMaintenanceEnd(value){if(!value)return "";const d=new Date(value);return Number.isNaN(d.getTime())?"":`Previsão de término: ${d.toLocaleString("pt-BR")}`}
 function setNoticeImage(element,url){if(!element)return;const safe=/^https?:\/\//i.test(url||"")?url:"";element.classList.toggle("hidden",!safe);if(safe)element.src=safe;else element.removeAttribute("src")}
 function updateMaintenancePreview(){const data=maintenanceFormData();setText("maintenancePreviewTitle",`🚧 ${data.title}`);setText("maintenancePreviewMessage",data.message);const end=formatMaintenanceEnd(data.expectedEnd);setText("maintenancePreviewEnd",end);byId("maintenancePreviewEnd")?.classList.toggle("hidden",!end);setNoticeImage(byId("maintenancePreviewImage"),data.imageUrl);const chip=byId("maintenanceStatusChip");if(chip){chip.textContent=data.enabled?"Aviso ativo":"Sistema online";chip.classList.toggle("active",data.enabled)}}
 function applyMaintenanceNotice(){const data=state.settings?.maintenance||{};const enabled=data.enabled===true;const loginVisible=enabled&&data.showLogin!==false;const appVisible=enabled&&data.showApp!==false&&sessionStorage.getItem("77team-maintenance-dismissed")!==String(data.updatedAt||"");const login=byId("maintenanceLoginNotice");if(login){login.classList.toggle("hidden",!loginVisible);setText("maintenanceLoginTitle",`🚧 ${data.title||"Sistema em manutenção"}`);setText("maintenanceLoginMessage",data.message||"Estamos realizando melhorias.");const end=formatMaintenanceEnd(data.expectedEnd);setText("maintenanceLoginEnd",end);byId("maintenanceLoginEnd")?.classList.toggle("hidden",!end);setNoticeImage(byId("maintenanceLoginImage"),data.imageUrl)}const banner=byId("maintenanceAppBanner");if(banner){banner.classList.toggle("hidden",!appVisible);setText("maintenanceAppTitle",`🚧 ${data.title||"Sistema em manutenção"}`);setText("maintenanceAppMessage",data.message||"Estamos realizando melhorias.");const end=formatMaintenanceEnd(data.expectedEnd);setText("maintenanceAppEnd",end);byId("maintenanceAppEnd")?.classList.toggle("hidden",!end)}}
-["maintenanceModeToggle","maintenanceTitle","maintenanceMessage","maintenanceImageUrl","maintenanceExpectedEnd","maintenanceShowLogin","maintenanceShowApp"].forEach(id=>{on(id,"input",updateMaintenancePreview);on(id,"change",updateMaintenancePreview)}); on("previewMaintenanceButton","click",()=>{updateMaintenancePreview();toast("Prévia atualizada.")}); on("closeMaintenanceBanner","click",()=>{sessionStorage.setItem("77team-maintenance-dismissed",String(state.settings?.maintenance?.updatedAt||""));byId("maintenanceAppBanner")?.classList.add("hidden")});
-on("saveMaintenanceButton","click",async()=>{if(!owner())return;try{const maintenance={...maintenanceFormData(),updatedAt:new Date().toISOString(),updatedBy:state.user.uid,updatedByName:state.profile?.name||state.user.email||"DEV"};await setDoc(doc(db,"settings","app"),{maintenance},{merge:true});state.settings={...state.settings,maintenance};applyMaintenanceNotice();await audit("aviso de manutenção atualizado",maintenance.enabled?"ativado":"desativado");toast(maintenance.enabled?"Aviso de manutenção publicado.":"Aviso de manutenção desativado.")}catch(e){toast(errMsg(e))}});
+["maintenanceModeToggle","maintenanceTitle","maintenanceMessage","maintenanceImageUrl","maintenanceExpectedEnd","maintenanceShowLogin","maintenanceShowApp"].forEach(id=>{on(id,"input",()=>{maintenanceFormDirty=true;updateMaintenancePreview()});on(id,"change",()=>{maintenanceFormDirty=true;updateMaintenancePreview()})}); on("previewMaintenanceButton","click",()=>{updateMaintenancePreview();toast("Prévia atualizada.")}); on("closeMaintenanceBanner","click",()=>{sessionStorage.setItem("77team-maintenance-dismissed",String(state.settings?.maintenance?.updatedAt||""));byId("maintenanceAppBanner")?.classList.add("hidden")});
+on("saveMaintenanceButton","click",async()=>{if(!owner())return;try{const maintenance={...maintenanceFormData(),updatedAt:new Date().toISOString(),updatedBy:state.user.uid,updatedByName:state.profile?.name||state.user.email||"DEV"};await setDoc(doc(db,"settings","app"),{maintenance},{merge:true});state.settings={...state.settings,maintenance};maintenanceFormDirty=false;applyMaintenanceNotice();await audit("aviso de manutenção atualizado",maintenance.enabled?"ativado":"desativado");toast(maintenance.enabled?"Aviso de manutenção publicado.":"Aviso de manutenção desativado.")}catch(e){toast(errMsg(e))}});
+on("refreshFirebaseStatus","click",runFirebaseDiagnostics);on("refreshServicesStatus","click",async()=>{await runFirebaseDiagnostics();if(state.settings?.advanced?.githubRepository)await checkGithub();toast("Diagnóstico dos serviços concluído.")});
+on("checkGithubButton","click",checkGithub);on("refreshGithubStatus","click",checkGithub);
+on("clearInactiveSessions","click",async()=>{if(!owner())return;const cutoff=Date.now()-24*60*60*1000,stale=state.sessions.filter(item=>sessionTime(item.lastSeen)<cutoff);if(!stale.length)return toast("Nenhuma sessão inativa há mais de 24 horas.");if(!confirm(`Remover ${stale.length} sessão(ões) inativa(s)?`))return;try{for(let index=0;index<stale.length;index+=400){const batch=writeBatch(db);stale.slice(index,index+400).forEach(item=>batch.delete(doc(db,"sessions",item.id)));await batch.commit()}await audit("sessões inativas removidas",`${stale.length} registro(s)`);toast("Sessões inativas removidas.")}catch(error){toast(errMsg(error))}});
+on("saveGithubRepository","click",async()=>{if(!owner())return;const repository=String(byId("githubRepository")?.value||"").trim();if(repository&&!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository))return toast("Use o formato organizacao/repositorio.");try{const advanced={...(state.settings?.advanced||{}),githubRepository:repository};await setDoc(doc(db,"settings","app"),{advanced},{merge:true});state.settings={...state.settings,advanced};await audit("repositório GitHub atualizado",repository||"removido");toast(repository?"Repositório salvo.":"Repositório removido.");if(repository)await checkGithub()}catch(error){toast(errMsg(error))}});
 on("clearCacheButton","click",async()=>{if(!owner())return;try{if("serviceWorker" in navigator){const regs=await navigator.serviceWorker.getRegistrations();await Promise.all(regs.map(r=>r.unregister()))}if("caches" in window){const keys=await caches.keys();await Promise.all(keys.map(k=>caches.delete(k)))}toast("Cache limpo. Recarregando...");setTimeout(()=>location.reload(true),700)}catch(e){toast("Não foi possível limpar todo o cache.")}});
 
 document.addEventListener("input",e=>{if(e.target.matches("[data-unified-presence-search],[data-unified-presence-date]"))filterUnifiedPresence()});
@@ -1534,6 +1581,7 @@ let removeLoginBackgroundRequested=false;
 let removeLoginLogoRequested=false;
 let loginBackgroundPreviewUrl="";
 let loginLogoPreviewUrl="";
+let loginCustomizationDirty=false;
 
 function readCachedLoginCustomization(){
   try{return JSON.parse(localStorage.getItem("77team-login-customization")||"{}")||{}}catch{return {}}
@@ -1586,7 +1634,8 @@ function applyLoginCustomization(){
   cacheLoginCustomization(cfg);
 }
 function revokePreview(url){if(url?.startsWith("blob:"))URL.revokeObjectURL(url)}
-function loadLoginCustomizationForm(){
+function loadLoginCustomizationForm(force=false){
+  if(loginCustomizationDirty&&!force)return;
   const cfg=loginCustomization();
   setValue("loginBackgroundPosition",cfg.backgroundPosition||LOGIN_DEFAULTS.backgroundPosition);
   setValue("loginLogoWidth",String(Number(cfg.logoWidth)||LOGIN_DEFAULTS.logoWidth));
@@ -1619,11 +1668,11 @@ function refreshLoginCustomizationPreview(){
   if(preview){preview.style.backgroundImage=`linear-gradient(rgba(0,0,0,.22),rgba(0,0,0,.38)),url("${bg}")`;preview.style.backgroundPosition=byId("loginBackgroundPosition")?.value||LOGIN_DEFAULTS.backgroundPosition}
   const previewLogo=byId("loginLivePreviewLogo");if(previewLogo){previewLogo.src=logo;previewLogo.style.width=`min(${Number(byId("loginLogoWidth")?.value)||LOGIN_DEFAULTS.logoWidth}px,82%)`}
 }
-on("loginBackgroundFile","change",async event=>{try{const file=event.target.files?.[0];if(!file)return;pendingLoginBackground=await optimizeLoginImage(file,"background");removeLoginBackgroundRequested=false;revokePreview(loginBackgroundPreviewUrl);loginBackgroundPreviewUrl=URL.createObjectURL(pendingLoginBackground.blob);const el=byId("loginBackgroundPreview");if(el)el.style.backgroundImage=`url("${loginBackgroundPreviewUrl}")`;refreshLoginCustomizationPreview();setText("loginCustomizationStatus",`Fundo ajustado para ${pendingLoginBackground.width} × ${pendingLoginBackground.height}. Clique em Salvar alterações.`)}catch(error){toast(error.message)}});
-on("loginLogoFile","change",async event=>{try{const file=event.target.files?.[0];if(!file)return;pendingLoginLogo=await optimizeLoginImage(file,"logo");removeLoginLogoRequested=false;revokePreview(loginLogoPreviewUrl);loginLogoPreviewUrl=URL.createObjectURL(pendingLoginLogo.blob);const el=byId("loginLogoPreview");if(el)el.src=loginLogoPreviewUrl;refreshLoginCustomizationPreview();setText("loginCustomizationStatus",`Imagem do topo ajustada para ${pendingLoginLogo.width} × ${pendingLoginLogo.height}. Clique em Salvar alterações.`)}catch(error){toast(error.message)}});
-on("loginBackgroundPosition","change",refreshLoginCustomizationPreview);on("loginLogoWidth","change",refreshLoginCustomizationPreview);on("refreshLoginPreview","click",()=>{refreshLoginCustomizationPreview();toast("Prévia atualizada.")});
-on("removeLoginBackground","click",()=>{pendingLoginBackground=null;removeLoginBackgroundRequested=true;revokePreview(loginBackgroundPreviewUrl);loginBackgroundPreviewUrl="";const el=byId("loginBackgroundPreview");if(el)el.style.backgroundImage=`url("${LOGIN_DEFAULTS.backgroundUrl}")`;refreshLoginCustomizationPreview();setText("loginCustomizationStatus","O fundo padrão será restaurado ao salvar.")});
-on("removeLoginLogo","click",()=>{pendingLoginLogo=null;removeLoginLogoRequested=true;revokePreview(loginLogoPreviewUrl);loginLogoPreviewUrl="";const el=byId("loginLogoPreview");if(el)el.src=LOGIN_DEFAULTS.logoUrl;refreshLoginCustomizationPreview();setText("loginCustomizationStatus","A logo padrão será restaurada ao salvar.")});
+on("loginBackgroundFile","change",async event=>{try{const file=event.target.files?.[0];if(!file)return;pendingLoginBackground=await optimizeLoginImage(file,"background");loginCustomizationDirty=true;removeLoginBackgroundRequested=false;revokePreview(loginBackgroundPreviewUrl);loginBackgroundPreviewUrl=URL.createObjectURL(pendingLoginBackground.blob);const el=byId("loginBackgroundPreview");if(el)el.style.backgroundImage=`url("${loginBackgroundPreviewUrl}")`;refreshLoginCustomizationPreview();setText("loginCustomizationStatus",`Fundo ajustado para ${pendingLoginBackground.width} × ${pendingLoginBackground.height}. Clique em Salvar alterações.`)}catch(error){toast(error.message)}});
+on("loginLogoFile","change",async event=>{try{const file=event.target.files?.[0];if(!file)return;pendingLoginLogo=await optimizeLoginImage(file,"logo");loginCustomizationDirty=true;removeLoginLogoRequested=false;revokePreview(loginLogoPreviewUrl);loginLogoPreviewUrl=URL.createObjectURL(pendingLoginLogo.blob);const el=byId("loginLogoPreview");if(el)el.src=loginLogoPreviewUrl;refreshLoginCustomizationPreview();setText("loginCustomizationStatus",`Imagem do topo ajustada para ${pendingLoginLogo.width} × ${pendingLoginLogo.height}. Clique em Salvar alterações.`)}catch(error){toast(error.message)}});
+on("loginBackgroundPosition","change",()=>{loginCustomizationDirty=true;refreshLoginCustomizationPreview()});on("loginLogoWidth","change",()=>{loginCustomizationDirty=true;refreshLoginCustomizationPreview()});on("refreshLoginPreview","click",()=>{refreshLoginCustomizationPreview();toast("Prévia atualizada.")});
+on("removeLoginBackground","click",()=>{pendingLoginBackground=null;loginCustomizationDirty=true;removeLoginBackgroundRequested=true;revokePreview(loginBackgroundPreviewUrl);loginBackgroundPreviewUrl="";const el=byId("loginBackgroundPreview");if(el)el.style.backgroundImage=`url("${LOGIN_DEFAULTS.backgroundUrl}")`;refreshLoginCustomizationPreview();setText("loginCustomizationStatus","O fundo padrão será restaurado ao salvar.")});
+on("removeLoginLogo","click",()=>{pendingLoginLogo=null;loginCustomizationDirty=true;removeLoginLogoRequested=true;revokePreview(loginLogoPreviewUrl);loginLogoPreviewUrl="";const el=byId("loginLogoPreview");if(el)el.src=LOGIN_DEFAULTS.logoUrl;refreshLoginCustomizationPreview();setText("loginCustomizationStatus","A logo padrão será restaurada ao salvar.")});
 async function uploadLoginAsset(processed,type){
   const path=`login-customization/${type}-${Date.now()}.${processed.extension}`;
   const ref=storageRef(storage,path);const snap=await uploadBytes(ref,processed.blob,{contentType:processed.mime,cacheControl:"public,max-age=3600"});
@@ -1632,18 +1681,19 @@ async function uploadLoginAsset(processed,type){
 on("saveLoginCustomization","click",async()=>{
   if(!permissionEnabled("login_customize"))return toast("Sem permissão para personalizar a tela de login.");
   const button=byId("saveLoginCustomization");if(button)button.disabled=true;
+  const uploadedPaths=[];
   try{
     const previous=loginCustomization();
     const next={...previous,backgroundPosition:byId("loginBackgroundPosition")?.value||LOGIN_DEFAULTS.backgroundPosition,logoWidth:Number(byId("loginLogoWidth")?.value)||LOGIN_DEFAULTS.logoWidth,updatedAt:new Date().toISOString(),updatedBy:state.user.uid};
-    if(pendingLoginBackground){const asset=await uploadLoginAsset(pendingLoginBackground,"background");next.backgroundUrl=asset.url;next.backgroundPath=asset.path}
+    if(pendingLoginBackground){const asset=await uploadLoginAsset(pendingLoginBackground,"background");uploadedPaths.push(asset.path);next.backgroundUrl=asset.url;next.backgroundPath=asset.path}
     else if(removeLoginBackgroundRequested){delete next.backgroundUrl;delete next.backgroundPath}
-    if(pendingLoginLogo){const asset=await uploadLoginAsset(pendingLoginLogo,"logo");next.logoUrl=asset.url;next.logoPath=asset.path}
+    if(pendingLoginLogo){const asset=await uploadLoginAsset(pendingLoginLogo,"logo");uploadedPaths.push(asset.path);next.logoUrl=asset.url;next.logoPath=asset.path}
     else if(removeLoginLogoRequested){delete next.logoUrl;delete next.logoPath}
     await setDoc(doc(db,"settings","app"),{loginCustomization:next},{merge:true});
     const oldPaths=[];if((pendingLoginBackground||removeLoginBackgroundRequested)&&previous.backgroundPath&&previous.backgroundPath!==next.backgroundPath)oldPaths.push(previous.backgroundPath);if((pendingLoginLogo||removeLoginLogoRequested)&&previous.logoPath&&previous.logoPath!==next.logoPath)oldPaths.push(previous.logoPath);
     await Promise.all(oldPaths.map(async path=>{try{await deleteObject(storageRef(storage,path))}catch(error){console.warn("Imagem anterior não removida:",error)}}));
-    state.settings={...state.settings,loginCustomization:next};cacheLoginCustomization(next);pendingLoginBackground=pendingLoginLogo=null;removeLoginBackgroundRequested=removeLoginLogoRequested=false;revokePreview(loginBackgroundPreviewUrl);revokePreview(loginLogoPreviewUrl);loginBackgroundPreviewUrl=loginLogoPreviewUrl="";applyLoginCustomization();loadLoginCustomizationForm();await audit("personalização do login atualizada","Fundo e/ou imagem do topo modificados");toast("Tela de login atualizada com sucesso.");setText("loginCustomizationStatus","Alterações publicadas e aplicadas automaticamente.")
-  }catch(error){toast(errMsg(error));setText("loginCustomizationStatus",`Falha ao salvar: ${error.message||error}`)}finally{if(button)button.disabled=false}
+    state.settings={...state.settings,loginCustomization:next};cacheLoginCustomization(next);pendingLoginBackground=pendingLoginLogo=null;removeLoginBackgroundRequested=removeLoginLogoRequested=false;loginCustomizationDirty=false;revokePreview(loginBackgroundPreviewUrl);revokePreview(loginLogoPreviewUrl);loginBackgroundPreviewUrl=loginLogoPreviewUrl="";applyLoginCustomization();loadLoginCustomizationForm(true);await audit("personalização do login atualizada","Fundo e/ou imagem do topo modificados");toast("Tela de login atualizada com sucesso.");setText("loginCustomizationStatus","Alterações publicadas e aplicadas automaticamente.")
+  }catch(error){await Promise.all(uploadedPaths.map(async path=>{try{await deleteObject(storageRef(storage,path))}catch{}}));toast(errMsg(error));setText("loginCustomizationStatus",`Falha ao salvar: ${error.message||error}`)}finally{if(button)button.disabled=false}
 });
 
 window.addEventListener("error",event=>{
@@ -1669,7 +1719,7 @@ function updateLiveClock(){
 }
 updateLiveClock();
 setInterval(updateLiveClock,1000);
-if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js?v=22.9.0").catch(error=>console.warn("Service Worker indisponível:",error)));
+if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js?v=22.9.1").catch(error=>console.warn("Service Worker indisponível:",error)));
 
 function animateNumber(id,target,suffix=""){
   const el=byId(id);
@@ -3305,7 +3355,7 @@ function backupPayload(){
   return serializeBackupValue({
     format:"77-team-manager-backup",
     backupSchema:3,
-    version:"22.9.0",
+    version:"22.9.1",
     generatedAt:new Date().toISOString(),
     projectId:firebaseConfig.projectId,
     collections:{
@@ -3398,8 +3448,8 @@ function validateBackupPayload(payload){
   validateBackupValue(payload);
   if(!payload||payload.format!=="77-team-manager-backup")throw new Error("Formato de backup incompatível.");
   if(payload.projectId!==firebaseConfig.projectId)throw new Error("Este backup pertence a outro projeto Firebase.");
-  if(Number(payload.backupSchema||0)!==3)throw new Error("Schema de backup incompatível. Use um backup completo V22.8.5 a V22.9.0 com schema 3.");
-  if(!["22.8.5","22.8.6","22.8.7","22.8.8","22.8.9","22.9.0"].includes(String(payload.version||"")))throw new Error("Versão de backup incompatível.");
+  if(Number(payload.backupSchema||0)!==3)throw new Error("Schema de backup incompatível. Use um backup completo V22.8.5 a V22.9.1 com schema 3.");
+  if(!["22.8.5","22.8.6","22.8.7","22.8.8","22.8.9","22.9.0","22.9.1"].includes(String(payload.version||"")))throw new Error("Versão de backup incompatível.");
   if(!payload.collections||typeof payload.collections!=="object"||Array.isArray(payload.collections))throw new Error("Coleções do backup ausentes.");
   const allowed=["users","members","attendance","events","notifications","notificationReads","rtPresence","presenceBackups","resetJobs","xpLogs","audit","supportMessages","chatMessages"];
   for(const name of allowed)if(!Array.isArray(payload.collections[name]))throw new Error(`Coleção obrigatória ausente: ${name}.`);
@@ -4932,4 +4982,4 @@ document.addEventListener("click",event=>{
   document.querySelectorAll(`[data-permission-role="${role}"]`).forEach(input=>{if(!input.disabled)input.checked=checked});
   markRolePermissionsDirty();
 });
-window.addEventListener("beforeunload",event=>{if(!rolePermissionsDirty)return;event.preventDefault();event.returnValue=""});
+window.addEventListener("beforeunload",event=>{if(!rolePermissionsDirty&&!maintenanceFormDirty&&!loginCustomizationDirty)return;event.preventDefault();event.returnValue=""});
