@@ -1,6 +1,20 @@
-# 77 TEAM Manager V22.8.6 Hotfix
+# 77 TEAM Manager V22.8.9 Hotfix — Sem App Check
 
-## Quinta auditoria — configuração obrigatória do primeiro DEV
+Esta versão remove completamente o Firebase App Check e preserva todas as correções da V22.8.8. Mantenha Firestore e Storage em **Monitorando** ou **Não aplicado**, sem enforcement. Consulte `CHANGELOG-V22.8.9.md` e `PUBLICACAO-V22.8.9.md`.
+
+## Sétima auditoria — 13 achados corrigidos
+
+A V22.8.8 corrigiu os 3 achados altos, 6 médios e 4 baixos encontrados na própria V22.8.7. Essas correções permanecem na V22.8.9. O layout e as funcionalidades existentes foram preservados.
+
+> Menções a Visitante nas entradas históricas abaixo descrevem versões antigas. Esse acesso foi descontinuado e removido do código atual.
+
+## Sexta auditoria — segurança e recuperação controlada
+
+A V22.8.8 fecha os cinco pontos encontrados na sexta auditoria: alteração de clã somente por vínculo de UID, `restoreJob` com rollback automático, validação e escape das rotas restantes de XSS, regras de `members` limitadas por campos e hierarquia e PWA offline com cache do SDK Firebase e persistência local do Firestore.
+
+Publique obrigatoriamente o `firestore.rules` desta versão e os demais arquivos do site.
+
+## Configuração obrigatória do primeiro DEV
 
 Em um Firebase novo, antes de abrir o sistema pela primeira vez, crie manualmente no Firestore o documento `system/bootstrap` com o campo `allowedEmail` contendo o e-mail exato autorizado para a conta DEV. Esse documento não pode ser lido pelo navegador e é removido automaticamente depois que o primeiro DEV e `system/owner` forem criados. Sem essa autorização prévia, nenhuma conta pode assumir o primeiro acesso.
 

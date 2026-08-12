@@ -39,7 +39,7 @@ service cloud.firestore {
     function rejectionFields(){return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['active','status','rejectedAt','rejectedBy','updatedAt']);}
 
     match /system/owner {
-      allow get: if true;
+      allow get: if signedIn();
       allow create: if bootstrapAuthorized() && !ownerExists() && request.resource.data.uid == request.auth.uid
         && request.resource.data.keys().hasOnly(['uid','createdAt'])
         && exists(/databases/$(database)/documents/users/$(request.auth.uid))
@@ -131,6 +131,16 @@ service cloud.firestore {
           && request.resource.data.clanUpdatedBy == request.auth.uid
         )
         || (
+          editor() && permission('xp_manage', true)
+          && (isMemberRole(accessRoleOf(resource.data)) || isStaffRole(accessRoleOf(resource.data)))
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['progression','progressionUpdatedAt'])
+          && request.resource.data.progression is map
+          && request.resource.data.progression.keys().hasOnly(['automaticXp','manualXp','totalXp','level','title','currentXp','requiredXp','progress','recalculatedAt'])
+          && request.resource.data.progression.manualXp is int
+          && request.resource.data.progression.level is int
+          && request.resource.data.progression.level >= 1
+        )
+        || (
           editor() && permission('character_delete', true)
           && resource.data.keys().hasAny(['character'])
           && !request.resource.data.keys().hasAny(['character'])
@@ -147,37 +157,99 @@ service cloud.firestore {
 
     match /members/{id} {
       allow read: if active();
-      allow create: if editor() && permission('members_edit', true);
-      allow update: if editor() && permission('members_edit', true) && (permission('roles_change', false) || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role','accessRole','memberRole']));
-      allow delete: if permission('members_delete', false);
+      allow create: if dev() || (
+        editor() && permission('members_edit', true)
+        && request.resource.data.keys().hasOnly(['name','role','clan','userId','accessRole','memberRole','active','createdAt','updatedAt'])
+        && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 120
+        && request.resource.data.get('clan','') is string
+        && request.resource.data.get('clan','').size() <= 80
+        && (isMemberRole(accessRoleOf(request.resource.data)) || isStaffRole(accessRoleOf(request.resource.data)))
+      );
+      allow update: if dev()
+        || (
+          editor() && permission('members_edit', true)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['clan','clanUpdatedAt','clanUpdatedBy','updatedAt'])
+          && request.resource.data.clan is string && request.resource.data.clan.size() <= 80
+          && request.resource.data.clanUpdatedBy == request.auth.uid
+        )
+        || (
+          leadership() && permission('roles_change', true)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role','accessRole','memberRole','updatedAt'])
+          && (isMemberRole(accessRoleOf(request.resource.data)) || isStaffRole(accessRoleOf(request.resource.data)))
+        );
+      allow delete: if editor() && permission('members_delete', false);
     }
     match /attendance/{id} {
       allow read: if editor() || (signedIn() && resource.data.userId == request.auth.uid);
-      allow create: if permission('presence_register', false);
-      allow update: if permission('presence_edit', false);
+      allow create: if dev() || (permission('presence_register', false)
+        && request.resource.data.keys().hasOnly(['memberId','userId','memberName','clan','role','kind','slot','status','date','note','updatedBy','updatedByName','updatedAt'])
+        && request.resource.data.memberId is string && request.resource.data.userId is string
+        && request.resource.data.memberName is string && request.resource.data.memberName.size() <= 120
+        && request.resource.data.kind in ['worldboss','purgatorio','eventos']
+        && request.resource.data.status in [-1,0,1,2,3]
+        && request.resource.data.updatedBy == request.auth.uid);
+      allow update: if dev() || (permission('presence_edit', false)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberId','userId','memberName','clan','role','kind','slot','status','date','note','updatedBy','updatedByName','updatedAt','migratedAt'])
+        && request.resource.data.kind in ['worldboss','purgatorio','eventos']
+        && request.resource.data.status in [-1,0,1,2,3]
+        && request.resource.data.get('note','') is string && request.resource.data.get('note','').size() <= 1000
+        && request.resource.data.updatedBy == request.auth.uid)
+        || (editor() && permission('members_edit', true)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['userId','migratedAt']));
       allow delete: if permission('presence_delete', false) || permission('presence_reset', false);
     }
-    match /events/{id} { allow read: if active(); allow write: if editor(); }
+    match /events/{id} {
+      allow read: if active();
+      allow create: if editor() && request.resource.data.keys().hasOnly(['title','date','type','description','createdBy','createdAt'])
+        && request.resource.data.title is string && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 120
+        && request.resource.data.description is string && request.resource.data.description.size() <= 1000
+        && request.resource.data.createdBy == request.auth.uid;
+      allow update: if dev() || (editor()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title','date','type','description','updatedBy','updatedAt'])
+        && request.resource.data.title is string && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 120
+        && request.resource.data.description is string && request.resource.data.description.size() <= 1000
+        && request.resource.data.updatedBy == request.auth.uid);
+      allow delete: if editor();
+    }
     match /rtPresence/{id} {
       allow read: if editor();
-      allow create: if permission('presence_finalize', false);
-      allow update: if permission('presence_finalize', false);
+      allow create: if dev() || (permission('presence_finalize', false)
+        && request.resource.data.keys().hasOnly(['kind','typeLabel','date','week','slot','slotLabel','clan','records','counts','total','status','finalizedBy','finalizedByName','finalizedAt','createdAt','updatedBy','updatedByName','updatedAt'])
+        && request.resource.data.kind in ['worldboss','purgatorio','eventos']
+        && request.resource.data.records is list && request.resource.data.records.size() <= 5000
+        && request.resource.data.status in ['open','finalized']
+        && (request.resource.data.get('finalizedBy',request.auth.uid) == request.auth.uid || request.resource.data.get('updatedBy',request.auth.uid) == request.auth.uid));
+      allow update: if dev() || (permission('presence_finalize', false)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['records','counts','total','status','finalizedBy','finalizedByName','finalizedAt','updatedBy','updatedByName','updatedAt'])
+        && request.resource.data.records is list && request.resource.data.records.size() <= 5000
+        && request.resource.data.status in ['open','finalized']
+        && (request.resource.data.get('finalizedBy',request.auth.uid) == request.auth.uid || request.resource.data.get('updatedBy',request.auth.uid) == request.auth.uid));
       allow delete: if permission('presence_reset', false) || dev();
     }
     match /presenceBackups/{id} {
       allow read: if editor();
-      allow create: if editor() && permission('presence_register', true);
-      allow update: if dev() && request.resource.data.restoredBy == request.auth.uid;
+      allow create: if dev() || (editor() && permission('presence_register', true)
+        && request.resource.data.keys().hasOnly(['week','counts','total','rtTotal','automatic','backupSchema','createdBy','createdByName','createdAt','createdAtText','sourceVersion'])
+        && request.resource.data.createdBy == request.auth.uid && request.resource.data.backupSchema == 2);
+      allow update: if dev();
       allow delete: if dev();
-      match /attendance/{recordId} { allow read: if editor(); allow create: if editor() && permission('presence_register', true); allow update: if dev() && request.resource.data.restoredBy == request.auth.uid; allow delete: if dev(); }
-      match /rt/{recordId} { allow read: if editor(); allow create: if editor() && permission('presence_register', true); allow update: if dev() && request.resource.data.restoredBy == request.auth.uid; allow delete: if dev(); }
+      match /attendance/{recordId} { allow read: if editor(); allow create: if dev() || (editor() && permission('presence_register', true) && request.resource.data.originalId == recordId); allow update: if dev(); allow delete: if dev(); }
+      match /rt/{recordId} { allow read: if editor(); allow create: if dev() || (editor() && permission('presence_register', true) && request.resource.data.originalId == recordId); allow update: if dev(); allow delete: if dev(); }
     }
     match /resetJobs/{id} {
-      allow read, create, update: if permission('presence_reset', false);
+      allow read: if permission('presence_reset', false);
+      allow create: if permission('presence_reset', false)
+        && request.resource.data.keys().hasOnly(['status','week','createdBy','createdByName','attendanceTotal','rtTotal','createdAt','updatedAt'])
+        && request.resource.data.createdBy == request.auth.uid && request.resource.data.status == 'preparing';
+      allow update: if permission('presence_reset', false)
+        && resource.data.createdBy == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','backupId','errorCode','errorMessage','completedAt','updatedAt'])
+        && request.resource.data.status in ['preparing','backup_created','deleting_attendance','deleting_rt','completed','failed'];
       allow delete: if dev();
     }
     match /restoreJobs/{id} {
       allow read, create, update, delete: if dev();
+      match /rollback/{snapshotId} { allow read, create, update, delete: if dev(); }
     }
     match /notifications/{id} {
       allow read: if editor() || (active() && (
@@ -188,9 +260,10 @@ service cloud.firestore {
       ));
       allow create: if (editor() && permission('notifications_send', true) && request.resource.data.createdBy == request.auth.uid
         && request.resource.data.get('targetType','all') in ['all','user','member','staff']
-        && request.resource.data.get('title','') is string && request.resource.data.get('message','') is string)
+        && request.resource.data.get('title','') is string && request.resource.data.get('title','').size() > 0 && request.resource.data.get('title','').size() <= 160
+        && request.resource.data.get('message','') is string && request.resource.data.get('message','').size() > 0 && request.resource.data.get('message','').size() <= 4000)
         || (dev() && request.resource.data.restoredBy == request.auth.uid);
-      allow update: if dev() && request.resource.data.restoredBy == request.auth.uid;
+      allow update: if dev();
       allow delete: if dev();
     }
     match /notificationReads/{id} {
@@ -238,14 +311,27 @@ service cloud.firestore {
       allow read: if id == 'app' || (id == 'private' && dev());
       allow write: if (id == 'app' && permission('settings_edit', false)) || (id == 'private' && dev());
     }
-    match /xpLogs/{id} { allow read, create: if editor(); allow update: if dev() && request.resource.data.restoredBy == request.auth.uid; allow delete: if dev(); }
+    match /xpLogs/{id} {
+      allow read: if editor();
+      allow create: if editor() && permission('xp_manage', true)
+        && request.resource.data.keys().hasOnly(['memberId','userId','memberName','amount','reason','beforeManualXp','afterManualXp','totalXpAfter','levelAfter','staffId','staffName','createdAt'])
+        && request.resource.data.staffId == request.auth.uid
+        && request.resource.data.amount is int && request.resource.data.amount >= -100000 && request.resource.data.amount <= 100000
+        && request.resource.data.reason is string && request.resource.data.reason.size() >= 3 && request.resource.data.reason.size() <= 500;
+      allow update, delete: if dev();
+    }
     match /audit/{id} {
       allow read: if dev() || (leadership() && permission('audit_view', true));
-      allow create: if (editor() && request.resource.data.userId == request.auth.uid)
-        || (active() && request.resource.data.userId == request.auth.uid && request.resource.data.action == 'Primeiro acesso concluído')
+      allow create: if ((editor() || active())
+          && request.resource.data.keys().hasOnly(['userId','userName','action','details','createdAt'])
+          && request.resource.data.userId == request.auth.uid
+          && request.resource.data.userName == profile().get('name',profile().get('email','Usuário'))
+          && request.resource.data.action is string && request.resource.data.action.size() > 0 && request.resource.data.action.size() <= 160
+          && request.resource.data.details is string && request.resource.data.details.size() <= 2000
+          && request.resource.data.createdAt == request.time)
         || (dev() && request.resource.data.restoredBy == request.auth.uid);
-      allow update: if dev() && request.resource.data.restoredBy == request.auth.uid;
-      allow delete: if false;
+      allow update: if dev() && (resource.data.restoredBy == request.auth.uid || request.resource.data.restoredBy == request.auth.uid);
+      allow delete: if dev() && resource.data.restoredBy == request.auth.uid;
     }
   }
 }

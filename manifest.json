@@ -1,6 +1,6 @@
 {
-  "name": "77 TEAM Manager V22.8.6 Hotfix",
-  "short_name": "77 TEAM V22.8.6",
+  "name": "77 TEAM Manager V22.8.9 Hotfix",
+  "short_name": "77 TEAM V22.8.9",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
@@ -18,7 +18,7 @@
       "type": "image/png"
     }
   ],
-  "description": "77 TEAM Manager V22.8.6 Hotfix — recuperação automática do perfil DEV pelo system/owner.",
-  "version": "22.8.6",
-  "version_name": "22.8.6"
+  "description": "77 TEAM Manager V22.8.9 Hotfix — operação sem Firebase App Check.",
+  "version": "22.8.9",
+  "version_name": "22.8.9"
 }
