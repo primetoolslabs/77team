@@ -1,6 +1,6 @@
-# 77 TEAM Manager V22.9.3 Hotfix — STAFF
+# 77 TEAM Manager V22.9.4 Hotfix — HOME
 
-Esta versão conclui a revisão funcional da categoria **STAFF** e mantém as melhorias anteriores. O Firebase App Check continua removido; mantenha Firestore e Storage em **Monitorando** ou **Não aplicado**. Consulte `CHANGELOG-V22.9.3.md` e `PUBLICACAO-V22.9.3.md`.
+Esta versão conclui a revisão funcional da categoria **HOME** e mantém integralmente as melhorias anteriores. Corrige Visão Geral, Meu Perfil, Membros, Histórico, Ranking, Calendário e Estatísticas. O Firebase App Check continua removido; mantenha Firestore e Storage em **Monitorando** ou **Não aplicado**. Consulte `CHANGELOG-V22.9.4.md` e `PUBLICACAO-V22.9.4.md`.
 
 ## Sétima auditoria — 13 achados corrigidos
 

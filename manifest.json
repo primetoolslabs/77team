@@ -1,6 +1,6 @@
 {
-  "name": "77 TEAM Manager V22.9.3 Hotfix",
-  "short_name": "77 TEAM V22.9.3",
+  "name": "77 TEAM Manager V22.9.4 Hotfix",
+  "short_name": "77 TEAM V22.9.4",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
@@ -18,7 +18,7 @@
       "type": "image/png"
     }
   ],
-  "description": "77 TEAM Manager V22.9.3 Hotfix — STAFF revisada, sem Firebase App Check.",
-  "version": "22.9.3",
-  "version_name": "22.9.3"
+  "description": "77 TEAM Manager V22.9.4 Hotfix — HOME revisada, sem Firebase App Check.",
+  "version": "22.9.4",
+  "version_name": "22.9.4"
 }

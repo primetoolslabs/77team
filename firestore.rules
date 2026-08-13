@@ -180,7 +180,8 @@ service cloud.firestore {
       allow delete: if editor() && permission('members_delete', false);
     }
     match /attendance/{id} {
-      allow read: if editor() || (signedIn() && resource.data.userId == request.auth.uid);
+      // HOME exibe ranking e estatísticas gerais para todas as contas aprovadas.
+      allow read: if active();
       allow create: if dev() || (permission('presence_register', false)
         && request.resource.data.keys().hasOnly(['memberId','userId','memberName','clan','role','kind','slot','status','date','note','updatedBy','updatedByName','createdAt','updatedAt'])
         && request.resource.data.memberId is string && request.resource.data.userId is string
@@ -200,13 +201,15 @@ service cloud.firestore {
     }
     match /events/{id} {
       allow read: if active();
-      allow create: if editor() && request.resource.data.keys().hasOnly(['title','date','type','description','createdBy','createdAt'])
+      allow create: if editor() && request.resource.data.keys().hasOnly(['title','date','time','type','description','createdBy','createdAt'])
         && request.resource.data.title is string && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 120
+        && request.resource.data.get('time','') is string && request.resource.data.get('time','').size() <= 5
         && request.resource.data.description is string && request.resource.data.description.size() <= 1000
         && request.resource.data.createdBy == request.auth.uid;
       allow update: if dev() || (editor()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title','date','type','description','updatedBy','updatedAt'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title','date','time','type','description','updatedBy','updatedAt'])
         && request.resource.data.title is string && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 120
+        && request.resource.data.get('time','') is string && request.resource.data.get('time','').size() <= 5
         && request.resource.data.description is string && request.resource.data.description.size() <= 1000
         && request.resource.data.updatedBy == request.auth.uid);
       allow delete: if editor();
