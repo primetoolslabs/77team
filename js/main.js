@@ -659,7 +659,7 @@ async function createPresenceBackup({automatic=false}={}){
   const rtRecords=state.rtPresence.map(item=>({...item,originalId:item.id}));
   if(!records.length&&!rtRecords.length){toast("Não existem dados de presença para salvar.");return null}
   const now=new Date(),week=isoWeek(todayIso()),counts=presenceBackupCounts(records),id=`${week}__${now.toISOString().replace(/[^0-9]/g,"").slice(0,14)}`;
-  const payload={week,counts,total:records.length,rtTotal:rtRecords.length,automatic,backupSchema:2,createdBy:state.user.uid,createdByName:state.profile?.name||state.user.email,createdAt:serverTimestamp(),createdAtText:now.toISOString(),sourceVersion:"22.9.5"};
+  const payload={week,counts,total:records.length,rtTotal:rtRecords.length,automatic,backupSchema:2,createdBy:state.user.uid,createdByName:state.profile?.name||state.user.email,createdAt:serverTimestamp(),createdAtText:now.toISOString(),sourceVersion:"22.9.6"};
   await setDoc(doc(db,"presenceBackups",id),payload);
   await writeBackupSubcollection(id,"attendance",records);
   await writeBackupSubcollection(id,"rt",rtRecords);
@@ -710,7 +710,7 @@ async function resetPresenceWithBackup(){
     toast("Reset interrompido. O backup e o registro de recuperação foram preservados. Tente novamente após verificar a conexão.");
   }
 }
-async function downloadPresenceBackup(id){const item=state.presenceBackups.find(row=>row.id===id);if(!item)return toast("Backup não encontrado.");const data=await loadPresenceBackupData(item);downloadJson(`presenca-${item.week||id}.json`,{version:"22.9.5",exportedAt:new Date().toISOString(),backup:{...item,...data}});}
+async function downloadPresenceBackup(id){const item=state.presenceBackups.find(row=>row.id===id);if(!item)return toast("Backup não encontrado.");const data=await loadPresenceBackupData(item);downloadJson(`presenca-${item.week||id}.json`,{version:"22.9.6",exportedAt:new Date().toISOString(),backup:{...item,...data}});}
 
 
 function backupCenterDateValue(item){return rtDateValue(item?.createdAt)||Date.parse(item?.createdAtText||0)||0}
@@ -803,7 +803,7 @@ async function savePresenceFromModal(){
   }catch(error){toast(errMsg(error))}
 }
 
-function memberLevel(_present,member=null){return progressionFor(member).level}
+function memberLevel(member){return progressionFor(member).level}
 function memberMedals(member){
   const s=stats(member.name);
   const medals=[];
@@ -920,7 +920,7 @@ function renderStatistics(){
   state.attendance.filter(a=>a.status===1||a.status===2).forEach(a=>{const m=String(a.date||"").slice(0,7)||"sem data";months[m]=(months[m]||0)+1});
   const max=Math.max(1,...Object.values(months));
   $("#monthlyStats").innerHTML=Object.entries(months).sort().slice(-6).map(([m,v])=>`<div class="chart-row"><span>${m}</span><div><i style="width:${Math.round(v/max*100)}%"></i></div><strong>${v}</strong></div>`).join("")||"<p>Sem dados.</p>";
-  $("#performanceRows").innerHTML=visibleMembers().map(m=>{const s=stats(m.name),level=memberLevel(s.present),medals=memberMedals(m);return `<tr><td><button class="member-link" data-view-member="${escapeHtml(m.id)}">${escapeHtml(m.name)}</button></td><td>Lv ${level}</td><td>${escapeHtml(medals.join(" ")||"—")}</td><td>${s.present}</td><td>${s.absent}</td><td>${s.rate}%</td></tr>`}).join("");
+  $("#performanceRows").innerHTML=visibleMembers().map(m=>{const s=stats(m.name),level=memberLevel(m),medals=memberMedals(m);return `<tr><td><button class="member-link" data-view-member="${escapeHtml(m.id)}">${escapeHtml(m.name)}</button></td><td>Lv ${level}</td><td>${escapeHtml(medals.join(" ")||"—")}</td><td>${s.present}</td><td>${s.absent}</td><td>${s.rate}%</td></tr>`}).join("")||'<tr><td colspan="6">Nenhum membro ativo.</td></tr>';
 }
 
 
@@ -1266,7 +1266,7 @@ function renderAdvancedCenter(){
   const logs=state.audit.slice().sort((a,b)=>(b.createdAt?.toMillis?.()||0)-(a.createdAt?.toMillis?.()||0));
   setHtml("advancedLogsRows",logs.map(a=>`<tr><td>${a.createdAt?.toDate?a.createdAt.toDate().toLocaleString("pt-BR"):"—"}</td><td>${escapeHtml(a.userName||"—")}</td><td>${escapeHtml(a.action||"—")}</td><td>${escapeHtml(a.details||"")}</td></tr>`).join("")||'<tr><td colspan="4">Nenhum log disponível.</td></tr>');
   setHtml("firebaseStatusCards",[diagnosticCard("Autenticação",advancedDiagnostics.auth),diagnosticCard("Cloud Firestore",advancedDiagnostics.firestore),diagnosticCard("Listeners em tempo real",advancedDiagnostics.listeners)].join(""));
-  setHtml("servicesStatusGrid",[diagnosticCard("Aplicação web",{ok:true,text:`V22.9.5 carregada · ${location.protocol==="https:"?"HTTPS":"ambiente local"}`}),diagnosticCard("Firebase Auth",advancedDiagnostics.auth),diagnosticCard("Cloud Firestore",advancedDiagnostics.firestore),diagnosticCard("PWA / Service Worker",advancedDiagnostics.pwa),diagnosticCard("GitHub",{ok:githubDiagnostics.ok,text:githubDiagnostics.text})].join(""));
+  setHtml("servicesStatusGrid",[diagnosticCard("Aplicação web",{ok:true,text:`V22.9.6 carregada · ${location.protocol==="https:"?"HTTPS":"ambiente local"}`}),diagnosticCard("Firebase Auth",advancedDiagnostics.auth),diagnosticCard("Cloud Firestore",advancedDiagnostics.firestore),diagnosticCard("PWA / Service Worker",advancedDiagnostics.pwa),diagnosticCard("GitHub",{ok:githubDiagnostics.ok,text:githubDiagnostics.text})].join(""));
   renderSessions();renderGithubStatus();
   setHtml("systemStatsGrid",[
     ["Usuários",state.users.filter(user=>resolveAccessRole(user)!=="dev").length],["Membros",visibleMembers().length],["Presenças",state.attendance.length],["Eventos",state.events.length],["Notificações",state.sentNotifications.length||state.notifications.length],["Logs",state.audit.length]
@@ -1292,7 +1292,7 @@ async function checkGithub(){
   setText("githubUpdateStatus","Consultando GitHub...");
   try{const [repoResponse,runsResponse,releaseResponse]=await Promise.all([fetch(`https://api.github.com/repos/${repository}`,{headers:{Accept:"application/vnd.github+json"}}),fetch(`https://api.github.com/repos/${repository}/actions/runs?per_page=1`,{headers:{Accept:"application/vnd.github+json"}}),fetch(`https://api.github.com/repos/${repository}/releases/latest`,{headers:{Accept:"application/vnd.github+json"}})]);if(!repoResponse.ok)throw new Error(`Repositório indisponível (${repoResponse.status})`);const repo=await repoResponse.json(),runs=runsResponse.ok?await runsResponse.json():null,release=releaseResponse.ok?await releaseResponse.json():null,lastRun=runs?.workflow_runs?.[0];githubDiagnostics={ok:true,configured:true,repository,text:`${repo.full_name} · branch ${repo.default_branch} · atualizado ${new Date(repo.updated_at).toLocaleString("pt-BR")}`,workflows:lastRun?`${lastRun.name}: ${lastRun.conclusion||lastRun.status}`:"Nenhuma execução pública",release:release?.tag_name||"Nenhuma release publicada",testedAt:new Date().toISOString()};setText("githubUpdateStatus","Consulta concluída com sucesso.");renderAdvancedCenter();return true}catch(error){githubDiagnostics={ok:false,configured:true,repository,text:error.message||"Falha ao consultar GitHub",workflows:"Indisponível",release:"Indisponível"};setText("githubUpdateStatus",githubDiagnostics.text);renderAdvancedCenter();return false}
 }
-on("checkUpdatesButton","click",async()=>{const button=byId("checkUpdatesButton");if(button)button.disabled=true;try{const response=await fetch(`manifest.json?check=${Date.now()}`,{cache:"no-store"});if(!response.ok)throw new Error("Manifesto indisponível");const manifest=await response.json(),repository=state.settings?.advanced?.githubRepository||"";let message=`Versão publicada: ${manifest.version_name||manifest.version||"não informada"}. Versão carregada: 22.9.5.`;if(repository){await checkGithub();if(githubDiagnostics.release!=="Nenhuma release publicada"&&githubDiagnostics.release!=="Indisponível")message+=` GitHub: ${githubDiagnostics.release}.`}setText("updateStatusText",message);toast("Verificação concluída.")}catch(error){setText("updateStatusText",`Falha na verificação: ${error.message}`)}finally{if(button)button.disabled=false}});
+on("checkUpdatesButton","click",async()=>{const button=byId("checkUpdatesButton");if(button)button.disabled=true;try{const response=await fetch(`manifest.json?check=${Date.now()}`,{cache:"no-store"});if(!response.ok)throw new Error("Manifesto indisponível");const manifest=await response.json(),repository=state.settings?.advanced?.githubRepository||"";let message=`Versão publicada: ${manifest.version_name||manifest.version||"não informada"}. Versão carregada: 22.9.6.`;if(repository){await checkGithub();if(githubDiagnostics.release!=="Nenhuma release publicada"&&githubDiagnostics.release!=="Indisponível")message+=` GitHub: ${githubDiagnostics.release}.`}setText("updateStatusText",message);toast("Verificação concluída.")}catch(error){setText("updateStatusText",`Falha na verificação: ${error.message}`)}finally{if(button)button.disabled=false}});
 on("createBackupButton","click",async()=>{if(!owner())return;try{downloadJson(`77-team-backup-${localIsoDate()}.json`,await completeBackupPayload());toast("Backup completo e seguro gerado.")}catch(error){toast(error.message||errMsg(error))}});
 on("restoreBackupFile","change",async e=>{const file=e.target.files?.[0],button=byId("restoreAdvancedBackup");validatedAdvancedBackup=null;if(button)button.disabled=true;if(!file)return;if(file.size>50*1024*1024)return setText("restoreBackupInfo","Arquivo acima do limite seguro de 50 MB.");try{const data=JSON.parse(await file.text());validateBackupPayload(data);validatedAdvancedBackup=data;if(button)button.disabled=false;setText("restoreBackupInfo",`✓ Backup validado: V${data.version}, projeto ${data.projectId}, schema ${data.backupSchema}, gerado em ${new Date(data.generatedAt).toLocaleString("pt-BR")}.`)}catch(error){setText("restoreBackupInfo",`✕ Backup recusado: ${error.message||"arquivo inválido"}`)}});
 on("restoreAdvancedBackup","click",async()=>{if(!owner()||!validatedAdvancedBackup)return;if(!confirm("Restaurar este backup validado? Um restoreJob persistente fará rollback automático em caso de falha."))return;const button=byId("restoreAdvancedBackup");button.disabled=true;setText("restoreBackupInfo","Restauração controlada em andamento. Não feche esta página...");try{const jobId=await restoreBackupPayload(validatedAdvancedBackup);setText("restoreBackupInfo",`✓ Restauração concluída. restoreJob: ${jobId}`);validatedAdvancedBackup=null;toast("Backup restaurado com rollback protegido.")}catch(error){setText("restoreBackupInfo",`✕ Restauração revertida: ${error.message||error}`);button.disabled=false}});
@@ -1775,7 +1775,7 @@ function updateLiveClock(){
 }
 updateLiveClock();
 setInterval(updateLiveClock,1000);
-if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js?v=22.9.5").catch(error=>console.warn("Service Worker indisponível:",error)));
+if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js?v=22.9.6").catch(error=>console.warn("Service Worker indisponível:",error)));
 
 function animateNumber(id,target,suffix=""){
   const el=byId(id);
@@ -2357,7 +2357,7 @@ on("characterSearch","input",renderCharactersTable);
 
 function profileRankingPosition(member){
   if(!member)return 0;
-  const ranking=state.members
+  const ranking=visibleMembers()
     .map(item=>({...item,...stats(item.name)}))
     .sort((a,b)=>b.present-a.present||b.rate-a.rate);
   const index=ranking.findIndex(item=>item.id===member.id||item.name===member.name);
@@ -3399,7 +3399,7 @@ function backupPayload(){
   return serializeBackupValue({
     format:"77-team-manager-backup",
     backupSchema:3,
-    version:"22.9.5",
+    version:"22.9.6",
     generatedAt:new Date().toISOString(),
     projectId:firebaseConfig.projectId,
     collections:{
@@ -3492,8 +3492,8 @@ function validateBackupPayload(payload){
   validateBackupValue(payload);
   if(!payload||payload.format!=="77-team-manager-backup")throw new Error("Formato de backup incompatível.");
   if(payload.projectId!==firebaseConfig.projectId)throw new Error("Este backup pertence a outro projeto Firebase.");
-  if(Number(payload.backupSchema||0)!==3)throw new Error("Schema de backup incompatível. Use um backup completo V22.8.5 a V22.9.5 com schema 3.");
-  if(!["22.8.5","22.8.6","22.8.7","22.8.8","22.8.9","22.9.0","22.9.1","22.9.2","22.9.3","22.9.4","22.9.5"].includes(String(payload.version||"")))throw new Error("Versão de backup incompatível.");
+  if(Number(payload.backupSchema||0)!==3)throw new Error("Schema de backup incompatível. Use um backup completo V22.8.5 a V22.9.6 com schema 3.");
+  if(!["22.8.5","22.8.6","22.8.7","22.8.8","22.8.9","22.9.0","22.9.1","22.9.2","22.9.3","22.9.4","22.9.5","22.9.6"].includes(String(payload.version||"")))throw new Error("Versão de backup incompatível.");
   if(!payload.collections||typeof payload.collections!=="object"||Array.isArray(payload.collections))throw new Error("Coleções do backup ausentes.");
   const allowed=["users","members","attendance","events","notifications","notificationReads","rtPresence","presenceBackups","resetJobs","xpLogs","audit","supportMessages","chatMessages"];
   for(const name of allowed)if(!Array.isArray(payload.collections[name]))throw new Error(`Coleção obrigatória ausente: ${name}.`);
@@ -4529,9 +4529,7 @@ function renderEnterpriseDashboard(){
   ).size;
   setText("dashboardEventTrend",dashboardPercentChange(monthEvents,previousMonthEvents));
 
-  const joinedThisMonth=state.members.filter(member=>
-    String(member.createdAt?.toDate?.()?.toISOString?.()||member.createdAt||"").startsWith(currentMonth)
-  ).length;
+  const joinedThisMonth=visibleMembers().filter(member=>memberCreatedMonth(member)===currentMonth).length;
   setText("dashboardMemberTrend",joinedThisMonth?`+${joinedThisMonth}`:"0");
 
   renderDashboardTodayEvents(today);
@@ -4546,6 +4544,19 @@ function dashboardDateOffset(days){
   const date=new Date();
   date.setDate(date.getDate()+days);
   return localIsoDate(date);
+}
+
+function memberCreatedTime(member){
+  const raw=member?.createdAt;
+  const date=raw?.toDate?raw.toDate():new Date(raw||0);
+  return Number.isNaN(date.getTime())?0:date.getTime();
+}
+
+function memberCreatedMonth(member){
+  const raw=member?.createdAt;
+  if(typeof raw==="string"&&/^\d{4}-\d{2}/.test(raw))return raw.slice(0,7);
+  const time=memberCreatedTime(member);
+  return time?localIsoDate(new Date(time)).slice(0,7):"";
 }
 
 function dashboardPercentChange(current,previous){
@@ -4647,7 +4658,7 @@ function renderDashboardClanPoints(){
   if(!container)return;
 
   const clans={};
-  state.members.forEach(member=>{
+  visibleMembers().forEach(member=>{
     const clan=member.clan||"Sem clã";
     clans[clan]=(clans[clan]||0)+stats(member.name).present;
   });
@@ -4674,7 +4685,7 @@ function renderDashboardPresenceRate(){
   if(gauge)gauge.style.setProperty("--rate",rate);
   setText("dashboardGeneralRate",`${rate}%`);
   setText("dashboardRateLabel",rate>=90?"Excelente!":rate>=70?"Muito bom":rate>=50?"Regular":"Atenção");
-  setText("dashboardActiveSummary",`${state.members.filter(member=>member.active!==false).length} membros ativos`);
+  setText("dashboardActiveSummary",`${visibleMembers().length} membros ativos`);
 }
 
 function renderDashboardRecentActivity(){
@@ -4691,12 +4702,14 @@ function renderDashboardRecentActivity(){
       time:formatHistoryDate(item.date)
     }));
 
-  const memberActivities=state.members
-    .slice(-2)
+  const memberActivities=visibleMembers()
+    .slice()
+    .sort((a,b)=>memberCreatedTime(b)-memberCreatedTime(a))
+    .slice(0,2)
     .map(item=>({
       icon:(item.name||"?").slice(0,1).toUpperCase(),
       title:`${item.name} entrou para a equipe`,
-      time:"Cadastro recente"
+      time:memberCreatedTime(item)?new Date(memberCreatedTime(item)).toLocaleDateString("pt-BR"):"Cadastro recente"
     }));
 
   container.innerHTML=[...presenceActivities,...memberActivities].slice(0,6).map(item=>`
