@@ -1,6 +1,6 @@
-# 77 TEAM Manager V22.9.6 Hotfix — HOME Definitiva
+# 77 TEAM Manager V22.9.17 Hotfix — auditoria geral e integridade
 
-Esta versão conclui as seis correções residuais da auditoria final da categoria **HOME** e mantém integralmente as melhorias anteriores. Level, Ranking, clãs, tendências e atividades usam somente membros ativos e visíveis. O Firebase App Check continua removido; mantenha Firestore e Storage em **Monitorando** ou **Não aplicado**. Consulte `CHANGELOG-V22.9.6.md` e `PUBLICACAO-V22.9.6.md`.
+Esta versão fecha os pontos encontrados na auditoria geral da V22.9.16: autorização real de restauração/rollback, sincronização de e-mail, proteção definitiva das permissões, webhook privado, avatares em backups e validações de navegação. O Firebase App Check continua removido. Consulte `CHANGELOG-V22.9.17.md` e `PUBLICACAO-V22.9.17.md`.
 
 ## Sétima auditoria — 13 achados corrigidos
 
@@ -265,7 +265,7 @@ Versão nova e limpa conectada ao Firebase `team-f78cd`.
 5. Envie todos os arquivos ao GitHub Pages.
 6. Abra o site imediatamente.
 7. A tela **Configurar sistema** aparecerá automaticamente.
-8. Crie o liderança usando `primetoolslabs@gmail.com`.
+8. Crie o primeiro DEV usando `primetoolslabs@gmail.com`; a senha é definida diretamente no Firebase Authentication e nunca fica gravada no projeto.
 
 ## Estrutura
 

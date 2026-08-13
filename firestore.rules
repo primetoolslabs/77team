@@ -35,8 +35,31 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/system/bootstrap).data.allowedEmail == request.auth.token.email;
     }
     function pendingMember(){return isMemberRole(accessRoleOf(resource.data)) && resource.data.get('status','pending') == 'pending' && resource.data.get('active',false) == false;}
-    function approvalFields(){return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role','accessRole','active','status','clan','memberRole','approvedAt','roleUpdatedAt','roleUpdatedBy','updatedAt']);}
+    function approvalFields(){return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role','accessRole','active','status','clan','memberRole','nicknameClaimKey','memberDocumentId','approvedAt','roleUpdatedAt','roleUpdatedBy','updatedAt']);}
     function rejectionFields(){return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['active','status','rejectedAt','rejectedBy','updatedAt']);}
+    function nicknameKey(data){return data.get('nicknameClaimKey', data.get('name','').trim().lower());}
+    function claimPath(key){return /databases/$(database)/documents/nicknameClaims/$(key);}
+    function userPath(uid){return /databases/$(database)/documents/users/$(uid);}
+    function memberPath(id){return /databases/$(database)/documents/members/$(id);}
+    function validNickname(name,key){return name is string && name.size() >= 2 && name.size() <= 30 && !name.matches('.*[/].*') && name.trim().lower() == key;}
+    function validOptionalHttps(value){return value is string && value.size() <= 2048 && (value == '' || value.matches('https://[A-Za-z0-9.-]+(:[0-9]+)?([/?#].*)?'));}
+    function linkedMemberMatchesAfter(uid,memberId){
+      let user = getAfter(userPath(uid)).data;
+      return user.get('memberDocumentId','') == memberId
+        && (
+          (isDevRole(accessRoleOf(user)) && memberId == '')
+          || (memberId != ''
+            && getAfter(memberPath(memberId)).data.get('userId',memberId) == uid
+            && getAfter(memberPath(memberId)).data.name == user.name)
+        );
+    }
+    function claimMatchesAfter(uid,key){
+      return getAfter(claimPath(key)).data.uid == uid
+        && getAfter(claimPath(key)).data.active == true
+        && getAfter(claimPath(key)).data.normalizedKey == key
+        && getAfter(claimPath(key)).data.name == getAfter(userPath(uid)).data.name
+        && linkedMemberMatchesAfter(uid,getAfter(claimPath(key)).data.memberId);
+    }
 
     match /system/owner {
       allow get: if signedIn();
@@ -73,7 +96,7 @@ service cloud.firestore {
         ||
         (dev() && (isDevRole(accessRoleOf(request.resource.data)) || isLeadershipRole(accessRoleOf(request.resource.data)) || isStaffRole(accessRoleOf(request.resource.data))) && request.resource.data.active == true && request.resource.data.status == 'approved')
         ||
-        (dev() && request.resource.data.restoredBy == request.auth.uid)
+        dev()
       );
 
       // V22.7.0 — autoedição segura e direta do próprio perfil/personagem.
@@ -87,10 +110,28 @@ service cloud.firestore {
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
             'name','displayName','nickname','discord','whatsapp','birthDate','bio',
             'email','avatarDataUrl','updatedAt',
+            'nicknameClaimKey','memberDocumentId',
             'character','characterUpdatedAt','characterUpdatedBy',
             'characterDeletedAt','characterDeletedBy',
             'firstLogin','profileCompleted','profileCompletedAt'
           ])
+          && request.resource.data.get('memberDocumentId','') == resource.data.get('memberDocumentId','')
+          && (
+            (
+              request.resource.data.get('name','') == resource.data.get('name','')
+              && request.resource.data.get('nicknameClaimKey','') == resource.data.get('nicknameClaimKey','')
+            )
+            || (
+              validNickname(request.resource.data.name, request.resource.data.nicknameClaimKey)
+              && claimMatchesAfter(uid, request.resource.data.nicknameClaimKey)
+              && (
+                (!resource.data.keys().hasAny(['nicknameClaimKey']) && nicknameKey(resource.data) == request.resource.data.nicknameClaimKey)
+                || (!resource.data.keys().hasAny(['nicknameClaimKey']) && exists(claimPath(nicknameKey(resource.data))) && get(claimPath(nicknameKey(resource.data))).data.uid != uid)
+                || !exists(claimPath(nicknameKey(resource.data)))
+                || getAfter(claimPath(nicknameKey(resource.data))).data.active == false
+              )
+            )
+          )
         )
         || dev()
         || (
@@ -152,7 +193,8 @@ service cloud.firestore {
             || (staff() && isMemberRole(accessRoleOf(resource.data)))
           )
         );
-      allow delete: if dev() && uid != request.auth.uid;
+      allow delete: if (dev() && uid != request.auth.uid)
+        || (signedIn() && request.auth.uid == uid && !ownerExists() && bootstrapAuthorized());
     }
 
     match /members/{id} {
@@ -166,6 +208,18 @@ service cloud.firestore {
         && (isMemberRole(accessRoleOf(request.resource.data)) || isStaffRole(accessRoleOf(request.resource.data)))
       );
       allow update: if dev()
+        || (
+          active() && (
+            resource.data.get('userId','') == request.auth.uid
+            || (!resource.data.keys().hasAny(['userId']) && id == request.auth.uid)
+          )
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name','updatedAt'])
+          && request.resource.data.name is string
+          && request.resource.data.name.size() >= 2
+          && request.resource.data.name.size() <= 120
+          && getAfter(userPath(request.auth.uid)).data.name == request.resource.data.name
+          && claimMatchesAfter(request.auth.uid, nicknameKey(getAfter(userPath(request.auth.uid)).data))
+        )
         || (
           editor() && permission('members_edit', true)
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['clan','clanUpdatedAt','clanUpdatedBy','updatedAt'])
@@ -187,6 +241,58 @@ service cloud.firestore {
           && request.resource.data.progression.level >= 1
         );
       allow delete: if editor() && permission('members_delete', false);
+    }
+    match /nicknameClaims/{key} {
+      allow read: if active();
+      allow create: if dev() || (active()
+        && request.resource.data.keys().hasOnly(['uid','memberId','name','normalizedKey','active','updatedAt'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.name is string
+        && request.resource.data.normalizedKey == key
+        && request.resource.data.active == true
+        && validNickname(request.resource.data.name,key)
+        && getAfter(userPath(request.auth.uid)).data.name == request.resource.data.name
+        && getAfter(userPath(request.auth.uid)).data.nicknameClaimKey == key
+        && linkedMemberMatchesAfter(request.auth.uid,request.resource.data.memberId)) || (editor()
+        && request.resource.data.keys().hasOnly(['uid','memberId','name','normalizedKey','active','updatedAt'])
+        && request.resource.data.normalizedKey == key
+        && request.resource.data.active == true
+        && validNickname(request.resource.data.name,key)
+        && getAfter(userPath(request.resource.data.uid)).data.active == true
+        && getAfter(userPath(request.resource.data.uid)).data.status == 'approved'
+        && getAfter(userPath(request.resource.data.uid)).data.name == request.resource.data.name
+        && getAfter(userPath(request.resource.data.uid)).data.nicknameClaimKey == key
+        && linkedMemberMatchesAfter(request.resource.data.uid,request.resource.data.memberId));
+      allow update: if dev()
+        || (active()
+          && resource.data.active == false
+          && request.resource.data.active == true
+          && request.resource.data.keys().hasOnly(['uid','memberId','name','normalizedKey','active','updatedAt'])
+          && request.resource.data.normalizedKey == key
+          && validNickname(request.resource.data.name,key)
+          && getAfter(userPath(request.auth.uid)).data.name == request.resource.data.name
+          && getAfter(userPath(request.auth.uid)).data.nicknameClaimKey == key
+          && request.resource.data.uid == request.auth.uid
+          && linkedMemberMatchesAfter(request.auth.uid,request.resource.data.memberId))
+        || (editor()
+          && resource.data.active == false
+          && request.resource.data.active == true
+          && request.resource.data.keys().hasOnly(['uid','memberId','name','normalizedKey','active','updatedAt'])
+          && request.resource.data.normalizedKey == key
+          && validNickname(request.resource.data.name,key)
+          && getAfter(userPath(request.resource.data.uid)).data.active == true
+          && getAfter(userPath(request.resource.data.uid)).data.status == 'approved'
+          && getAfter(userPath(request.resource.data.uid)).data.name == request.resource.data.name
+          && getAfter(userPath(request.resource.data.uid)).data.nicknameClaimKey == key
+          && linkedMemberMatchesAfter(request.resource.data.uid,request.resource.data.memberId))
+        || (active()
+          && resource.data.active == true
+          && resource.data.uid == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['active','updatedAt'])
+          && request.resource.data.active == false
+          && getAfter(userPath(request.auth.uid)).data.nicknameClaimKey != key
+          && claimMatchesAfter(request.auth.uid,getAfter(userPath(request.auth.uid)).data.nicknameClaimKey));
+      allow delete: if dev();
     }
     match /attendance/{id} {
       // HOME exibe ranking e estatísticas gerais para todas as contas aprovadas.
@@ -210,11 +316,11 @@ service cloud.firestore {
     }
     match /events/{id} {
       allow read: if active();
-      allow create: if editor() && request.resource.data.keys().hasOnly(['title','date','time','type','description','createdBy','createdAt'])
+      allow create: if dev() || (editor() && request.resource.data.keys().hasOnly(['title','date','time','type','description','createdBy','createdAt'])
         && request.resource.data.title is string && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 120
         && request.resource.data.get('time','') is string && request.resource.data.get('time','').size() <= 5
         && request.resource.data.description is string && request.resource.data.description.size() <= 1000
-        && request.resource.data.createdBy == request.auth.uid;
+        && request.resource.data.createdBy == request.auth.uid);
       allow update: if dev() || (editor()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title','date','time','type','description','updatedBy','updatedAt'])
         && request.resource.data.title is string && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 120
@@ -241,22 +347,25 @@ service cloud.firestore {
     match /presenceBackups/{id} {
       allow read: if editor();
       allow create: if dev() || (editor() && permission('presence_register', true)
-        && request.resource.data.keys().hasOnly(['week','counts','total','rtTotal','automatic','backupSchema','createdBy','createdByName','createdAt','createdAtText','sourceVersion'])
-        && request.resource.data.createdBy == request.auth.uid && request.resource.data.backupSchema == 2);
-      allow update: if dev();
+        && request.resource.data.keys().hasOnly(['week','counts','total','rtTotal','automatic','backupSchema','status','createdBy','createdByName','createdAt','createdAtText','sourceVersion'])
+        && request.resource.data.createdBy == request.auth.uid && request.resource.data.backupSchema == 2 && request.resource.data.status == 'writing');
+      allow update: if dev() || (editor() && permission('presence_register', true)
+        && resource.data.createdBy == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','completedAt','errorMessage','updatedAt'])
+        && request.resource.data.status in ['completed','failed']);
       allow delete: if dev();
       match /attendance/{recordId} { allow read: if editor(); allow create: if dev() || (editor() && permission('presence_register', true) && request.resource.data.originalId == recordId); allow update: if dev(); allow delete: if dev(); }
       match /rt/{recordId} { allow read: if editor(); allow create: if dev() || (editor() && permission('presence_register', true) && request.resource.data.originalId == recordId); allow update: if dev(); allow delete: if dev(); }
     }
     match /resetJobs/{id} {
       allow read: if permission('presence_reset', false);
-      allow create: if permission('presence_reset', false)
+      allow create: if dev() || (permission('presence_reset', false)
         && request.resource.data.keys().hasOnly(['status','week','createdBy','createdByName','attendanceTotal','rtTotal','createdAt','updatedAt'])
-        && request.resource.data.createdBy == request.auth.uid && request.resource.data.status == 'preparing';
+        && request.resource.data.createdBy == request.auth.uid && request.resource.data.status == 'preparing');
       allow update: if permission('presence_reset', false)
         && resource.data.createdBy == request.auth.uid
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','backupId','errorCode','errorMessage','completedAt','updatedAt'])
-        && request.resource.data.status in ['preparing','backup_created','deleting_attendance','deleting_rt','completed','failed'];
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','backupId','errorCode','errorMessage','rollbackError','completedAt','rolledBackAt','updatedAt'])
+        && request.resource.data.status in ['preparing','backup_created','deleting_attendance','deleting_rt','rolling_back','rolled_back','completed','failed','rollback_failed'];
       allow delete: if dev();
     }
     match /restoreJobs/{id} {
@@ -289,14 +398,14 @@ service cloud.firestore {
         && request.resource.data.get('targetType','all') in ['all','user','member','staff']
         && request.resource.data.get('title','') is string && request.resource.data.get('title','').size() > 0 && request.resource.data.get('title','').size() <= 160
         && request.resource.data.get('message','') is string && request.resource.data.get('message','').size() > 0 && request.resource.data.get('message','').size() <= 4000)
-        || (dev() && request.resource.data.restoredBy == request.auth.uid);
+        || dev();
       allow update: if dev();
       allow delete: if dev();
     }
     match /notificationReads/{id} {
       allow read: if dev() || (active() && resource.data.userId == request.auth.uid);
       allow create, update: if (active() && request.resource.data.userId == request.auth.uid && request.resource.data.notificationId is string)
-        || (dev() && request.resource.data.restoredBy == request.auth.uid);
+        || dev();
       allow delete: if dev() || (active() && resource.data.userId == request.auth.uid);
     }
 
@@ -304,16 +413,21 @@ service cloud.firestore {
       allow read: if (editor() && permission('support_manage', true)) || (active() && resource.data.ownerUid == request.auth.uid && resource.data.status != 'resolved');
       allow create: if (active()
         && request.resource.data.senderUid == request.auth.uid
+        && request.resource.data.senderName == profile().get('name',profile().get('email','Usuário'))
+        && request.resource.data.senderRole == roleKey()
         && request.resource.data.ownerUid is string
+        && request.resource.data.ownerName is string && request.resource.data.ownerName.size() <= 120
         && request.resource.data.text is string
         && request.resource.data.text.size() <= 2000
+        && validOptionalHttps(request.resource.data.get('link',''))
+        && request.resource.data.get('status','open') in ['open','in_progress','waiting_user']
         && (request.resource.data.text.size() > 0 || request.resource.data.get('imageUrl','') != '')
-        && ((editor() && permission('support_manage', true)) || request.resource.data.ownerUid == request.auth.uid))
-        || (dev() && request.resource.data.restoredBy == request.auth.uid);
+        && ((editor() && permission('support_manage', true)) || (request.resource.data.ownerUid == request.auth.uid && request.resource.data.ownerName == profile().get('name',profile().get('email','Usuário')))))
+        || dev();
       allow update: if (editor() && permission('support_manage', true)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','statusUpdatedAt','statusUpdatedBy'])
         && request.resource.data.status in ['open','in_progress','waiting_user','resolved'])
-        || (dev() && request.resource.data.restoredBy == request.auth.uid);
+        || dev();
       allow delete: if dev();
     }
 
@@ -321,24 +435,31 @@ service cloud.firestore {
       allow read: if (editor() && permission('support_manage', true)) || (active() && resource.data.ownerUid == request.auth.uid);
       allow create: if (active()
         && request.resource.data.senderUid == request.auth.uid
+        && request.resource.data.senderName == profile().get('name',profile().get('email','Usuário'))
+        && request.resource.data.senderRole == roleKey()
         && request.resource.data.ownerUid is string
+        && request.resource.data.ownerName is string && request.resource.data.ownerName.size() <= 120
         && request.resource.data.text is string
         && request.resource.data.text.size() <= 2000
+        && validOptionalHttps(request.resource.data.get('link',''))
         && request.resource.data.get('chatStatus','active') == 'active'
         && (request.resource.data.text.size() > 0 || request.resource.data.get('imageUrl','') != '')
-        && ((editor() && permission('support_manage', true)) || request.resource.data.ownerUid == request.auth.uid))
-        || (dev() && request.resource.data.restoredBy == request.auth.uid);
+        && ((editor() && permission('support_manage', true)) || (request.resource.data.ownerUid == request.auth.uid && request.resource.data.ownerName == profile().get('name',profile().get('email','Usuário')))))
+        || dev();
       allow update: if (editor() && permission('support_manage', true)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['chatStatus','finalizedAt','finalizedBy'])
-        && request.resource.data.chatStatus == 'finalized')
-        || (dev() && request.resource.data.restoredBy == request.auth.uid);
+        && request.resource.data.chatStatus in ['active','finalized'])
+        || dev();
       allow delete: if dev();
     }
     match /settings/{id} {
       allow read: if id == 'app' || (id == 'private' && dev());
-      allow create: if (id == 'app' && permission('settings_edit', false)) || (id == 'private' && dev());
+      allow create: if dev() || (id == 'app' && permission('settings_edit', false)
+        && !request.resource.data.keys().hasAny(['rolePermissions','security','maintenance','advanced','loginCustomization']));
       allow update: if (id == 'app' && (
-          permission('settings_edit', false)
+          dev()
+          || (permission('settings_edit', false)
+            && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['rolePermissions','security','maintenance','advanced','loginCustomization']))
           || (editor() && permission('goals_manage', true)
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['goals','updatedAt'])
             && request.resource.data.goals is list
@@ -352,11 +473,11 @@ service cloud.firestore {
     }
     match /xpLogs/{id} {
       allow read: if editor();
-      allow create: if editor() && permission('xp_manage', true)
+      allow create: if dev() || (editor() && permission('xp_manage', true)
         && request.resource.data.keys().hasOnly(['memberId','userId','memberName','amount','reason','beforeManualXp','afterManualXp','totalXpAfter','levelAfter','staffId','staffName','createdAt'])
         && request.resource.data.staffId == request.auth.uid
         && request.resource.data.amount is int && request.resource.data.amount >= -100000 && request.resource.data.amount <= 100000
-        && request.resource.data.reason is string && request.resource.data.reason.size() >= 3 && request.resource.data.reason.size() <= 500;
+        && request.resource.data.reason is string && request.resource.data.reason.size() >= 3 && request.resource.data.reason.size() <= 500);
       allow update, delete: if dev();
     }
     match /audit/{id} {
@@ -368,9 +489,8 @@ service cloud.firestore {
           && request.resource.data.action is string && request.resource.data.action.size() > 0 && request.resource.data.action.size() <= 160
           && request.resource.data.details is string && request.resource.data.details.size() <= 2000
           && request.resource.data.createdAt == request.time)
-        || (dev() && request.resource.data.restoredBy == request.auth.uid);
-      allow update: if dev() && (resource.data.restoredBy == request.auth.uid || request.resource.data.restoredBy == request.auth.uid);
-      allow delete: if dev() && resource.data.restoredBy == request.auth.uid;
+        || dev();
+      allow update, delete: if dev();
     }
   }
 }

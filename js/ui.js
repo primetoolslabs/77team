@@ -183,9 +183,9 @@
 
   function allowedCategory(key){
     const category=categories[key];
-    if(category.role==="owner" && typeof owner==="function")return owner();
-    if(category.role==="administrator" && typeof administrator==="function")return administrator();
-    if(category.role==="editor" && typeof editor==="function")return editor();
+    if(category.role==="owner" && typeof window.TeamManagerIsOwner==="function")return window.TeamManagerIsOwner();
+    if(category.role==="administrator" && typeof window.TeamManagerIsAdministrator==="function")return window.TeamManagerIsAdministrator();
+    if(category.role==="editor" && typeof window.TeamManagerIsEditor==="function")return window.TeamManagerIsEditor();
     return true;
   }
 
@@ -220,12 +220,11 @@
   if(window.__sidebarV13Installed)return;window.__sidebarV13Installed=true;
   const sidebar=document.getElementById("sidebar"),collapseButton=document.getElementById("collapseSidebarButton");
   function setCollapsed(v){document.body.classList.toggle("sidebar-collapsed",v);sidebar?.classList.toggle("collapsed",v);if(collapseButton){collapseButton.textContent=v?"≫":"≪";collapseButton.setAttribute("aria-label",v?"Expandir menu":"Recolher menu");}try{localStorage.setItem("77team-sidebar-collapsed",v?"1":"0")}catch(e){}}
-  function updateBadges(){try{const set=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=String(v)};set("sidebarMembersBadge",state?.members?.length||0);set("sidebarEventsBadge",state?.events?.length||0);set("sidebarRequestsBadge",state?.users?.filter(u=>u.status==="pending").length||0);set("sidebarPurgatorioBadge",state?.attendance?.filter(a=>a.kind==="purgatorio"&&a.status!==0).length||0);const live=document.getElementById("sidebarWorldbossBadge"),on=state?.attendance?.some(a=>a.kind==="worldboss"&&a.status===1&&a.date===new Date().toISOString().slice(0,10));if(live){live.textContent=on?"AO VIVO":"—";live.classList.toggle("live",!!on)}const p=typeof progressionForCurrentUser==="function"?progressionForCurrentUser():null,x=document.getElementById("sidebarXpProgress");if(x&&p)x.style.width=`${p.progress||0}%`;}catch(e){console.error("Falha ao atualizar menu lateral:",e)}}
+  function updateBadges(){try{const state=window.TeamManagerState||{},set=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=String(v)};set("sidebarMembersBadge",state.members?.length||0);set("sidebarEventsBadge",state.events?.length||0);set("sidebarRequestsBadge",state.users?.filter(u=>u.status==="pending").length||0);set("sidebarPurgatorioBadge",state.attendance?.filter(a=>a.kind==="purgatorio"&&a.status!==0).length||0);const live=document.getElementById("sidebarWorldbossBadge"),on=state.attendance?.some(a=>a.kind==="worldboss"&&a.status===1&&a.date===new Date().toISOString().slice(0,10));if(live){live.textContent=on?"AO VIVO":"—";live.classList.toggle("live",!!on)}const p=typeof window.TeamManagerProgressionForCurrentUser==="function"?window.TeamManagerProgressionForCurrentUser():null,x=document.getElementById("sidebarXpProgress");if(x&&p)x.style.width=`${p.progress||0}%`;}catch(e){console.error("Falha ao atualizar menu lateral:",e)}}
   collapseButton?.addEventListener("click",()=>setCollapsed(!document.body.classList.contains("sidebar-collapsed")));
   document.getElementById("sidebarMenuButton")?.addEventListener("click",()=>sidebar?.classList.toggle("open"));
   document.getElementById("sidebarUserToggle")?.addEventListener("click",()=>document.querySelector(".sidebar-user-card-v13")?.classList.toggle("expanded"));
   document.addEventListener("DOMContentLoaded",()=>{try{setCollapsed(localStorage.getItem("77team-sidebar-collapsed")==="1")}catch(e){setCollapsed(false)}updateBadges()});
-  const originalRender=typeof render==="function"?render:null;if(originalRender){render=function(){originalRender();updateBadges();}}
   window.SidebarV13={setCollapsed,updateBadges};
 })();
 

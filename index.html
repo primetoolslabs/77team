@@ -5,10 +5,10 @@
 <meta charset="utf-8"/>
 <meta content="width=device-width,initial-scale=1,viewport-fit=cover" name="viewport"/>
 <meta content="#09070f" name="theme-color"/>
-<title>77 TEAM Manager V22.9.6 Hotfix</title>
+<title>77 TEAM Manager V22.9.17 Hotfix</title>
 <link href="manifest.json" rel="manifest"/>
 <link href="icons/icon-192.png" rel="icon"/>
-<link href="css/style.css?v=22.9.6" rel="stylesheet"/>
+<link href="css/style.css?v=22.9.17" rel="stylesheet"/>
 </head>
 <body>
 <div class="loading" id="loading">
@@ -60,7 +60,7 @@
 <div class="login-v222-safe"><strong>🛡 SEUS DADOS PROTEGIDOS</strong><span>Autenticação segura e base original preservada.</span></div>
 </main>
 </div>
-<footer class="login-v222-footer">© 2026 77 TEAM Manager • V22.9.6 Hotfix • Desenvolvido por <strong>PrimeTools Labs</strong></footer>
+<footer class="login-v222-footer">© 2026 77 TEAM Manager • V22.9.17 Hotfix • Desenvolvido por <strong>PrimeTools Labs</strong></footer>
 </section>
 <div class="app hidden" id="app">
 <aside class="sidebar sidebar-v13" id="sidebar">
@@ -92,7 +92,7 @@
 <button aria-label="Abrir menu" class="menu-toggle" id="menuButton" type="button">☰</button>
 <div>
 <h2>Bem-vindo, <span id="welcomeName">Usuário</span>!</h2>
-<p>Gestão completa da 77 TEAM <span class="manager-version-badge">Manager</span><span class="stable-badge" id="systemVersion">v22.9.6 Hotfix</span></p>
+<p>Gestão completa da 77 TEAM <span class="manager-version-badge">Manager</span><span class="stable-badge" id="systemVersion">v22.9.17 Hotfix</span></p>
 </div>
 </div>
 <div class="topbar-center">
@@ -373,7 +373,7 @@
 <option value="">PDF individual</option>
 </select>
 <button class="btn" id="downloadHistoryIndividualPdf" type="button">Gerar individual</button>
-</input></input></input></div>
+</div>
 <div class="history-charts" id="historyCharts">
 <article>
 <h4>Participação por tipo</h4>
@@ -408,7 +408,7 @@
 </section>
 <section class="page page-animate" id="ranking">
 <div class="panel"><div class="panel-head"><h3>Ranking</h3></div>
-<div class="panel-body table-wrap"><table><thead><tr><th>#</th><th>Jogador</th><th>Clã</th><th>Cargo</th><th>Presenças</th><th>Taxa</th></tr></thead><tbody id="rankingRows"></tbody></table></div></div>
+<div class="panel-body table-wrap"><table><thead><tr><th>#</th><th>Jogador</th><th>Clã</th><th>Cargo</th><th>Nível</th><th>XP</th></tr></thead><tbody id="rankingRows"></tbody></table></div></div>
 </section>
 <section class="page page-animate" id="membros">
 <div class="panel">
@@ -492,13 +492,13 @@
 </div>
 <div class="profile-workspace">
 <nav aria-label="Menu do perfil" class="profile-menu">
-<button class="active" data-profile-tab="overview" type="button"><span>🏠</span><div><strong>Resumo</strong><small>Visão geral da conta</small></div></button>
-<button data-profile-tab="character" type="button"><span>🎮</span><div><strong>Personagem</strong><small>Dados e evolução</small></div></button>
-<button data-profile-tab="account" type="button"><span>✏️</span><div><strong>Dados da conta</strong><small>Nickname e avatar</small></div></button>
-<button data-profile-tab="security" type="button"><span>🔒</span><div><strong>Segurança</strong><small>Alterar senha</small></div></button>
-<button data-profile-tab="history" type="button"><span>📜</span><div><strong>Histórico</strong><small>Atividades recentes</small></div></button>
-<button data-profile-tab="chat" type="button"><span>💬</span><div><strong>Conversas</strong><small>Chats privados</small></div></button>
-<button data-profile-tab="support" type="button"><span>🎧</span><div><strong>Atendimento</strong><small>Suporte e chamados</small></div></button>
+<button class="active" data-profile-tab="overview" type="button"><span>🏠</span><span class="profile-menu-copy"><strong>Resumo</strong><small>Visão geral da conta</small></span></button>
+<button data-profile-tab="character" type="button"><span>🎮</span><span class="profile-menu-copy"><strong>Personagem</strong><small>Dados e evolução</small></span></button>
+<button data-profile-tab="account" type="button"><span>✏️</span><span class="profile-menu-copy"><strong>Dados da conta</strong><small>Nickname e avatar</small></span></button>
+<button data-profile-tab="security" type="button"><span>🔒</span><span class="profile-menu-copy"><strong>Segurança</strong><small>Alterar senha</small></span></button>
+<button data-profile-tab="history" type="button"><span>📜</span><span class="profile-menu-copy"><strong>Histórico</strong><small>Atividades recentes</small></span></button>
+<button data-profile-tab="chat" type="button"><span>💬</span><span class="profile-menu-copy"><strong>Conversas</strong><small>Chats privados</small></span></button>
+<button data-profile-tab="support" type="button"><span>🎧</span><span class="profile-menu-copy"><strong>Atendimento</strong><small>Suporte e chamados</small></span></button>
 </nav>
 <div class="profile-workspace-content"><section class="first-access-panel hidden" id="firstAccessPanel">
 <div class="first-access-copy"><span class="profile-eyebrow">PRIMEIRO ACESSO</span><h3>Bem-vindo ao 77 TEAM Manager</h3><p>Complete seu nickname e os dados principais do personagem para liberar todas as áreas do sistema.</p></div>
@@ -1083,7 +1083,7 @@
 <article class="settings-card">
 <h3>Exportar</h3>
 <p>Gera um arquivo JSON com os dados carregados no painel.</p>
-<button class="btn primary full" id="exportCompleteBackup" type="button">Baixar backup completo</button>
+<button class="btn primary full" id="exportCompleteBackup" type="button">Baixar backup completo do Firestore</button>
 </article>
 <article class="settings-card">
 <h3>Restaurar</h3>
@@ -1104,7 +1104,7 @@
 <section class="settings-tab" data-settings-panel="system">
 <div class="settings-page-head"><div><span>CONFIGURAÇÕES</span><h2>Sistema</h2><p>Saúde e estatísticas técnicas da aplicação.</p></div><button class="btn" id="refreshSystemHealth" type="button">Atualizar</button></div>
 <div class="system-health-grid">
-<article><span>Versão</span><strong>22.9.6</strong><small>Hotfix atual</small></article>
+<article><span>Versão</span><strong>22.9.17</strong><small>Hotfix atual</small></article>
 <article><span>Projeto Firebase</span><strong id="systemProjectId">—</strong><small>Conectado</small></article>
 <article><span>Usuários</span><strong id="systemUsersCount">0</strong><small>Perfis</small></article>
 <article><span>Membros</span><strong id="systemMembersCount">0</strong><small>Ativos</small></article>
@@ -1119,7 +1119,7 @@
 <article class="settings-card about-enterprise-card">
 <img alt="Nova logo 77 TEAM Manager" src="assets/logo-77-team-manager-nova.webp?v=22.8.5"/>
 <h2>77 TEAM Manager</h2>
-<strong>Versão 22.9.6 Hotfix</strong>
+<strong>Versão 22.9.17 Hotfix</strong>
 <p>Plataforma de gestão de membros, presenças, personagens, metas, eventos e inteligência administrativa da 77 TEAM.</p>
 <div class="version-history"><span>v7.0 Player Center</span><span>v7.1 Central de Personagens</span><span>v13.2 Central de Histórico</span><span>v14 Menu por Permissões</span></div>
 </article>
@@ -1129,9 +1129,9 @@
 </section>
 <section class="page page-animate owner-only advanced-page" id="atualizacoes">
 <div class="page-head"><div><h2>🚀 Atualizações</h2><p>Central de implantação do 77 TEAM Manager.</p></div></div>
-<div class="advanced-grid"><article class="panel"><div class="panel-head"><h3>Versão do sistema</h3></div><div class="panel-body advanced-card"><strong>22.9.6 Hotfix</strong><p id="updateStatusText">Aguardando verificação do manifesto.</p><div class="version-details"><span>Base oficial: 22.8.5</span><span>Compilação: 13/08/2026</span></div><button class="btn primary" id="checkUpdatesButton" type="button">Verificar atualização</button></div></article><article class="panel"><div class="panel-head"><h3>Novidades da V22.9.6</h3></div><div class="panel-body"><ul class="release-notes"><li>Level correto na tabela de Estatísticas.</li><li>Ranking do perfil considera somente membros visíveis.</li><li>Top clãs exclui DEV e membros inativos.</li><li>Tendência mensal usa somente membros ativos.</li><li>Resumo de membros ativos foi uniformizado.</li><li>Atividade recente filtra e ordena cadastros válidos.</li></ul></div></article><article class="panel"><div class="panel-head"><h3>Repositório GitHub</h3></div><div class="panel-body stack"><p>Consulte repositórios públicos sem armazenar tokens no navegador.</p><label>Repositório<input id="githubRepository" placeholder="organizacao/repositorio" maxlength="180"/></label><div class="button-row"><button class="btn" id="saveGithubRepository" type="button">Salvar</button><button class="btn primary" id="checkGithubButton" type="button">Consultar GitHub</button></div><p class="muted" id="githubUpdateStatus">Nenhum repositório configurado.</p></div></article></div>
+<div class="advanced-grid"><article class="panel"><div class="panel-head"><h3>Versão do sistema</h3></div><div class="panel-body advanced-card"><strong>22.9.17 Hotfix</strong><p id="updateStatusText">Aguardando verificação do manifesto.</p><div class="version-details"><span>Base oficial: 22.8.5</span><span>Compilação: 13/08/2026</span></div><button class="btn primary" id="checkUpdatesButton" type="button">Verificar atualização</button></div></article><article class="panel"><div class="panel-head"><h3>Novidades da V22.9.17</h3></div><div class="panel-body"><ul class="release-notes"><li>Restauração e rollback autorizados em todas as coleções exportadas.</li><li>Permissões e configurações críticas protegidas pelo DEV.</li><li>E-mail sincronizado com recuperação em falhas intermediárias.</li><li>Webhook armazenado somente em configurações privadas.</li><li>Avatares e URLs passam por validação compatível com a CSP.</li><li>Backups V22.8.5 até V22.9.17 continuam compatíveis.</li></ul></div></article><article class="panel"><div class="panel-head"><h3>Repositório GitHub</h3></div><div class="panel-body stack"><p>Consulte repositórios públicos sem armazenar tokens no navegador.</p><label>Repositório<input id="githubRepository" placeholder="organizacao/repositorio" maxlength="180"/></label><div class="button-row"><button class="btn" id="saveGithubRepository" type="button">Salvar</button><button class="btn primary" id="checkGithubButton" type="button">Consultar GitHub</button></div><p class="muted" id="githubUpdateStatus">Nenhum repositório configurado.</p></div></article></div>
 </section>
-<section class="page page-animate owner-only advanced-page" id="backup"><div class="page-head"><div><h2>💾 Backup e restauração</h2><p>Exporte, valide e restaure dados com rollback persistente.</p></div></div><div class="advanced-grid"><article class="panel"><div class="panel-head"><h3>Novo backup</h3></div><div class="panel-body"><p>Gera um backup completo com projeto, versão, coleções e subcoleções semanais.</p><button class="btn primary" id="createBackupButton" type="button">Gerar backup JSON</button></div></article><article class="panel"><div class="panel-head"><h3>Restauração controlada</h3></div><div class="panel-body stack"><p>O arquivo é validado antes de qualquer gravação. Em caso de falha, o restoreJob executa rollback.</p><input accept="application/json" id="restoreBackupFile" type="file"/><button class="btn primary" disabled id="restoreAdvancedBackup" type="button">Restaurar backup validado</button><p class="muted" id="restoreBackupInfo">Selecione um backup completo.</p></div></article></div></section>
+<section class="page page-animate owner-only advanced-page" id="backup"><div class="page-head"><div><h2>💾 Backup e restauração</h2><p>Exporte, valide e restaure dados com rollback persistente.</p></div></div><div class="advanced-grid"><article class="panel"><div class="panel-head"><h3>Novo backup</h3></div><div class="panel-body"><p>Gera um backup completo do Firestore com projeto, versão, coleções e subcoleções semanais.</p><button class="btn primary" id="createBackupButton" type="button">Gerar backup JSON</button></div></article><article class="panel"><div class="panel-head"><h3>Restauração controlada</h3></div><div class="panel-body stack"><p>O arquivo é validado antes de qualquer gravação. Em caso de falha, o restoreJob executa rollback.</p><input accept="application/json" id="restoreBackupFile" type="file"/><button class="btn primary" disabled id="restoreAdvancedBackup" type="button">Restaurar backup validado</button><p class="muted" id="restoreBackupInfo">Selecione um backup completo do Firestore.</p></div></article></div></section>
 <section class="page page-animate owner-only advanced-page" id="logs-sistema"><div class="page-head"><div><h2>📋 Logs do sistema</h2><p>Registros de auditoria e eventos operacionais.</p></div></div><article class="panel"><div class="table-wrap"><table><thead><tr><th>Data</th><th>Usuário</th><th>Ação</th><th>Detalhes</th></tr></thead><tbody id="advancedLogsRows"></tbody></table></div></article></section>
 <section class="page page-animate owner-only advanced-page" id="status-firebase"><div class="page-head"><div><h2>📊 Status do Firebase</h2><p>Teste real de autenticação, leitura do Firestore e listeners.</p></div><button class="btn primary" id="refreshFirebaseStatus" type="button">Executar diagnóstico</button></div><div class="advanced-grid" id="firebaseStatusCards"></div></section>
 <section class="page page-animate owner-only advanced-page" id="status-github"><div class="page-head"><div><h2>🌐 Status do GitHub</h2><p>Consulta segura de repositório público e workflows, sem token.</p></div><button class="btn primary" id="refreshGithubStatus" type="button">Atualizar status</button></div><div class="advanced-grid" id="githubStatusCards"></div></section>
@@ -1204,7 +1204,7 @@
 <div><span>DESENVOLVIDO POR</span><h3>PrimeTools Labs</h3><p>Tecnologia • Soluções • Resultados</p></div>
 </div>
 <div class="about-v152-meta">
-<div><span>Versão</span><strong>22.9.6 Hotfix</strong></div>
+<div><span>Versão</span><strong>22.9.17 Hotfix</strong></div>
 <div><span>Tecnologias</span><strong>HTML5, CSS3, JavaScript e Firebase</strong></div>
 <div><span>Licença</span><strong>Uso exclusivo da 77 TEAM</strong></div>
 </div>
@@ -1305,11 +1305,11 @@
 <div class="modal-card">
 <div class="drawer-head"><h3 id="eventModalTitle">Novo evento</h3><button id="closeEventModal" type="button">×</button></div>
 <form class="stack" id="eventForm">
-<label>Título<input id="eventTitle" required=""/></label>
+<label>Título<input id="eventTitle" maxlength="120" required=""/><small>Máximo de 120 caracteres.</small></label>
 <label>Data<input id="eventDate" required="" type="date"/></label>
 <label>Horário<input id="eventTime" type="time"/></label>
 <label>Tipo<select id="eventType"><option>WorldBoss</option><option>Purgatório</option><option>Evento</option><option>Reunião</option></select></label>
-<label>Descrição<textarea id="eventDescription"></textarea></label>
+<label>Descrição<textarea id="eventDescription" maxlength="1000"></textarea><small>Máximo de 1.000 caracteres.</small></label>
 <div class="button-row"><button class="btn danger hidden" id="deleteCalendarEvent" type="button">Excluir evento</button><button class="btn primary" type="submit">Salvar evento</button></div>
 </form>
 </div>
@@ -1330,7 +1330,7 @@
 </div>
 <div class="global-search-results hidden" id="globalSearchResults"></div>
 <div class="toast" id="toast"></div>
-<script src="js/ui.js?v=22.9.6"></script>
-<script src="js/main.js?v=22.9.6" type="module"></script>
+<script src="js/ui.js?v=22.9.17"></script>
+<script src="js/main.js?v=22.9.17" type="module"></script>
 </body>
 </html>

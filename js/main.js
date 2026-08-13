@@ -5,6 +5,8 @@ function setHtml(id,value){const el=byId(id);if(el)el.innerHTML=value??""}
 function setValue(id,value){const el=byId(id);if(el)el.value=value??""}
 function escapeHtml(value){return String(value??"").replace(/[&<>"']/g,char=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[char]))}
 function safeImageUrl(value){const url=String(value||"").trim();return /^(https:\/\/|data:image\/(?:png|jpeg|webp);base64,)/i.test(url)?url:""}
+function safeExternalUrl(value){const url=String(value||"").trim();return /^https:\/\/[a-z0-9.-]+(?::\d+)?(?:[/?#]|$)/i.test(url)?url:""}
+function csvSafe(value){const text=String(value??"");return /^[=+\-@]/.test(text.trimStart())?`'${text}`:text}
 function on(id,eventName,handler){const el=byId(id);if(el)el.addEventListener(eventName,handler)}
 function finalizePrintWindow(printWindow,autoPrint=true){
   printWindow.document.close();
@@ -16,7 +18,7 @@ import {firebaseConfig,FIREBASE_VERSION} from "./firebase-config.js";
 const SDK=`https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}`;
 const {initializeApp,deleteApp}=await import(`${SDK}/firebase-app.js`);
 const {getAuth,onAuthStateChanged,signInWithEmailAndPassword,createUserWithEmailAndPassword,signOut,updatePassword,updateEmail,reauthenticateWithCredential,EmailAuthProvider,setPersistence,browserLocalPersistence,browserSessionPersistence,deleteUser}=await import(`${SDK}/firebase-auth.js`);
-const {getFirestore,initializeFirestore,persistentLocalCache,persistentMultipleTabManager,collection,doc,getDoc,getDocs,setDoc,addDoc,updateDoc,deleteDoc,deleteField,onSnapshot,serverTimestamp,writeBatch,query,where,Timestamp}=await import(`${SDK}/firebase-firestore.js`);
+const {getFirestore,initializeFirestore,persistentLocalCache,persistentMultipleTabManager,collection,doc,getDoc,getDocs,setDoc,addDoc,updateDoc,deleteDoc,deleteField,onSnapshot,serverTimestamp,writeBatch,runTransaction,query,where,Timestamp}=await import(`${SDK}/firebase-firestore.js`);
 const {getStorage,ref:storageRef,uploadBytes,getDownloadURL,deleteObject}=await import(`${SDK}/firebase-storage.js`);
 
 const app=initializeApp(firebaseConfig);
@@ -47,7 +49,7 @@ function configuredPresenceSlots(kind){
 }
 function configuredEventEnabled(kind){const cfg=state.settings?.events||{};return kind==="worldboss"?cfg.worldbossEnabled!==false:kind==="purgatorio"?cfg.purgatorioEnabled!==false:cfg.customEventsEnabled!==false}
 
-const state={user:null,profile:null,onboardingRequired:false,members:[],attendance:[],rtPresence:[],users:[],audit:[],events:[],notifications:[],sentNotifications:[],notificationReads:[],settings:{},xpLogs:[],supportMessages:[],selectedSupportOwnerUid:"",selectedSupportTicketId:"",supportView:"active",chatMessages:[],selectedChatOwnerUid:"",selectedChatId:"",chatView:"active",chatSearch:"",editingCharacterUserId:"",presenceFilters:{},presenceBackups:[],sessions:[],unsubs:[]};
+const state={user:null,profile:null,onboardingRequired:false,members:[],membersLoaded:false,attendance:[],rtPresence:[],users:[],usersLoaded:false,audit:[],events:[],notifications:[],sentNotifications:[],notificationReads:[],settings:{},xpLogs:[],supportMessages:[],selectedSupportOwnerUid:"",selectedSupportTicketId:"",supportView:"active",chatMessages:[],selectedChatOwnerUid:"",selectedChatId:"",chatView:"active",chatSearch:"",editingCharacterUserId:"",presenceFilters:{},presenceBackups:[],sessions:[],unsubs:[]};
 
 function toast(msg){const el=$("#toast");el.textContent=msg;el.classList.add("show");clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.remove("show"),3000)}
 function errMsg(e){return ({'auth/invalid-credential':'E-mail ou senha incorretos.','auth/user-disabled':'Esta conta foi desativada.','auth/too-many-requests':'Muitas tentativas. Aguarde alguns minutos e tente novamente.','auth/network-request-failed':'Falha de conexão. Verifique sua internet.','auth/email-already-in-use':'Este e-mail já existe.','auth/weak-password':'A senha precisa ter pelo menos 6 caracteres.','permission-denied':'Permissão negada. Publique o firestore.rules novo.'})[e?.code]||`${e?.code||'erro'}: ${e?.message||'Falha inesperada'}`}
@@ -126,6 +128,11 @@ function leadership(){return currentAccessRole()==="leadership"}
 function staff(){return currentAccessRole()==="staff"}
 function editor(){return ["dev","leadership","staff"].includes(currentAccessRole())}
 function administrator(){return ["dev","leadership"].includes(currentAccessRole())}
+window.TeamManagerState=state;
+window.TeamManagerIsOwner=owner;
+window.TeamManagerIsAdministrator=administrator;
+window.TeamManagerIsEditor=editor;
+window.TeamManagerProgressionForCurrentUser=()=>progressionForCurrentUser();
 function hasRoleLevel(level){return (ROLE_CONFIG[currentAccessRole()]?.level||0)>=level}
 function canManageAcceptedMember(member,user){
   if(!permissionEnabled("roles_change")||!member||!user||user.status!=="approved"||user.active===false)return false;
@@ -271,6 +278,9 @@ function isHiddenDevMember(member){
 function visibleMembers(){
   return state.members.filter(member=>member.active!==false&&!isHiddenDevMember(member));
 }
+function homeAttendanceRecords(){
+  return state.attendance.filter(item=>Boolean(memberForAttendance(item)));
+}
 
 function memberDisplayRoleBadge(member){
   const access=memberSystemRole(member);
@@ -307,21 +317,28 @@ onSnapshot(doc(db,"settings","app"),snapshot=>{const publicSettings=snapshot.exi
 
 $("#setupForm").onsubmit=async e=>{
   e.preventDefault();
-  let cred=null;
+  let secondary=null,setupAuth=null,setupDb=null,cred=null,configured=false;
   try{
     const name=$("#setupName").value.trim();
     const email=$("#setupEmail").value.trim().toLowerCase();
     const password=$("#setupPassword").value;
     if(password!==$("#setupConfirm").value)throw new Error("As senhas não conferem.");
-    cred=await createUserWithEmailAndPassword(auth,email,password);
-    if(await ownerExists())throw new Error("O DEV já foi configurado.");
-    await setDoc(doc(db,"users",cred.user.uid),{name,email,role:"dev",accessRole:"dev",active:true,status:"approved",firstLogin:false,profileCompleted:true,createdAt:serverTimestamp()});
-    await setDoc(doc(db,"system","owner"),{uid:cred.user.uid,createdAt:serverTimestamp()});
-    try{await deleteDoc(doc(db,"system","bootstrap"))}catch{}
+    secondary=initializeApp(firebaseConfig,"first-dev-"+Date.now());
+    setupAuth=getAuth(secondary);setupDb=getFirestore(secondary);
+    cred=await createUserWithEmailAndPassword(setupAuth,email,password);
+    if((await getDoc(doc(setupDb,"system","owner"))).exists())throw new Error("O DEV já foi configurado.");
+    await setDoc(doc(setupDb,"users",cred.user.uid),{name,email,role:"dev",accessRole:"dev",active:true,status:"approved",firstLogin:false,profileCompleted:true,createdAt:serverTimestamp()});
+    await setDoc(doc(setupDb,"system","owner"),{uid:cred.user.uid,createdAt:serverTimestamp()});
+    configured=true;
+    try{await deleteDoc(doc(setupDb,"system","bootstrap"))}catch{}
+    await signOut(setupAuth);await deleteApp(secondary);secondary=null;
+    await setPersistence(auth,browserLocalPersistence);
+    await signInWithEmailAndPassword(auth,email,password);
     toast("Sistema configurado com sucesso.");
   }catch(e){
-    if(cred?.user)try{await deleteUser(cred.user)}catch{}
-    toast(e?.code==="permission-denied"?"E-mail não autorizado. Configure system/bootstrap antes de criar o primeiro DEV.":errMsg(e));
+    if(cred?.user&&!configured){try{await deleteDoc(doc(setupDb,"users",cred.user.uid))}catch{};try{await deleteUser(cred.user)}catch{}}
+    if(secondary)try{await deleteApp(secondary)}catch{}
+    toast(configured?"DEV configurado. Entre normalmente com o e-mail e a senha cadastrados.":e?.code==="permission-denied"?"E-mail não autorizado. Configure system/bootstrap antes de criar o primeiro DEV.":errMsg(e));
   }
 };
 
@@ -334,7 +351,7 @@ $("#loginForm").onsubmit=async e=>{
   if(!email.includes("@"))return toast("Use o e-mail cadastrado para entrar.");
   try{
     if(submit){submit.disabled=true;submit.dataset.originalText=submit.textContent;submit.textContent="ENTRANDO..."}
-    const remember=Boolean($("#rememberAccess")?.checked);
+    const remember=Boolean($("#rememberLoginV222")?.checked);
     await setPersistence(auth,remember?browserLocalPersistence:browserSessionPersistence);
     await signInWithEmailAndPassword(auth,email,password);
   }catch(e2){
@@ -348,15 +365,16 @@ $("#toggleSignup").onclick=()=>$("#signupBox").classList.toggle("hidden");
 
 $("#signupForm").onsubmit=async e=>{
   e.preventDefault();
-  let secondary;
+  let secondary,signupAuth,cred;
   try{
     secondary=initializeApp(firebaseConfig,"signup-"+Date.now());
-    const sa=getAuth(secondary),sd=getFirestore(secondary);
+    signupAuth=getAuth(secondary);const sd=getFirestore(secondary);
     const name=$("#signupName").value.trim(),email=$("#signupEmail").value.trim().toLowerCase(),password=$("#signupPassword").value;
-    const cred=await createUserWithEmailAndPassword(sa,email,password);
+    const nicknameError=nicknameValidationError(name);if(nicknameError)throw new Error(nicknameError);
+    cred=await createUserWithEmailAndPassword(signupAuth,email,password);
     await setDoc(doc(sd,"users",cred.user.uid),{name,email,role:"member",active:false,status:"pending",firstLogin:true,profileCompleted:false,createdAt:serverTimestamp()});
-    await signOut(sa);await deleteApp(secondary);e.target.reset();toast("Cadastro enviado.");
-  }catch(e2){if(secondary)try{await deleteApp(secondary)}catch{};toast(errMsg(e2))}
+    await signOut(signupAuth);await deleteApp(secondary);secondary=null;e.target.reset();toast("Cadastro enviado.");
+  }catch(e2){if(cred?.user)try{await deleteUser(cred.user)}catch{};if(secondary)try{await deleteApp(secondary)}catch{};toast(errMsg(e2))}
 };
 
 $("#sidebarLogout").onclick=()=>$("#logoutButton").click();
@@ -433,9 +451,7 @@ function applyPermissions(){
   setText("welcomeName",displayName);
   setText("topbarUserName",displayName);
   setText("userBadge",roleLabel);
-  setText("sidebarUserName",displayName);
-  setText("sidebarUserRole",roleLabel);
-  ["userBadge","sidebarUserRole"].forEach(id=>{
+  ["userBadge"].forEach(id=>{
     const element=byId(id);if(!element)return;
     element.classList.remove("role-dev","role-leadership","role-staff","role-member");
     element.classList.add(ROLE_CONFIG[currentAccessRole()]?.badgeClass||"role-member");
@@ -444,7 +460,7 @@ function applyPermissions(){
   if(currentActivePage&&!canOpenPage(currentActivePage)){
     window.TeamManagerUI?.activatePage("dashboard");
   }
-  const avatarData=state.profile?.avatarDataUrl||"";
+  const avatarData=safeImageUrl(state.profile?.avatarDataUrl);
   document.querySelectorAll(".profile-logo-wrap img").forEach(image=>{
     if(avatarData){
       image.src=avatarData;
@@ -468,8 +484,10 @@ function subscribePublic(){
     collection(db,"members"),
     snapshot=>{
       state.members=snapshot.docs.map(item=>({id:item.id,...item.data()}));
+      state.membersLoaded=true;
       render();
       scheduleAccountRoleSync();
+      scheduleNicknameClaimMigration();
     },
     error=>console.error("Falha ao carregar membros:",error)
   ));
@@ -498,7 +516,7 @@ function subscribeAll(){
     state.unsubs.push(onSnapshot(collection(db,"rtPresence"),snapshot=>{state.rtPresence=snapshot.docs.map(d=>({id:d.id,...d.data()}));renderRtPresence();},error=>console.error("Falha ao carregar RT Presença:",error)));
     state.unsubs.push(onSnapshot(collection(db,"presenceBackups"),snapshot=>{state.presenceBackups=snapshot.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>rtDateValue(b.createdAt)-rtDateValue(a.createdAt));renderPresenceBackups();renderBackupCenter();},error=>console.error("Falha ao carregar backups de presença:",error)));
   }else state.rtPresence=[];
-  if(editor())state.unsubs.push(onSnapshot(collection(db,"users"),s=>{state.users=s.docs.map(d=>{const user={id:d.id,...d.data()};return {...user,resolvedAccessRole:resolveAccessRole(user)}});render();scheduleAttendanceUserMigration();scheduleAccountRoleSync()}));
+  if(editor())state.unsubs.push(onSnapshot(collection(db,"users"),s=>{state.users=s.docs.map(d=>{const user={id:d.id,...d.data()};return {...user,resolvedAccessRole:resolveAccessRole(user)}});state.usersLoaded=true;render();scheduleAttendanceUserMigration();scheduleAccountRoleSync();scheduleNicknameClaimMigration()}));
   if(permissionEnabled("audit_view"))state.unsubs.push(onSnapshot(collection(db,"audit"),s=>{state.audit=s.docs.map(d=>({id:d.id,...d.data()}));render()}));
   if(editor())state.unsubs.push(onSnapshot(collection(db,"xpLogs"),s=>{state.xpLogs=s.docs.map(d=>({id:d.id,...d.data()}));render()}));
   state.unsubs.push(onSnapshot(collection(db,"events"),s=>{state.events=s.docs.map(d=>({id:d.id,...d.data()}));render()}));
@@ -581,7 +599,41 @@ function startSessionHeartbeat(){
 ['pointerdown','keydown','touchstart','scroll'].forEach(name=>window.addEventListener(name,()=>{lastUserActivity=Date.now()},{passive:true}));
 document.addEventListener("visibilitychange",()=>{if(state.user)writeSessionHeartbeat(document.visibilityState!=="hidden")});
 
-function stats(name){const rows=state.attendance.filter(x=>x.memberName===name),p=rows.filter(x=>x.status===1||x.status===2).length,a=rows.filter(x=>x.status===-1).length,j=rows.filter(x=>x.status===3).length,t=p+a;return{present:p,absent:a,justified:j,rate:t?Math.round(p/t*100):0}}
+function memberIdentityIds(member){return new Set([member?.id,member?.userId].filter(Boolean).map(String))}
+function attendanceMatchesMember(item,member){
+  if(!item||!member)return false;
+  const ids=memberIdentityIds(member),recordIds=[item.memberId,item.userId].filter(Boolean).map(String);
+  if(recordIds.length)return recordIds.some(id=>ids.has(id));
+  // Compatibilidade exclusiva com históricos antigos que ainda não possuem UID.
+  const legacyName=String(item.memberName||"").toLowerCase(),memberName=String(member.name||"").toLowerCase();
+  if(!legacyName||legacyName!==memberName)return false;
+  return visibleMembers().filter(candidate=>String(candidate.name||"").toLowerCase()===legacyName).length===1;
+}
+function memberForAttendance(item){return visibleMembers().find(member=>attendanceMatchesMember(item,member))||null}
+function attendanceTime(item){
+  const timestamp=item?.updatedAt||item?.createdAt;
+  if(timestamp?.toMillis)return timestamp.toMillis();
+  if(timestamp?.toDate)return timestamp.toDate().getTime();
+  const parsed=Date.parse(timestamp||`${item?.date||"1970-01-01"}T00:00:00`);
+  return Number.isNaN(parsed)?0:parsed;
+}
+function monthlyEventKeys(month){
+  const scheduled=state.events.filter(item=>String(item.date||"").startsWith(month));
+  const keys=new Set(scheduled.map(item=>`calendar:${item.id||item.date+"|"+item.title}`));
+  state.attendance.filter(item=>item.kind==="eventos"&&String(item.date||"").startsWith(month)&&memberForAttendance(item))
+    .forEach(item=>{
+      const attendanceKind=normalizedEventKind(item.slot||item.kind);
+      const alreadyScheduled=scheduled.some(event=>event.date===item.date&&[event.title,event.type].some(value=>normalizedEventKind(value)===attendanceKind));
+      if(!alreadyScheduled)keys.add(`attendance:${item.date}|${attendanceKind}`);
+    });
+  return keys;
+}
+function stats(member){
+  const resolved=typeof member==="string"?visibleMembers().find(item=>item.name===member):member;
+  const rows=resolved?state.attendance.filter(item=>attendanceMatchesMember(item,resolved)):[];
+  const p=rows.filter(x=>x.status===1||x.status===2).length,a=rows.filter(x=>x.status===-1).length,j=rows.filter(x=>x.status===3).length,t=p+a;
+  return{present:p,absent:a,justified:j,rate:t?Math.round(p/t*100):0};
+}
 function todayIso(){return localIsoDate()}
 function isoWeek(dateString){const d=new Date(`${dateString||todayIso()}T12:00:00`);const day=d.getDay()||7;d.setDate(d.getDate()+4-day);const y=new Date(d.getFullYear(),0,1);const w=Math.ceil((((d-y)/86400000)+1)/7);return `${d.getFullYear()}-W${String(w).padStart(2,"0")}`}
 function presenceFilter(kind){return state.presenceFilters[kind]||(state.presenceFilters[kind]={date:todayIso(),week:isoWeek(todayIso()),clan:"",search:"",slot:"all"})}
@@ -606,7 +658,6 @@ function recentAllPresenceRows(){return [...state.attendance].filter(item=>[-1,1
 function renderUnifiedPresence(){
   const target=$("#presencasContent");if(!target)return;
   const rows=recentAllPresenceRows();
-  setText("sidebarPresenceBadge",rows.length);
   target.innerHTML=`<div class="presence-v207 presence-unified">
     <div class="presence-v207-toolbar">
       <div><h3>Registro de Presenças</h3><p>Registre WorldBoss, Purgatório e Eventos somente nesta aba. Cada salvamento atualiza o Histórico e o RT Presença automaticamente.</p></div>
@@ -659,12 +710,19 @@ async function createPresenceBackup({automatic=false}={}){
   const rtRecords=state.rtPresence.map(item=>({...item,originalId:item.id}));
   if(!records.length&&!rtRecords.length){toast("Não existem dados de presença para salvar.");return null}
   const now=new Date(),week=isoWeek(todayIso()),counts=presenceBackupCounts(records),id=`${week}__${now.toISOString().replace(/[^0-9]/g,"").slice(0,14)}`;
-  const payload={week,counts,total:records.length,rtTotal:rtRecords.length,automatic,backupSchema:2,createdBy:state.user.uid,createdByName:state.profile?.name||state.user.email,createdAt:serverTimestamp(),createdAtText:now.toISOString(),sourceVersion:"22.9.6"};
-  await setDoc(doc(db,"presenceBackups",id),payload);
-  await writeBackupSubcollection(id,"attendance",records);
-  await writeBackupSubcollection(id,"rt",rtRecords);
+  const payload={week,counts,total:records.length,rtTotal:rtRecords.length,automatic,backupSchema:2,status:"writing",createdBy:state.user.uid,createdByName:state.profile?.name||state.user.email,createdAt:serverTimestamp(),createdAtText:now.toISOString(),sourceVersion:"22.9.17"};
+  const backupRef=doc(db,"presenceBackups",id);
+  await setDoc(backupRef,payload);
+  try{
+    await writeBackupSubcollection(id,"attendance",records);
+    await writeBackupSubcollection(id,"rt",rtRecords);
+    await updateDoc(backupRef,{status:"completed",completedAt:serverTimestamp(),updatedAt:serverTimestamp()});
+  }catch(error){
+    try{await updateDoc(backupRef,{status:"failed",errorMessage:String(error?.message||error).slice(0,500),updatedAt:serverTimestamp()})}catch{}
+    throw error;
+  }
   await audit(automatic?"backup automático da presença":"backup da presença",`${week} · ${records.length} presenças · ${rtRecords.length} RTs · schema 2`);
-  toast(`Backup salvo: ${records.length} presenças e ${rtRecords.length} RTs.`);return{id,...payload,records,rtRecords,createdAt:now};
+  toast(`Backup salvo: ${records.length} presenças e ${rtRecords.length} RTs.`);return{id,...payload,status:"completed",records,rtRecords,createdAt:now};
 }
 function clearPresenceClientCache(){
   state.presenceFilters={};
@@ -692,9 +750,10 @@ async function resetPresenceWithBackup(){
   const confirmation=prompt(`ATENÇÃO: o reset encerrará a semana atual e limpará Presenças, RT Presença, Consultar Registros, indicadores, ranking e estatísticas derivados desses dados.\n\nSerá criado um backup automático com ${attendanceRows.length} presenças e ${rtRows.length} RTs.\n\nDigite RESET para confirmar:`);
   if(String(confirmation||"").trim().toUpperCase()!=="RESET")return toast("Reset cancelado.");
   const jobId=`reset__${Date.now()}__${state.user.uid.slice(0,8)}`;
+  let backup=null;
   try{
     await setDoc(doc(db,"resetJobs",jobId),{status:"preparing",week:isoWeek(todayIso()),createdBy:state.user.uid,createdByName:state.profile?.name||state.user.email,attendanceTotal:attendanceRows.length,rtTotal:rtRows.length,createdAt:serverTimestamp(),updatedAt:serverTimestamp()});
-    const backup=await createPresenceBackup({automatic:true});if(!backup)return;
+    backup=await createPresenceBackup({automatic:true});if(!backup)return;
     await updateDoc(doc(db,"resetJobs",jobId),{status:"backup_created",backupId:backup.id,updatedAt:serverTimestamp()});
     await updateDoc(doc(db,"resetJobs",jobId),{status:"deleting_attendance",updatedAt:serverTimestamp()});
     await deleteDocsInChunks("attendance",attendanceRows);
@@ -706,18 +765,28 @@ async function resetPresenceWithBackup(){
     toast("Reset global concluído. Todas as abas de presença foram reiniciadas.");
   }catch(error){
     console.error(error);
-    try{await setDoc(doc(db,"resetJobs",jobId),{status:"failed",errorCode:error?.code||"error",errorMessage:String(error?.message||error).slice(0,500),updatedAt:serverTimestamp()},{merge:true})}catch{}
-    toast("Reset interrompido. O backup e o registro de recuperação foram preservados. Tente novamente após verificar a conexão.");
+    try{
+      if(backup){
+        await updateDoc(doc(db,"resetJobs",jobId),{status:"rolling_back",updatedAt:serverTimestamp()});
+        await restorePresenceRows(backup.records,backup.rtRecords);
+        await updateDoc(doc(db,"resetJobs",jobId),{status:"rolled_back",rolledBackAt:serverTimestamp(),errorCode:error?.code||"error",errorMessage:String(error?.message||error).slice(0,500),updatedAt:serverTimestamp()});
+        return toast("Reset interrompido e revertido automaticamente. Nenhum registro foi perdido.");
+      }
+      await setDoc(doc(db,"resetJobs",jobId),{status:"failed",errorCode:error?.code||"error",errorMessage:String(error?.message||error).slice(0,500),updatedAt:serverTimestamp()},{merge:true});
+    }catch(rollbackError){
+      try{await setDoc(doc(db,"resetJobs",jobId),{status:"rollback_failed",errorCode:error?.code||"error",errorMessage:String(error?.message||error).slice(0,500),rollbackError:String(rollbackError?.message||rollbackError).slice(0,500),updatedAt:serverTimestamp()},{merge:true})}catch{}
+    }
+    toast("Reset interrompido. O backup e o registro de recuperação foram preservados.");
   }
 }
-async function downloadPresenceBackup(id){const item=state.presenceBackups.find(row=>row.id===id);if(!item)return toast("Backup não encontrado.");const data=await loadPresenceBackupData(item);downloadJson(`presenca-${item.week||id}.json`,{version:"22.9.6",exportedAt:new Date().toISOString(),backup:{...item,...data}});}
+async function downloadPresenceBackup(id){const item=state.presenceBackups.find(row=>row.id===id);if(!item)return toast("Backup não encontrado.");const data=await loadPresenceBackupData(item);downloadJson(`presenca-${item.week||id}.json`,{version:"22.9.17",exportedAt:new Date().toISOString(),backup:{...item,...data}});}
 
 
 function backupCenterDateValue(item){return rtDateValue(item?.createdAt)||Date.parse(item?.createdAtText||0)||0}
 function backupCenterFiltered(){
   const term=(byId("backupCenterSearch")?.value||"").trim().toLowerCase();
   const type=byId("backupCenterType")?.value||"all";
-  return [...state.presenceBackups].sort((a,b)=>backupCenterDateValue(b)-backupCenterDateValue(a)).filter(item=>{
+  return [...state.presenceBackups].filter(item=>!item.status||item.status==="completed").sort((a,b)=>backupCenterDateValue(b)-backupCenterDateValue(a)).filter(item=>{
     if(type!=="all"&&type!=="presence")return false;
     if(!term)return true;
     return [item.week,item.createdByName,item.createdAtText,"presença",item.automatic?"automático":"manual"].some(value=>String(value||"").toLowerCase().includes(term));
@@ -752,10 +821,28 @@ async function restoreCenterBackup(id){
   const records=data.records,rtRecords=data.rtRecords;
   if(!confirm(`Restaurar o backup ${item.week||id}? Serão restauradas ${records.length} presenças e ${rtRecords.length} RTs usando os IDs originais, evitando duplicações.`))return;
   try{
-    for(let start=0;start<records.length;start+=400){const batch=writeBatch(db);records.slice(start,start+400).forEach(record=>{const {id:legacyId,originalId,...data}=record;const targetId=originalId||legacyId||(data.kind+"__"+(data.date||todayIso())+"__"+(data.memberId||"member")+"__"+(data.slot||"slot")).replace(/[^a-zA-Z0-9_-]/g,"_");const ref=doc(db,"attendance",targetId);batch.set(ref,{...data,restoredFromBackup:id,restoredAt:serverTimestamp(),restoredBy:state.user.uid,restoredByName:state.profile?.name||state.user.email},{merge:true})});await batch.commit()}
-    for(let start=0;start<rtRecords.length;start+=400){const batch=writeBatch(db);rtRecords.slice(start,start+400).forEach(record=>{const {id:legacyId,originalId,...data}=record;const targetId=originalId||legacyId||`${data.kind||"rt"}__${data.date||todayIso()}__${data.slot||"all"}`.replace(/[^a-zA-Z0-9_-]/g,"_");const ref=doc(db,"rtPresence",targetId);batch.set(ref,{...data,restoredFromBackup:id,restoredAt:serverTimestamp(),restoredBy:state.user.uid,restoredByName:state.profile?.name||state.user.email},{merge:true})});await batch.commit()}
+    await controlledPresenceRestore(id,records,rtRecords);
     await audit("backup restaurado",`${item.week||id} · ${records.length} presenças · ${rtRecords.length} RTs`);toast(`Backup restaurado: ${records.length} presenças e ${rtRecords.length} RTs.`);
   }catch(error){console.error(error);toast(errMsg(error))}
+}
+
+async function restorePresenceRows(records=[],rtRecords=[]){
+  for(const [name,rows] of [["attendance",records],["rtPresence",rtRecords]])for(let start=0;start<rows.length;start+=400){
+    const batch=writeBatch(db);rows.slice(start,start+400).forEach(record=>{const {id:legacyId,originalId,...data}=record;const targetId=originalId||legacyId;delete data.restoredFromBackup;delete data.restoredAt;delete data.restoredBy;delete data.restoredByName;if(targetId)batch.set(doc(db,name,String(targetId)),data)});await batch.commit();
+  }
+}
+
+async function controlledPresenceRestore(backupId,records=[],rtRecords=[]){
+  const jobId=`restore_presence__${Date.now()}__${state.user.uid.slice(0,8)}`,jobRef=doc(db,"restoreJobs",jobId);let sequence=0;
+  await setDoc(jobRef,{status:"validated",restoreType:"presence",backupId,createdBy:state.user.uid,createdAt:serverTimestamp(),updatedAt:serverTimestamp()});
+  try{
+    for(const [name,rows] of [["attendance",records],["rtPresence",rtRecords]])for(let start=0;start<rows.length;start+=180){
+      const group=rows.slice(start,start+180),refs=group.map(record=>doc(db,name,String(record.originalId||record.id))),snapshots=await Promise.all(refs.map(ref=>getDoc(ref))),batch=writeBatch(db);
+      snapshots.forEach((snapshot,index)=>{batch.set(doc(db,"restoreJobs",jobId,"rollback",String(sequence).padStart(9,"0")),{sequence,path:refs[index].path.split("/"),existed:snapshot.exists(),data:snapshot.exists()?snapshot.data():null,capturedAt:serverTimestamp()});const {id,originalId,...data}=group[index];batch.set(refs[index],{...data,restoredFromBackup:backupId,restoredAt:serverTimestamp(),restoredBy:state.user.uid,restoredByName:state.profile?.name||state.user.email});sequence++});
+      await batch.commit();await updateDoc(jobRef,{status:"restoring",currentCollection:name,processed:Math.min(start+group.length,rows.length),updatedAt:serverTimestamp()});
+    }
+    await updateDoc(jobRef,{status:"completed",completedAt:serverTimestamp(),updatedAt:serverTimestamp()});cleanupPersistentRollback(jobId).catch(()=>{});return jobId;
+  }catch(error){await executePersistentRollback(jobRef,error);throw error}
 }
 async function deleteCenterBackup(id){
   if(!owner())return toast("Somente DEV pode excluir backups.");
@@ -805,7 +892,7 @@ async function savePresenceFromModal(){
 
 function memberLevel(member){return progressionFor(member).level}
 function memberMedals(member){
-  const s=stats(member.name);
+  const s=stats(member);
   const medals=[];
   if(s.present>=10)medals.push("🥉");
   if(s.present>=30)medals.push("🥈");
@@ -816,7 +903,7 @@ function memberMedals(member){
 }
 function openMemberDrawer(member){
   if(!member||isHiddenDevMember(member))return;
-  const s=stats(member.name),xp=progressionFor(member),level=xp.level,medals=memberMedals(member);
+  const s=stats(member),xp=progressionFor(member),level=xp.level,medals=memberMedals(member);
   $("#memberDrawerContent").innerHTML=`<div class="profile-hero">
     <div class="profile-big-avatar">${escapeHtml((member.name||"?").slice(0,1).toUpperCase())}</div>
     <h2>${escapeHtml(member.name)}</h2>${memberDisplayRoleBadge(member)}<p>${escapeHtml(member.clan||"Sem clã")}</p>
@@ -867,7 +954,6 @@ function maybeShowNotificationPopup(){
 function renderNotifications(){
   const unread=unreadNotifications();
   setText("notificationCount",unread.length);
-  setText("sidebarNotificationsBadge",unread.length);
   const rows=state.notifications.slice().sort((a,b)=>{const av=a.createdAt?.toMillis?.()||Date.parse(a.createdAt||0)||0;const bv=b.createdAt?.toMillis?.()||Date.parse(b.createdAt||0)||0;return bv-av});
   setHtml("notificationRows",rows.map(n=>{
     const read=notificationRead(n);
@@ -904,8 +990,9 @@ function renderCalendar(){
   $("#calendarGrid").innerHTML=`<div class="calendar-week">DOM</div><div class="calendar-week">SEG</div><div class="calendar-week">TER</div><div class="calendar-week">QUA</div><div class="calendar-week">QUI</div><div class="calendar-week">SEX</div><div class="calendar-week">SÁB</div>${cells.join("")}`;
 }
 function renderStatistics(){
-  const present=state.attendance.filter(a=>a.status===1||a.status===2).length;
-  const absent=state.attendance.filter(a=>a.status===-1).length;
+  const attendance=homeAttendanceRecords();
+  const present=attendance.filter(a=>a.status===1||a.status===2).length;
+  const absent=attendance.filter(a=>a.status===-1).length;
   const total=present+absent;
   setText("statsPresenceTotal",present);
   setText("statsAbsenceTotal",absent);
@@ -913,17 +1000,24 @@ function renderStatistics(){
   setText("statsActiveMembers",visibleMembers().length);
   const kinds=["worldboss","purgatorio","eventos"];
   $("#typeStats").innerHTML=kinds.map(k=>{
-    const rows=state.attendance.filter(a=>a.kind===k),p=rows.filter(a=>a.status===1||a.status===2).length,t=rows.filter(a=>a.status===1||a.status===2||a.status===-1).length,r=t?Math.round(p/t*100):0;
-    return `<div class="chart-row"><span>${k}</span><div><i style="width:${r}%"></i></div><strong>${r}%</strong></div>`;
+    const rows=attendance.filter(a=>a.kind===k),p=rows.filter(a=>a.status===1||a.status===2).length,t=rows.filter(a=>a.status===1||a.status===2||a.status===-1).length,r=t?Math.round(p/t*100):0;
+    return `<div class="chart-row"><span>${escapeHtml(presenceTypeLabel(k))}</span><div><i style="width:${r}%"></i></div><strong>${r}%</strong></div>`;
   }).join("");
   const months={};
-  state.attendance.filter(a=>a.status===1||a.status===2).forEach(a=>{const m=String(a.date||"").slice(0,7)||"sem data";months[m]=(months[m]||0)+1});
+  attendance.filter(a=>a.status===1||a.status===2).forEach(a=>{const m=String(a.date||"").slice(0,7)||"sem data";months[m]=(months[m]||0)+1});
   const max=Math.max(1,...Object.values(months));
   $("#monthlyStats").innerHTML=Object.entries(months).sort().slice(-6).map(([m,v])=>`<div class="chart-row"><span>${m}</span><div><i style="width:${Math.round(v/max*100)}%"></i></div><strong>${v}</strong></div>`).join("")||"<p>Sem dados.</p>";
-  $("#performanceRows").innerHTML=visibleMembers().map(m=>{const s=stats(m.name),level=memberLevel(m),medals=memberMedals(m);return `<tr><td><button class="member-link" data-view-member="${escapeHtml(m.id)}">${escapeHtml(m.name)}</button></td><td>Lv ${level}</td><td>${escapeHtml(medals.join(" ")||"—")}</td><td>${s.present}</td><td>${s.absent}</td><td>${s.rate}%</td></tr>`}).join("")||'<tr><td colspan="6">Nenhum membro ativo.</td></tr>';
+  $("#performanceRows").innerHTML=visibleMembers().map(m=>{const s=stats(m),level=memberLevel(m),medals=memberMedals(m);return `<tr><td><button class="member-link" data-view-member="${escapeHtml(m.id)}">${escapeHtml(m.name)}</button></td><td>Lv ${level}</td><td>${escapeHtml(medals.join(" ")||"—")}</td><td>${s.present}</td><td>${s.absent}</td><td>${s.rate}%</td></tr>`}).join("")||'<tr><td colspan="6">Nenhum membro ativo.</td></tr>';
 }
 
 
+function formatHistoryDate(value){
+  if(!value)return "—";
+  const match=String(value).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return match?`${match[3]}/${match[2]}/${match[1]}`:String(value);
+}
+
+/* Relatório legado removido na V22.9.17.
 function pdfSafe(value){
   return String(value ?? "—")
     .replace(/[–—]/g, "-")
@@ -1115,7 +1209,7 @@ function createHistoryPdf({memberId="",fileName,title}){
 </body>
 </html>`);
   finalizePrintWindow(popup);
-}
+} */
 
 function rtStatusLabel(status){return ({"1":"Presente","2":"Atrasado","3":"Justificado","-1":"Ausente","0":"Pendente"})[String(status||0)]||"Pendente"}
 function rtDateValue(value){try{return value?.toDate?value.toDate():new Date(value)}catch{return new Date()}}
@@ -1123,11 +1217,11 @@ function renderRtPresence(){
   const list=$("#rtPresenceList");if(!list)return;
   const search=String($("#rtSearch")?.value||"").toLowerCase(),kind=$("#rtKindFilter")?.value||"",date=$("#rtDateFilter")?.value||"";
   const rows=[...state.rtPresence].filter(rt=>(!kind||rt.kind===kind)&&(!date||rt.date===date)&&(!search||`${escapeHtml(rt.id)} ${rt.typeLabel} ${rt.slotLabel} ${rt.finalizedByName}`.toLowerCase().includes(search))).sort((a,b)=>rtDateValue(b.finalizedAt)-rtDateValue(a.finalizedAt));
-  setText("rtPresenceCount",`${rows.length} registro${rows.length===1?"":"s"}`);setText("sidebarRtBadge",rows.length);
+  setText("rtPresenceCount",`${rows.length} registro${rows.length===1?"":"s"}`);
   list.innerHTML=rows.map(rt=>`<article class="rt-card" data-rt-card="${escapeHtml(rt.id)}"><div class="rt-card-head"><div><small>RT ${escapeHtml(rt.id.slice(0,8).toUpperCase())}</small><h3>${escapeHtml(rt.typeLabel||rt.kind)} · ${escapeHtml(rt.slotLabel||rt.slot||"Todos")}</h3><p>${escapeHtml(rt.date||"—")} · ${escapeHtml(rt.week||"—")} · Finalizada por ${escapeHtml(rt.finalizedByName||"Equipe")}</p></div><span class="badge success">Finalizada</span></div><div class="rt-summary"><span>✓ ${rt.counts?.present||0} presentes</span><span>◷ ${rt.counts?.late||0} atrasados</span><span>! ${rt.counts?.justified||0} justificados</span><span>× ${rt.counts?.absent||0} ausentes</span><span>— ${rt.counts?.pending||0} pendentes</span></div><div class="rt-actions"><button class="btn mini" data-rt-toggle="${escapeHtml(rt.id)}">👁 Visualizar</button><button class="btn mini" data-rt-csv="${escapeHtml(rt.id)}">📊 Exportar CSV</button><button class="btn mini" data-rt-print="${escapeHtml(rt.id)}">🖨 Imprimir</button>${owner()?`<button class="btn danger mini" data-rt-delete="${escapeHtml(rt.id)}">🗑 Excluir</button>`:""}</div><div class="rt-details hidden" id="rt-details-${escapeHtml(rt.id)}">${rtRecordsTable(rt)}</div></article>`).join("")||'<div class="empty-state"><strong>Nenhum RT encontrado.</strong><p>Finalize uma presença para criar o primeiro registro.</p></div>';
 }
 function rtRecordsTable(rt){return `<div class="table-wrap"><table><thead><tr><th>Membro</th><th>Clã</th><th>Horário/Evento</th><th>Status</th><th>Observação</th><th>Alterado por</th></tr></thead><tbody>${(rt.records||[]).map(r=>`<tr><td>${escapeHtml(r.memberName)}</td><td>${escapeHtml(r.clan||"—")}</td><td>${escapeHtml(r.slot||"—")}</td><td>${rtStatusLabel(r.status)}</td><td>${escapeHtml(r.note||"—")}</td><td>${escapeHtml(r.updatedByName||"—")}</td></tr>`).join("")}</tbody></table></div>`}
-function exportRtCsv(rt){const rows=[["Membro","Clã","Horário/Evento","Status","Observação","Alterado por"],...(rt.records||[]).map(r=>[r.memberName,r.clan,r.slot,rtStatusLabel(r.status),r.note,r.updatedByName])];const csv=rows.map(row=>row.map(v=>`"${String(v??"").replaceAll('"','""')}"`).join(";")).join("\n");const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`RT-${rt.typeLabel||rt.kind}-${rt.date||"registro"}.csv`;a.click();URL.revokeObjectURL(a.href)}
+function exportRtCsv(rt){const rows=[["Membro","Clã","Horário/Evento","Status","Observação","Alterado por"],...(rt.records||[]).map(r=>[r.memberName,r.clan,r.slot,rtStatusLabel(r.status),r.note,r.updatedByName])];const csv=rows.map(row=>row.map(v=>`"${csvSafe(v).replaceAll('"','""')}"`).join(";")).join("\n");const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`RT-${rt.typeLabel||rt.kind}-${rt.date||"registro"}.csv`;a.click();URL.revokeObjectURL(a.href)}
 function printRt(rt){const w=window.open("","_blank");if(!w)return toast("Permita pop-ups para imprimir.");w.document.write(`<html><head><title>RT ${escapeHtml(rt.id)}</title><style>body{font-family:Arial;padding:24px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #bbb;padding:8px;text-align:left}h1{margin-bottom:4px}</style></head><body><h1>RT Presença</h1><p>${escapeHtml(rt.typeLabel)} · ${escapeHtml(rt.slotLabel)} · ${escapeHtml(rt.date)}</p><p>Finalizada por ${escapeHtml(rt.finalizedByName||"Equipe")}</p>${rtRecordsTable(rt)}</body></html>`);finalizePrintWindow(w)}
 
 
@@ -1147,41 +1241,39 @@ function render(){
   const monthIso=todayIso.slice(0,7);
   animateNumber("kMembers",visibleMembers().length);
 
-  const todayPresent=state.attendance.filter(x=>(x.status===1||x.status===2)&&x.date===todayIso).length;
+  const todayPresent=homeAttendanceRecords().filter(x=>(x.status===1||x.status===2)&&x.date===todayIso).length;
   animateNumber("kPresence",todayPresent);
 
-  const monthEvents=new Set(
-    state.attendance
-      .filter(x=>x.kind==="eventos"&&String(x.date||"").startsWith(monthIso))
-      .map(x=>`${x.date}|${x.slot}`)
-  ).size;
+  const monthEvents=monthlyEventKeys(monthIso).size;
   animateNumber("kMonthEvents",monthEvents);
 
   const rank=visibleMembers()
-    .map(m=>({...m,...stats(m.name)}))
+    .map(m=>({...m,...stats(m)}))
     .sort((a,b)=>b.present-a.present||b.rate-a.rate);
+  const pointsRank=visibleMembers().slice().sort((a,b)=>progressionFor(b).totalXp-progressionFor(a).totalXp||String(a.name).localeCompare(String(b.name),"pt-BR"));
 
-  setText("kBest",rank[0]?.name||"—");
-  $("#kBestPoints").textContent=`${rank[0]?.present||0} presenças`;
+  setText("kBest",pointsRank[0]?.name||"—");
+  $("#kBestPoints").textContent=`${pointsRank[0]?progressionFor(pointsRank[0]).totalXp.toLocaleString("pt-BR"):0} pontos`;
 
   const recent=state.attendance
+    .filter(item=>memberForAttendance(item))
     .filter(x=>x.status===1||x.status===2)
-    .sort((a,b)=>String(b.date||"").localeCompare(String(a.date||"")))
+    .sort((a,b)=>attendanceTime(b)-attendanceTime(a))
     .slice(0,5);
 
-  $("#recentPresenceRows").innerHTML=recent.map(a=>`<tr>
-    <td><span class="member-avatar">${escapeHtml((a.memberName||"?").slice(0,1).toUpperCase())}</span>${escapeHtml(a.memberName||"—")}</td>
-    <td>${roleBadge(a.role)}</td>
+  $("#recentPresenceRows").innerHTML=recent.map(a=>{const currentMember=memberForAttendance(a);return `<tr>
+    <td><span class="member-avatar">${escapeHtml((currentMember?.name||"?").slice(0,1).toUpperCase())}</span>${escapeHtml(currentMember?.name||"—")}</td>
+    <td>${currentMember?memberDisplayRoleBadge(currentMember):roleBadge(a.role)}</td>
     <td>${escapeHtml(a.date||"—")}</td>
     <td>${escapeHtml(a.slot||a.kind||"—")}</td>
     <td><span class="badge ${attendanceStatusClass(a.status)}">${attendanceStatusLabel(a.status)}</span></td>
-  </tr>`).join("")||'<tr><td colspan="5">Nenhuma presença registrada.</td></tr>';
+  </tr>`}).join("")||'<tr><td colspan="5">Nenhuma presença registrada.</td></tr>';
 
-  $("#topFiveRows").innerHTML=rank.slice(0,5).map((r,i)=>`<tr>
+  $("#topFiveRows").innerHTML=pointsRank.slice(0,5).map((r,i)=>`<tr>
     <td><span class="rank-position rank-${i+1}">${i<3?["🥇","🥈","🥉"][i]:i+1}</span></td>
     <td><span class="member-avatar">${escapeHtml((r.name||"?").slice(0,1).toUpperCase())}</span>${escapeHtml(r.name)}</td>
-    <td>${roleBadge(r.role)}</td>
-    <td><strong class="ranking-points">${r.present}</strong></td>
+    <td>${memberDisplayRoleBadge(r)}</td>
+    <td><strong class="ranking-points">${progressionFor(r).totalXp.toLocaleString("pt-BR")}</strong></td>
   </tr>`).join("")||'<tr><td colspan="4">Sem dados de ranking.</td></tr>';
   renderUnifiedPresence();renderRtPresence();renderRecordsCenter();
   const dashboardSearch=($("#dashboardMemberSearch")?.value||"").toLowerCase();
@@ -1237,12 +1329,13 @@ function render(){
     </tr>`;
   }).join("")||"<tr><td colspan='7'>Nenhum membro.</td></tr>";
   $("#historyRows").innerHTML=state.attendance.map(a=>`<tr><td>${escapeHtml(a.date||"—")}</td><td>${escapeHtml(a.kind)}</td><td>${escapeHtml(a.memberName)}</td><td>${escapeHtml(a.clan||"—")}</td><td>${roleBadge(a.role)}</td><td>${attendanceStatusLabel(a.status)}</td></tr>`).join("");
-  $("#rankingRows").innerHTML=rank.map((r,i)=>`<tr><td>${i+1}</td><td>${escapeHtml(r.name)}</td><td>${escapeHtml(r.clan||"—")}</td><td>${roleBadge(r.role)}</td><td>${r.present}</td><td>${r.rate}%</td></tr>`).join("");
+  $("#rankingRows").innerHTML=pointsRank.map((r,i)=>{const progression=progressionFor(r);return `<tr><td>${i+1}</td><td>${escapeHtml(r.name)}</td><td>${escapeHtml(r.clan||"—")}</td><td>${memberDisplayRoleBadge(r)}</td><td>Lv. ${progression.level}</td><td><strong class="ranking-points">${progression.totalXp.toLocaleString("pt-BR")}</strong></td></tr>`}).join("")||'<tr><td colspan="6">Sem dados de ranking.</td></tr>';
   const pending=state.users.filter(u=>normalizeAccessRole(u.role)==="member"&&u.status==="pending");
   const requestOptions=REQUEST_ACCESS_OPTIONS[owner()?"dev":leadership()?"leadership":"staff"]||[];
   $("#requestRows").innerHTML=pending.map(u=>`<tr><td>${escapeHtml(u.name)}</td><td>${escapeHtml(u.email)}</td><td><select data-clan="${escapeHtml(u.id)}">${'<option value="">Clã</option>'+CLANS.map(x=>`<option>${x}</option>`).join("")}</select></td><td><select data-role="${escapeHtml(u.id)}">${requestOptions.map(option=>`<option value="${option.value}">${option.label}</option>`).join("")}</select></td><td><div class="request-actions">${permissionEnabled("requests_approve")?`<button class="btn primary" data-approve="${escapeHtml(u.id)}" type="button">Aprovar</button>`:""}${permissionEnabled("requests_reject")?`<button class="btn danger" data-reject="${escapeHtml(u.id)}" type="button">Rejeitar</button>`:""}</div></td></tr>`).join("")||"<tr><td colspan='5'>Nenhuma solicitação pendente.</td></tr>";
   renderAuditTable();
   renderNotifications();renderCalendar();renderStatistics();renderOwnProfile();renderCharacterProfile();renderCharactersTable();renderCharacterCenter();renderHistoryCenter();renderGoals();renderSystemHealth();renderStaffCommandCenter();renderLevelSystem();renderAdvancedCenter();scheduleProgressionSync();applyRestrictedVisibility();
+  window.SidebarV13?.updateBadges();
 }
 
 
@@ -1266,7 +1359,7 @@ function renderAdvancedCenter(){
   const logs=state.audit.slice().sort((a,b)=>(b.createdAt?.toMillis?.()||0)-(a.createdAt?.toMillis?.()||0));
   setHtml("advancedLogsRows",logs.map(a=>`<tr><td>${a.createdAt?.toDate?a.createdAt.toDate().toLocaleString("pt-BR"):"—"}</td><td>${escapeHtml(a.userName||"—")}</td><td>${escapeHtml(a.action||"—")}</td><td>${escapeHtml(a.details||"")}</td></tr>`).join("")||'<tr><td colspan="4">Nenhum log disponível.</td></tr>');
   setHtml("firebaseStatusCards",[diagnosticCard("Autenticação",advancedDiagnostics.auth),diagnosticCard("Cloud Firestore",advancedDiagnostics.firestore),diagnosticCard("Listeners em tempo real",advancedDiagnostics.listeners)].join(""));
-  setHtml("servicesStatusGrid",[diagnosticCard("Aplicação web",{ok:true,text:`V22.9.6 carregada · ${location.protocol==="https:"?"HTTPS":"ambiente local"}`}),diagnosticCard("Firebase Auth",advancedDiagnostics.auth),diagnosticCard("Cloud Firestore",advancedDiagnostics.firestore),diagnosticCard("PWA / Service Worker",advancedDiagnostics.pwa),diagnosticCard("GitHub",{ok:githubDiagnostics.ok,text:githubDiagnostics.text})].join(""));
+  setHtml("servicesStatusGrid",[diagnosticCard("Aplicação web",{ok:true,text:`V22.9.17 carregada · ${location.protocol==="https:"?"HTTPS":"ambiente local"}`}),diagnosticCard("Firebase Auth",advancedDiagnostics.auth),diagnosticCard("Cloud Firestore",advancedDiagnostics.firestore),diagnosticCard("PWA / Service Worker",advancedDiagnostics.pwa),diagnosticCard("GitHub",{ok:githubDiagnostics.ok,text:githubDiagnostics.text})].join(""));
   renderSessions();renderGithubStatus();
   setHtml("systemStatsGrid",[
     ["Usuários",state.users.filter(user=>resolveAccessRole(user)!=="dev").length],["Membros",visibleMembers().length],["Presenças",state.attendance.length],["Eventos",state.events.length],["Notificações",state.sentNotifications.length||state.notifications.length],["Logs",state.audit.length]
@@ -1279,7 +1372,7 @@ function renderAdvancedCenter(){
 function filteredAuditRows(){const term=String(byId("auditSearch")?.value||"").trim().toLowerCase();return state.audit.slice().sort((a,b)=>(b.createdAt?.toMillis?.()||0)-(a.createdAt?.toMillis?.()||0)).filter(item=>!term||`${item.userName||""} ${item.action||""} ${item.details||""}`.toLowerCase().includes(term))}
 function renderAuditTable(){const host=byId("auditRows");if(!host)return;host.innerHTML=filteredAuditRows().map(a=>`<tr><td>${a.createdAt?.toDate?a.createdAt.toDate().toLocaleString("pt-BR"):"—"}</td><td>${escapeHtml(a.userName||"—")}</td><td>${escapeHtml(a.action||"—")}</td><td>${escapeHtml(a.details||"")}</td></tr>`).join("")||'<tr><td colspan="4">Nenhum registro encontrado.</td></tr>'}
 on("auditSearch","input",renderAuditTable);
-on("exportAuditCsv","click",()=>{const rows=[["Data","Usuário","Ação","Detalhes"],...filteredAuditRows().map(item=>[item.createdAt?.toDate?item.createdAt.toDate().toLocaleString("pt-BR"):"",item.userName||"",item.action||"",item.details||""])],csv=rows.map(row=>row.map(value=>`"${String(value).replaceAll('"','""')}"`).join(";")).join("\n"),blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}),url=URL.createObjectURL(blob),link=document.createElement("a");link.href=url;link.download=`auditoria-77-team-${todayIso()}.csv`;link.click();URL.revokeObjectURL(url)});
+on("exportAuditCsv","click",()=>{const rows=[["Data","Usuário","Ação","Detalhes"],...filteredAuditRows().map(item=>[item.createdAt?.toDate?item.createdAt.toDate().toLocaleString("pt-BR"):"",item.userName||"",item.action||"",item.details||""])],csv=rows.map(row=>row.map(value=>`"${csvSafe(value).replaceAll('"','""')}"`).join(";")).join("\n"),blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}),url=URL.createObjectURL(blob),link=document.createElement("a");link.href=url;link.download=`auditoria-77-team-${todayIso()}.csv`;link.click();URL.revokeObjectURL(url)});
 function downloadJson(filename,data){const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
 async function runFirebaseDiagnostics(){
   const started=performance.now();advancedDiagnostics.auth={ok:!!auth.currentUser,text:auth.currentUser?`Autenticado como ${auth.currentUser.email||auth.currentUser.uid}`:"Sem usuário autenticado"};
@@ -1292,17 +1385,17 @@ async function checkGithub(){
   setText("githubUpdateStatus","Consultando GitHub...");
   try{const [repoResponse,runsResponse,releaseResponse]=await Promise.all([fetch(`https://api.github.com/repos/${repository}`,{headers:{Accept:"application/vnd.github+json"}}),fetch(`https://api.github.com/repos/${repository}/actions/runs?per_page=1`,{headers:{Accept:"application/vnd.github+json"}}),fetch(`https://api.github.com/repos/${repository}/releases/latest`,{headers:{Accept:"application/vnd.github+json"}})]);if(!repoResponse.ok)throw new Error(`Repositório indisponível (${repoResponse.status})`);const repo=await repoResponse.json(),runs=runsResponse.ok?await runsResponse.json():null,release=releaseResponse.ok?await releaseResponse.json():null,lastRun=runs?.workflow_runs?.[0];githubDiagnostics={ok:true,configured:true,repository,text:`${repo.full_name} · branch ${repo.default_branch} · atualizado ${new Date(repo.updated_at).toLocaleString("pt-BR")}`,workflows:lastRun?`${lastRun.name}: ${lastRun.conclusion||lastRun.status}`:"Nenhuma execução pública",release:release?.tag_name||"Nenhuma release publicada",testedAt:new Date().toISOString()};setText("githubUpdateStatus","Consulta concluída com sucesso.");renderAdvancedCenter();return true}catch(error){githubDiagnostics={ok:false,configured:true,repository,text:error.message||"Falha ao consultar GitHub",workflows:"Indisponível",release:"Indisponível"};setText("githubUpdateStatus",githubDiagnostics.text);renderAdvancedCenter();return false}
 }
-on("checkUpdatesButton","click",async()=>{const button=byId("checkUpdatesButton");if(button)button.disabled=true;try{const response=await fetch(`manifest.json?check=${Date.now()}`,{cache:"no-store"});if(!response.ok)throw new Error("Manifesto indisponível");const manifest=await response.json(),repository=state.settings?.advanced?.githubRepository||"";let message=`Versão publicada: ${manifest.version_name||manifest.version||"não informada"}. Versão carregada: 22.9.6.`;if(repository){await checkGithub();if(githubDiagnostics.release!=="Nenhuma release publicada"&&githubDiagnostics.release!=="Indisponível")message+=` GitHub: ${githubDiagnostics.release}.`}setText("updateStatusText",message);toast("Verificação concluída.")}catch(error){setText("updateStatusText",`Falha na verificação: ${error.message}`)}finally{if(button)button.disabled=false}});
-on("createBackupButton","click",async()=>{if(!owner())return;try{downloadJson(`77-team-backup-${localIsoDate()}.json`,await completeBackupPayload());toast("Backup completo e seguro gerado.")}catch(error){toast(error.message||errMsg(error))}});
-on("restoreBackupFile","change",async e=>{const file=e.target.files?.[0],button=byId("restoreAdvancedBackup");validatedAdvancedBackup=null;if(button)button.disabled=true;if(!file)return;if(file.size>50*1024*1024)return setText("restoreBackupInfo","Arquivo acima do limite seguro de 50 MB.");try{const data=JSON.parse(await file.text());validateBackupPayload(data);validatedAdvancedBackup=data;if(button)button.disabled=false;setText("restoreBackupInfo",`✓ Backup validado: V${data.version}, projeto ${data.projectId}, schema ${data.backupSchema}, gerado em ${new Date(data.generatedAt).toLocaleString("pt-BR")}.`)}catch(error){setText("restoreBackupInfo",`✕ Backup recusado: ${error.message||"arquivo inválido"}`)}});
+on("checkUpdatesButton","click",async()=>{const button=byId("checkUpdatesButton");if(button)button.disabled=true;try{const response=await fetch(`manifest.json?check=${Date.now()}`,{cache:"no-store"});if(!response.ok)throw new Error("Manifesto indisponível");const manifest=await response.json(),repository=state.settings?.advanced?.githubRepository||"";let message=`Versão publicada: ${manifest.version_name||manifest.version||"não informada"}. Versão carregada: 22.9.17.`;if(repository){await checkGithub();if(githubDiagnostics.release!=="Nenhuma release publicada"&&githubDiagnostics.release!=="Indisponível")message+=` GitHub: ${githubDiagnostics.release}.`}setText("updateStatusText",message);toast("Verificação concluída.")}catch(error){setText("updateStatusText",`Falha na verificação: ${error.message}`)}finally{if(button)button.disabled=false}});
+on("createBackupButton","click",async()=>{if(!owner())return;try{downloadJson(`77-team-backup-${localIsoDate()}.json`,await completeBackupPayload());toast("Backup completo do Firestore e seguro gerado.")}catch(error){toast(error.message||errMsg(error))}});
+on("restoreBackupFile","change",async e=>{const file=e.target.files?.[0],button=byId("restoreAdvancedBackup");validatedAdvancedBackup=null;if(button)button.disabled=true;if(!file)return;if(file.size>200*1024*1024)return setText("restoreBackupInfo","Arquivo acima do limite seguro de 200 MB.");try{const data=JSON.parse(await file.text());validateBackupPayload(data);validatedAdvancedBackup=data;if(button)button.disabled=false;setText("restoreBackupInfo",`✓ Backup validado: V${data.version}, projeto ${data.projectId}, schema ${data.backupSchema}, gerado em ${new Date(data.generatedAt).toLocaleString("pt-BR")}.`)}catch(error){setText("restoreBackupInfo",`✕ Backup recusado: ${error.message||"arquivo inválido"}`)}});
 on("restoreAdvancedBackup","click",async()=>{if(!owner()||!validatedAdvancedBackup)return;if(!confirm("Restaurar este backup validado? Um restoreJob persistente fará rollback automático em caso de falha."))return;const button=byId("restoreAdvancedBackup");button.disabled=true;setText("restoreBackupInfo","Restauração controlada em andamento. Não feche esta página...");try{const jobId=await restoreBackupPayload(validatedAdvancedBackup);setText("restoreBackupInfo",`✓ Restauração concluída. restoreJob: ${jobId}`);validatedAdvancedBackup=null;toast("Backup restaurado com rollback protegido.")}catch(error){setText("restoreBackupInfo",`✕ Restauração revertida: ${error.message||error}`);button.disabled=false}});
-function maintenanceFormData(){return {enabled:byId("maintenanceModeToggle")?.checked===true,title:byId("maintenanceTitle")?.value.trim()||"Sistema em manutenção",message:byId("maintenanceMessage")?.value.trim()||"Estamos realizando melhorias. Algumas funções podem apresentar instabilidade.",imageUrl:byId("maintenanceImageUrl")?.value.trim()||"",expectedEnd:byId("maintenanceExpectedEnd")?.value||"",showLogin:byId("maintenanceShowLogin")?.checked!==false,showApp:byId("maintenanceShowApp")?.checked!==false}}
+function maintenanceFormData(){const rawImage=byId("maintenanceImageUrl")?.value.trim()||"";return {enabled:byId("maintenanceModeToggle")?.checked===true,title:byId("maintenanceTitle")?.value.trim()||"Sistema em manutenção",message:byId("maintenanceMessage")?.value.trim()||"Estamos realizando melhorias. Algumas funções podem apresentar instabilidade.",imageUrl:rawImage?safeExternalUrl(rawImage):"",expectedEnd:byId("maintenanceExpectedEnd")?.value||"",showLogin:byId("maintenanceShowLogin")?.checked!==false,showApp:byId("maintenanceShowApp")?.checked!==false}}
 function formatMaintenanceEnd(value){if(!value)return "";const d=new Date(value);return Number.isNaN(d.getTime())?"":`Previsão de término: ${d.toLocaleString("pt-BR")}`}
-function setNoticeImage(element,url){if(!element)return;const safe=/^https?:\/\//i.test(url||"")?url:"";element.classList.toggle("hidden",!safe);if(safe)element.src=safe;else element.removeAttribute("src")}
+function setNoticeImage(element,url){if(!element)return;const safe=safeExternalUrl(url);element.classList.toggle("hidden",!safe);if(safe)element.src=safe;else element.removeAttribute("src")}
 function updateMaintenancePreview(){const data=maintenanceFormData();setText("maintenancePreviewTitle",`🚧 ${data.title}`);setText("maintenancePreviewMessage",data.message);const end=formatMaintenanceEnd(data.expectedEnd);setText("maintenancePreviewEnd",end);byId("maintenancePreviewEnd")?.classList.toggle("hidden",!end);setNoticeImage(byId("maintenancePreviewImage"),data.imageUrl);const chip=byId("maintenanceStatusChip");if(chip){chip.textContent=data.enabled?"Aviso ativo":"Sistema online";chip.classList.toggle("active",data.enabled)}}
 function applyMaintenanceNotice(){const data=state.settings?.maintenance||{};const enabled=data.enabled===true;const loginVisible=enabled&&data.showLogin!==false;const appVisible=enabled&&data.showApp!==false&&sessionStorage.getItem("77team-maintenance-dismissed")!==String(data.updatedAt||"");const login=byId("maintenanceLoginNotice");if(login){login.classList.toggle("hidden",!loginVisible);setText("maintenanceLoginTitle",`🚧 ${data.title||"Sistema em manutenção"}`);setText("maintenanceLoginMessage",data.message||"Estamos realizando melhorias.");const end=formatMaintenanceEnd(data.expectedEnd);setText("maintenanceLoginEnd",end);byId("maintenanceLoginEnd")?.classList.toggle("hidden",!end);setNoticeImage(byId("maintenanceLoginImage"),data.imageUrl)}const banner=byId("maintenanceAppBanner");if(banner){banner.classList.toggle("hidden",!appVisible);setText("maintenanceAppTitle",`🚧 ${data.title||"Sistema em manutenção"}`);setText("maintenanceAppMessage",data.message||"Estamos realizando melhorias.");const end=formatMaintenanceEnd(data.expectedEnd);setText("maintenanceAppEnd",end);byId("maintenanceAppEnd")?.classList.toggle("hidden",!end)}}
 ["maintenanceModeToggle","maintenanceTitle","maintenanceMessage","maintenanceImageUrl","maintenanceExpectedEnd","maintenanceShowLogin","maintenanceShowApp"].forEach(id=>{on(id,"input",()=>{maintenanceFormDirty=true;updateMaintenancePreview()});on(id,"change",()=>{maintenanceFormDirty=true;updateMaintenancePreview()})}); on("previewMaintenanceButton","click",()=>{updateMaintenancePreview();toast("Prévia atualizada.")}); on("closeMaintenanceBanner","click",()=>{sessionStorage.setItem("77team-maintenance-dismissed",String(state.settings?.maintenance?.updatedAt||""));byId("maintenanceAppBanner")?.classList.add("hidden")});
-on("saveMaintenanceButton","click",async()=>{if(!owner())return;try{const maintenance={...maintenanceFormData(),updatedAt:new Date().toISOString(),updatedBy:state.user.uid,updatedByName:state.profile?.name||state.user.email||"DEV"};await setDoc(doc(db,"settings","app"),{maintenance},{merge:true});state.settings={...state.settings,maintenance};maintenanceFormDirty=false;applyMaintenanceNotice();await audit("aviso de manutenção atualizado",maintenance.enabled?"ativado":"desativado");toast(maintenance.enabled?"Aviso de manutenção publicado.":"Aviso de manutenção desativado.")}catch(e){toast(errMsg(e))}});
+on("saveMaintenanceButton","click",async()=>{if(!owner())return;const rawImage=byId("maintenanceImageUrl")?.value.trim()||"";if(rawImage&&!safeExternalUrl(rawImage))return toast("A imagem do aviso precisa usar uma URL HTTPS válida.");try{const maintenance={...maintenanceFormData(),updatedAt:new Date().toISOString(),updatedBy:state.user.uid,updatedByName:state.profile?.name||state.user.email||"DEV"};await setDoc(doc(db,"settings","app"),{maintenance},{merge:true});state.settings={...state.settings,maintenance};maintenanceFormDirty=false;applyMaintenanceNotice();await audit("aviso de manutenção atualizado",maintenance.enabled?"ativado":"desativado");toast(maintenance.enabled?"Aviso de manutenção publicado.":"Aviso de manutenção desativado.")}catch(e){toast(errMsg(e))}});
 on("refreshFirebaseStatus","click",runFirebaseDiagnostics);on("refreshServicesStatus","click",async()=>{await runFirebaseDiagnostics();if(state.settings?.advanced?.githubRepository)await checkGithub();toast("Diagnóstico dos serviços concluído.")});
 on("checkGithubButton","click",checkGithub);on("refreshGithubStatus","click",checkGithub);
 on("clearInactiveSessions","click",async()=>{if(!owner())return;const cutoff=Date.now()-24*60*60*1000,stale=state.sessions.filter(item=>sessionTime(item.lastSeen)<cutoff);if(!stale.length)return toast("Nenhuma sessão inativa há mais de 24 horas.");if(!confirm(`Remover ${stale.length} sessão(ões) inativa(s)?`))return;try{for(let index=0;index<stale.length;index+=400){const batch=writeBatch(db);stale.slice(index,index+400).forEach(item=>batch.delete(doc(db,"sessions",item.id)));await batch.commit()}await audit("sessões inativas removidas",`${stale.length} registro(s)`);toast("Sessões inativas removidas.")}catch(error){toast(errMsg(error))}});
@@ -1452,7 +1545,7 @@ Um registro será salvo em Gestão → RT Presença.`))return;
       if(user.id===state.user?.uid){
         Object.assign(state.profile,user);
         state.profile.resolvedAccessRole=nextAccess;
-        applyAccessControl();
+        applyPermissions();
       }
       render();
 
@@ -1468,6 +1561,7 @@ Um registro será salvo em Gestão → RT Presença.`))return;
   const approve=e.target.closest("[data-approve]");
   if(approve&&permissionEnabled("requests_approve")){
     const u=state.users.find(x=>x.id===approve.dataset.approve);if(!u)return;
+    if(state.members.some(member=>member.id!==u.id&&String(member.name||"").trim().toLowerCase()===String(u.name||"").trim().toLowerCase()))return toast("Já existe um membro usando este nickname. Altere o nickname da solicitação antes de aprovar.");
     const clan=document.querySelector(`[data-clan="${escapeHtml(u.id)}"]`)?.value||"";
     const chosen=document.querySelector(`[data-role="${escapeHtml(u.id)}"]`)?.value||"";
     if(!clan)return toast("Selecione o clã.");
@@ -1480,17 +1574,22 @@ Um registro será salvo em Gestão → RT Presença.`))return;
     if(!confirm(`Aprovar ${u.name} com o cargo ${roleLabel}?`))return;
 
     try{
-      const batch=writeBatch(db);
-      batch.update(doc(db,"users",u.id),{
-        role:accessRole,accessRole,active:true,status:"approved",clan,memberRole,
-        approvedAt:serverTimestamp(),roleUpdatedAt:serverTimestamp(),
-        roleUpdatedBy:state.user.uid,updatedAt:serverTimestamp()
+      const key=nicknameClaimKey(u.name),claimRef=doc(db,"nicknameClaims",key);
+      await runTransaction(db,async transaction=>{
+        const claim=await transaction.get(claimRef);
+        if(claim.exists()&&claim.data()?.active!==false&&claim.data()?.uid!==u.id)throw new Error("Este nickname já está reservado por outra conta.");
+        transaction.update(doc(db,"users",u.id),{
+          role:accessRole,accessRole,active:true,status:"approved",clan,memberRole,nicknameClaimKey:key,memberDocumentId:u.id,
+          approvedAt:serverTimestamp(),roleUpdatedAt:serverTimestamp(),
+          roleUpdatedBy:state.user.uid,updatedAt:serverTimestamp()
+        });
+        transaction.set(doc(db,"members",u.id),{
+          name:u.name,role:memberRole,clan,userId:u.id,accessRole,
+          createdAt:serverTimestamp(),updatedAt:serverTimestamp()
+        },{merge:true});
+        const claimAlreadyCurrent=claim.exists()&&claim.data()?.active!==false&&claim.data()?.uid===u.id&&nicknameClaimKey(claim.data()?.name)===key;
+        if(!claimAlreadyCurrent)transaction.set(claimRef,{uid:u.id,memberId:u.id,name:u.name,normalizedKey:key,active:true,updatedAt:serverTimestamp()});
       });
-      batch.set(doc(db,"members",u.id),{
-        name:u.name,role:memberRole,clan,userId:u.id,accessRole,
-        createdAt:serverTimestamp(),updatedAt:serverTimestamp()
-      },{merge:true});
-      await batch.commit();
       await audit("solicitação aprovada",`${u.email} · ${roleLabel}`);
       toast(`${u.name} foi aprovado como ${roleLabel}.`);
     }catch(error){toast(errMsg(error));}
@@ -1525,21 +1624,26 @@ $("#memberForm").onsubmit=async event=>{
     toast("Para adicionar Staff, aprove ou promova uma conta existente. Não é necessário criar outro usuário.");
     return;
   }
-
-  await addDoc(collection(db,"members"),{
-    name,
-    role,
-    clan,
-    accessRole:"member",
-    createdAt:serverTimestamp()
-  });
-  event.target.reset();
+  const nicknameError=nicknameValidationError(name);if(nicknameError)return toast(nicknameError);
+  if(state.members.some(item=>String(item.name||"").trim().toLowerCase()===name.toLowerCase()))return toast("Este nickname já está sendo usado por outro membro.");
+  try{
+    await addDoc(collection(db,"members"),{
+      name,
+      role,
+      clan,
+      accessRole:"member",
+      active:true,
+      createdAt:serverTimestamp(),
+      updatedAt:serverTimestamp()
+    });
+    event.target.reset();
+    toast("Membro adicionado.");
+  }catch(error){toast(errMsg(error))}
 };
 
 
 $("#dashboardMemberSearch")?.addEventListener("input",render);
 
-setText("today",new Intl.DateTimeFormat("pt-BR",{dateStyle:"full"}).format(new Date()));
 
 
 document.addEventListener("click",event=>{
@@ -1592,7 +1696,11 @@ $("#eventForm").onsubmit=async event=>{
   if(submitButton?.disabled)return;
   const month=String($("#eventDate").value||"").slice(0,7),limit=Math.max(1,Number(state.settings?.events?.maxMonthlyEvents||20));
   if(state.events.filter(item=>item.id!==editingCalendarEventId&&String(item.date||"").startsWith(month)).length>=limit)return toast(`Limite de ${limit} eventos no mês atingido.`);
-  const payload={title:$("#eventTitle").value.trim(),date:$("#eventDate").value,time:$("#eventTime").value||"",type:$("#eventType").value,description:$("#eventDescription").value.trim()};
+  const title=$("#eventTitle").value.trim(),description=$("#eventDescription").value.trim();
+  if(!title)return toast("Informe o título do evento.");
+  if(title.length>120)return toast("O título do evento deve ter no máximo 120 caracteres.");
+  if(description.length>1000)return toast("A descrição do evento deve ter no máximo 1.000 caracteres.");
+  const payload={title,date:$("#eventDate").value,time:$("#eventTime").value||"",type:$("#eventType").value,description};
   if(submitButton)submitButton.disabled=true;
   try{
     if(editingCalendarEventId){
@@ -1652,8 +1760,11 @@ function loginCustomization(){
 function resolveLoginAssetUrl(value,fallback){
   const candidate=String(value||fallback||"").trim();
   if(!candidate)return "";
-  if(/^(https?:|blob:|data:)/i.test(candidate))return candidate;
-  try{return new URL(candidate,document.baseURI).href}catch{return candidate}
+  if(candidate.startsWith("blob:"))return candidate;
+  if(candidate.startsWith("data:"))return safeImageUrl(candidate);
+  if(/^https:/i.test(candidate))return safeExternalUrl(candidate);
+  if(/^[a-z][a-z0-9+.-]*:/i.test(candidate))return "";
+  try{const resolved=new URL(candidate,document.baseURI);return resolved.origin===location.origin?resolved.href:""}catch{return ""}
 }
 function setLoginBackground(screen,url,position){
   if(!screen)return;
@@ -1775,7 +1886,7 @@ function updateLiveClock(){
 }
 updateLiveClock();
 setInterval(updateLiveClock,1000);
-if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js?v=22.9.6").catch(error=>console.warn("Service Worker indisponível:",error)));
+if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js?v=22.9.17").catch(error=>console.warn("Service Worker indisponível:",error)));
 
 function animateNumber(id,target,suffix=""){
   const el=byId(id);
@@ -1831,13 +1942,61 @@ document.addEventListener("click",event=>{
 });
 
 
+function nicknameClaimKey(value){
+  return String(value||"").trim().toLowerCase();
+}
+function nicknameValidationError(value){
+  const name=String(value||"").trim();
+  if(name.length<2||name.length>30)return "O nickname precisa ter entre 2 e 30 caracteres.";
+  if(name.includes("/")||name==="."||name==="..")return "O nickname contém um caractere não permitido.";
+  return "";
+}
+let nicknameClaimMigrationTimer=null,nicknameClaimMigrationRunning=false,nicknameClaimMigrationCompleted=false;
+function scheduleNicknameClaimMigration(){
+  if(!owner()||nicknameClaimMigrationCompleted)return;
+  clearTimeout(nicknameClaimMigrationTimer);
+  nicknameClaimMigrationTimer=setTimeout(migrateExistingNicknameClaims,900);
+}
+async function migrateExistingNicknameClaims(){
+  if(!owner()||nicknameClaimMigrationRunning||nicknameClaimMigrationCompleted||!state.usersLoaded||!state.membersLoaded)return;
+  nicknameClaimMigrationRunning=true;
+  let migrated=0,conflicts=0,removed=0;
+  try{
+    const existingClaims=await getDocs(collection(db,"nicknameClaims"));
+    const expectedKeys=new Map(state.users.filter(user=>user.active===true&&String(user.status||"approved")==="approved"&&!nicknameValidationError(user.name)).map(user=>[user.id,nicknameClaimKey(user.name)]));
+    const staleClaims=existingClaims.docs.filter(item=>item.data()?.active===false||expectedKeys.get(item.data()?.uid)!==item.id||item.data()?.normalizedKey!==item.id||nicknameClaimKey(item.data()?.name)!==item.id);
+    for(let index=0;index<staleClaims.length;index+=350){const batch=writeBatch(db);staleClaims.slice(index,index+350).forEach(item=>batch.delete(item.ref));await batch.commit();removed+=Math.min(350,staleClaims.length-index)}
+    for(const user of state.users){
+      const name=String(user.name||"").trim(),key=nicknameClaimKey(name);
+      if(user.active!==true||String(user.status||"approved")!=="approved"||nicknameValidationError(name))continue;
+      const member=state.members.find(item=>item.userId===user.id||item.id===user.id)||null;
+      try{
+        await runTransaction(db,async transaction=>{
+          const claimRef=doc(db,"nicknameClaims",key),claim=await transaction.get(claimRef);
+          if(claim.exists()&&claim.data()?.active!==false&&claim.data()?.uid!==user.id)throw new Error("nickname-conflict");
+          const memberDocumentId=member?.id||"";
+          const claimData=claim.data()||{};
+          const claimCurrent=claim.exists()&&claimData.active!==false&&claimData.uid===user.id&&claimData.memberId===memberDocumentId&&claimData.name===name&&claimData.normalizedKey===key;
+          if(!claimCurrent)transaction.set(claimRef,{uid:user.id,memberId:memberDocumentId,name,normalizedKey:key,active:true,updatedAt:serverTimestamp()},{merge:true});
+          if(user.nicknameClaimKey!==key||String(user.memberDocumentId||"")!==memberDocumentId)transaction.update(doc(db,"users",user.id),{nicknameClaimKey:key,memberDocumentId,updatedAt:serverTimestamp()});
+        });
+        migrated++;
+      }catch(error){if(error?.message==="nickname-conflict")conflicts++;else throw error}
+    }
+    nicknameClaimMigrationCompleted=conflicts===0;
+    if(migrated||conflicts||removed)await audit("reservas de nickname migradas",`${migrated} vinculadas · ${removed} inválida(s) removida(s) · ${conflicts} conflito(s)`);
+    if(conflicts)toast(`${conflicts} nickname(s) duplicado(s) precisam ser alterados. As demais reservas foram reconciliadas.`);
+  }catch(error){console.error("Falha ao migrar reservas de nickname:",error)}
+  finally{nicknameClaimMigrationRunning=false}
+}
 function currentMemberRecord(){
   if(!state.user)return null;
-  return state.members.find(member=>
-    member.userId===state.user.uid||
-    member.id===state.user.uid||
-    String(member.name||"").toLowerCase()===String(state.profile?.name||"").toLowerCase()
-  )||null;
+  const linked=state.members.find(member=>member.userId===state.user.uid||member.id===state.user.uid);
+  if(linked)return linked;
+  const profileName=String(state.profile?.name||"").trim().toLowerCase();
+  if(!profileName)return null;
+  const legacyMatches=state.members.filter(member=>String(member.name||"").trim().toLowerCase()===profileName);
+  return legacyMatches.length===1?legacyMatches[0]:null;
 }
 function renderOwnProfile(){
   if(!state.user||!state.profile)return;
@@ -1845,21 +2004,16 @@ function renderOwnProfile(){
   const member=currentMemberRecord();
   const displayName=state.profile.name||member?.name||state.profile.email||"Usuário";
   const role=member?.role||state.profile.memberRole||state.profile.role||"Membro";
+  const accessRole=resolveAccessRole(state.profile);
   const clan=member?.clan||state.profile.clan||"Sem clã";
-  const avatar=state.profile.avatarDataUrl||"";
+  const avatar=safeImageUrl(state.profile.avatarDataUrl);
   const character=state.profile.character||{};
-  const stat=stats(member?.name||displayName);
+  const stat=stats(member);
   const progression=progressionFor(member,state.profile);
-  const medals=memberMedals({name:member?.name||displayName,role});
+  const medals=member?memberMedals(member):[];
   const rankingPosition=profileRankingPosition(member);
-  const eventCount=state.attendance.filter(item=>
-    (item.status===1||item.status===2)&&item.kind==="eventos"&&(
-      item.memberId===member?.id||
-      item.memberName===member?.name||
-      item.memberName===displayName
-    )
-  ).length;
-  const points=(stat.present*100)+(eventCount*50);
+  const eventCount=member?state.attendance.filter(item=>(item.status===1||item.status===2)&&item.kind==="eventos"&&attendanceMatchesMember(item,member)).length:0;
+  const points=progression.totalXp;
 
   setText("profileDisplayName",displayName);
   setText("profileEmail",state.profile.email||state.user.email||"—");
@@ -1877,7 +2031,7 @@ function renderOwnProfile(){
   setText("heroCharacterLevel",character.level||0);
   setText("heroRanking",rankingPosition?`#${rankingPosition}`:"—");
   setText("profileAvatarFallback",(displayName||"U").slice(0,1).toUpperCase());
-  setHtml("profileRoleBadge",roleBadge(role));
+  setHtml("profileRoleBadge",roleBadge(["dev","leadership","staff"].includes(accessRole)?accessRole:role));
   setHtml("profileMedals",medals.length?medals.map(item=>`<span>${item}</span>`).join(""):"Nenhuma medalha ainda.");
 
   const progressFill=byId("profileProgressFill");
@@ -1906,17 +2060,13 @@ function renderOwnProfile(){
   setValue("profileEmailInput",state.user.email||state.profile.email||"");
 
   const history=state.attendance
-    .filter(item=>
-      item.memberId===member?.id||
-      item.memberName===member?.name||
-      item.memberName===displayName
-    )
+    .filter(item=>member&&attendanceMatchesMember(item,member))
     .sort((a,b)=>String(b.date||"").localeCompare(String(a.date||"")))
     .slice(0,20);
 
   setHtml("profileHistoryRows",history.map(item=>`<tr>
     <td>${escapeHtml(formatHistoryDate(item.date))}</td>
-    <td>${escapeHtml(item.kind||"—")}</td>
+    <td>${escapeHtml(presenceTypeLabel(item.kind))}</td>
     <td>${escapeHtml(item.slot||"—")}</td>
     <td>${attendanceStatusLabel(item.status)}</td>
   </tr>`).join("")||'<tr><td colspan="4">Nenhum registro encontrado.</td></tr>');
@@ -2003,18 +2153,34 @@ on("profileNicknameForm","submit",async event=>{
   const whatsapp=(byId("profileWhatsappInput")?.value||"").trim();
   const birthDate=byId("profileBirthDateInput")?.value||"";
   const bio=(byId("profileBioInput")?.value||"").trim();
-  if(name.length<2)return toast("O nickname precisa ter pelo menos 2 caracteres.");
+  const nicknameError=nicknameValidationError(name);if(nicknameError)return toast(nicknameError);
   if(displayName.length<2)return toast("O nome de exibição precisa ter pelo menos 2 caracteres.");
+  const member=currentMemberRecord();
+  if(visibleMembers().some(item=>item.id!==member?.id&&String(item.name||"").toLowerCase()===name.toLowerCase()))return toast("Este nickname já está sendo usado por outro membro.");
   try{
-    const payload={name,displayName,discord,whatsapp,birthDate,bio,updatedAt:serverTimestamp()};
-    await updateDoc(doc(db,"users",state.user.uid),payload);
-    Object.assign(state.profile,{name,displayName,discord,whatsapp,birthDate,bio});
+    const memberDocumentId=member?.id||String(state.profile?.memberDocumentId||"");
+    const payload={name,displayName,discord,whatsapp,birthDate,bio,nicknameClaimKey:nicknameClaimKey(name),memberDocumentId,updatedAt:serverTimestamp()};
+    const newClaimKey=nicknameClaimKey(name),oldClaimKey=nicknameClaimKey(state.profile?.name||"");
+    await runTransaction(db,async transaction=>{
+      const claimRef=doc(db,"nicknameClaims",newClaimKey);
+      const oldClaimRef=oldClaimKey&&oldClaimKey!==newClaimKey?doc(db,"nicknameClaims",oldClaimKey):null;
+      const oldClaimSnapshot=oldClaimRef?await transaction.get(oldClaimRef):null;
+      const claimSnapshot=await transaction.get(claimRef);
+      if(claimSnapshot.exists()&&claimSnapshot.data()?.active!==false&&claimSnapshot.data()?.uid!==state.user.uid)throw new Error("Este nickname já está sendo usado por outro membro.");
+      const claimAlreadyCurrent=claimSnapshot.exists()&&claimSnapshot.data()?.active!==false&&claimSnapshot.data()?.uid===state.user.uid&&nicknameClaimKey(claimSnapshot.data()?.name)===newClaimKey;
+      if(!claimAlreadyCurrent)transaction.set(claimRef,{uid:state.user.uid,memberId:memberDocumentId,name,normalizedKey:newClaimKey,active:true,updatedAt:serverTimestamp()});
+      if(oldClaimRef&&oldClaimSnapshot?.exists()&&oldClaimSnapshot.data()?.active!==false&&oldClaimSnapshot.data()?.uid===state.user.uid)transaction.update(oldClaimRef,{active:false,updatedAt:serverTimestamp()});
+      transaction.update(doc(db,"users",state.user.uid),payload);
+      if(member)transaction.update(doc(db,"members",member.id),{name,updatedAt:serverTimestamp()});
+    });
+    Object.assign(state.profile,{name,displayName,discord,whatsapp,birthDate,bio,nicknameClaimKey:newClaimKey,memberDocumentId});
+    if(member)member.name=name;
     applyPermissions();updateFirstAccessUI();renderOwnProfile();renderCharacterProfile();renderCharactersTable();renderCharacterCenter();renderHistoryCenter();renderGoals();renderSystemHealth();renderStaffCommandCenter();applyRestrictedVisibility();
     toast("Perfil completo atualizado.");
   }catch(error){
     console.error("Falha ao salvar o próprio perfil:",error);
     toast(error?.code==="permission-denied"
-      ? "Permissão negada ao salvar o perfil. Publique o firestore.rules da V22.7.2 no Firebase e confirme o projeto team-f78cd."
+      ? "Permissão negada ao salvar o perfil. Publique o firestore.rules da V22.9.17 no Firebase e confirme o projeto team-f78cd."
       : (error.message||"Não foi possível atualizar o perfil."));
   }
 });
@@ -2068,17 +2234,21 @@ on("profilePasswordForm","submit",async event=>{
   const password=byId("profileNewPassword")?.value||"";
   const confirm=byId("profileConfirmPassword")?.value||"";
   const emailChanged=newEmail&&newEmail!==String(auth.currentUser.email||"").toLowerCase();
+  const previousEmail=String(auth.currentUser.email||"").toLowerCase();
   if(!emailChanged&&!password)return toast("Nenhuma alteração informada.");
   if((emailChanged||password)&&currentPassword.length<6)return toast("Informe sua senha atual.");
   if(password&&password.length<6)return toast("A nova senha precisa ter pelo menos 6 caracteres.");
   if(password!==confirm)return toast("As senhas não conferem.");
+  let emailCommitted=false;
   try{
     const credential=EmailAuthProvider.credential(auth.currentUser.email,currentPassword);
     await reauthenticateWithCredential(auth.currentUser,credential);
     if(emailChanged){
       await updateEmail(auth.currentUser,newEmail);
-      await updateDoc(doc(db,"users",state.user.uid),{email:newEmail,updatedAt:serverTimestamp()});
+      try{await updateDoc(doc(db,"users",state.user.uid),{email:newEmail,updatedAt:serverTimestamp()})}
+      catch(error){try{await updateEmail(auth.currentUser,previousEmail)}catch{}throw error}
       state.profile.email=newEmail;
+      emailCommitted=true;
     }
     if(password)await updatePassword(auth.currentUser,password);
     event.target.reset();
@@ -2087,7 +2257,7 @@ on("profilePasswordForm","submit",async event=>{
     toast(emailChanged&&password?"E-mail e senha atualizados.":emailChanged?"E-mail atualizado.":"Senha atualizada.");
   }catch(error){
     const messages={"auth/wrong-password":"Senha atual incorreta.","auth/invalid-credential":"Senha atual incorreta.","auth/email-already-in-use":"Este e-mail já está em uso.","auth/invalid-email":"Informe um e-mail válido."};
-    toast(messages[error?.code]||errMsg(error));
+    toast(emailCommitted?`O e-mail foi atualizado, mas a senha não pôde ser alterada: ${messages[error?.code]||errMsg(error)}`:messages[error?.code]||errMsg(error));
   }
 });
 
@@ -2358,9 +2528,9 @@ on("characterSearch","input",renderCharactersTable);
 function profileRankingPosition(member){
   if(!member)return 0;
   const ranking=visibleMembers()
-    .map(item=>({...item,...stats(item.name)}))
-    .sort((a,b)=>b.present-a.present||b.rate-a.rate);
-  const index=ranking.findIndex(item=>item.id===member.id||item.name===member.name);
+    .slice()
+    .sort((a,b)=>progressionFor(b).totalXp-progressionFor(a).totalXp||String(a.name||"").localeCompare(String(b.name||""),"pt-BR"));
+  const index=ranking.findIndex(item=>item.id===member.id);
   return index>=0?index+1:0;
 }
 
@@ -2398,7 +2568,7 @@ function characterCenterRows(){
         item.name===user.name
       )||{};
       const character=user.character||{};
-      const stat=stats(member.name||user.name||"");
+      const stat=stats(member);
       return {
         id:user.id,
         nickname:user.name||"—",
@@ -2877,17 +3047,17 @@ document.addEventListener("click",event=>{
 function historyCenterRows(){
   return state.attendance
     .filter(item=>item.status!==0)
+    .filter(item=>Boolean(memberForAttendance(item)))
     .map(item=>{
-      const member=state.members.find(member=>
-        member.id===item.memberId||member.name===item.memberName
-      )||{};
+      const member=memberForAttendance(item);
       return {
         id:item.id,
+        activeMember:Boolean(member),
         date:item.date||"",
-        memberId:item.memberId||member.id||"",
-        memberName:item.memberName||member.name||"—",
-        role:item.role||member.role||"Membro",
-        clan:item.clan||member.clan||"Sem clã",
+        memberId:member?.id||item.memberId||item.userId||"",
+        memberName:member?.name||item.memberName||"—",
+        role:member?.role||item.role||"Membro",
+        clan:member?.clan||item.clan||"Sem clã",
         kind:item.kind||"—",
         slot:item.slot||"—",
         status:item.status||0
@@ -2923,7 +3093,7 @@ function populateHistoryFilters(rows){
     const current=el.value;
     el.innerHTML=`<option value="">${label}</option>`+
       [...new Set(values.filter(Boolean))].sort((a,b)=>String(a).localeCompare(String(b),"pt-BR"))
-      .map(value=>`<option value="${value}">${value}</option>`).join("");
+      .map(value=>`<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join("");
     if([...el.options].some(option=>option.value===current))el.value=current;
   };
 
@@ -2971,7 +3141,7 @@ function renderHistoryTimeline(rows){
           <div class="history-entry-icon">${attendanceStatusIcon(item.status)}</div>
           <div>
             <strong>${escapeHtml(item.memberName)}</strong>
-            <p>${escapeHtml(item.kind)} · ${escapeHtml(item.slot)}</p>
+            <p>${escapeHtml(presenceTypeLabel(item.kind))} · ${escapeHtml(item.slot)}</p>
             <small>${escapeHtml(item.role)} · ${escapeHtml(item.clan)}</small>
           </div>
           <span>${attendanceStatusLabel(item.status)}</span>
@@ -2988,7 +3158,7 @@ function renderHistoryTableV72(rows){
     <td><strong>${escapeHtml(item.memberName)}</strong></td>
     <td>${roleBadge(item.role)}</td>
     <td>${escapeHtml(item.clan)}</td>
-    <td>${escapeHtml(item.kind)}</td>
+    <td>${escapeHtml(presenceTypeLabel(item.kind))}</td>
     <td>${escapeHtml(item.slot)}</td>
     <td>${attendanceStatusLabel(item.status)}</td>
     <td><button class="btn" data-history-details="${escapeHtml(item.id)}" type="button">Detalhes</button></td>
@@ -3000,11 +3170,11 @@ function renderHistoryCharts(rows){
   rows.forEach(item=>typeCounts[item.kind]=(typeCounts[item.kind]||0)+1);
   const maxType=Math.max(1,...Object.values(typeCounts));
   setHtml("historyTypeBars",Object.entries(typeCounts).map(([name,value])=>`
-    <div class="history-bar-row"><span>${escapeHtml(name)}</span><div><i style="width:${Math.round(value/maxType*100)}%"></i></div><strong>${value}</strong></div>
+    <div class="history-bar-row"><span>${escapeHtml(presenceTypeLabel(name))}</span><div><i style="width:${Math.round(value/maxType*100)}%"></i></div><strong>${value}</strong></div>
   `).join("")||"<p>Sem dados.</p>");
 
   const memberCounts={};
-  rows.filter(item=>item.status===1||item.status===2).forEach(item=>memberCounts[item.memberName]=(memberCounts[item.memberName]||0)+1);
+  rows.filter(item=>item.activeMember&&(item.status===1||item.status===2)).forEach(item=>memberCounts[item.memberName]=(memberCounts[item.memberName]||0)+1);
   const top=Object.entries(memberCounts).sort((a,b)=>b[1]-a[1]).slice(0,5);
   const maxMember=Math.max(1,...top.map(item=>item[1]));
   setHtml("historyTopMembers",top.map(([name,value])=>`
@@ -3032,7 +3202,7 @@ function openHistoryDetails(item){
     </div>
     <div class="history-detail-grid">
       <div><span>Data</span><strong>${escapeHtml(formatHistoryDate(item.date))}</strong></div>
-      <div><span>Tipo</span><strong>${escapeHtml(item.kind)}</strong></div>
+      <div><span>Tipo</span><strong>${escapeHtml(presenceTypeLabel(item.kind))}</strong></div>
       <div><span>Horário/Evento</span><strong>${escapeHtml(item.slot)}</strong></div>
       <div><span>Cargo</span><strong>${escapeHtml(item.role)}</strong></div>
       <div><span>Clã</span><strong>${escapeHtml(item.clan)}</strong></div>
@@ -3049,7 +3219,7 @@ function printHistoryRows(rows,title){
 
   const body=rows.map(item=>`<tr>
     <td>${escapeHtml(formatHistoryDate(item.date))}</td><td>${escapeHtml(item.memberName)}</td><td>${escapeHtml(item.role)}</td>
-    <td>${escapeHtml(item.clan)}</td><td>${escapeHtml(item.kind)}</td><td>${escapeHtml(item.slot)}</td>
+    <td>${escapeHtml(item.clan)}</td><td>${escapeHtml(presenceTypeLabel(item.kind))}</td><td>${escapeHtml(item.slot)}</td>
     <td>${attendanceStatusLabel(item.status)}</td>
   </tr>`).join("");
 
@@ -3069,7 +3239,7 @@ function downloadHistoryCsvFile(rows){
   const lines=[headers,...rows.map(item=>[
     formatHistoryDate(item.date),item.memberName,item.role,item.clan,item.kind,item.slot,attendanceStatusLabel(item.status)
   ])];
-  const csv=lines.map(row=>row.map(value=>`"${String(value).replace(/"/g,'""')}"`).join(";")).join("\n");
+  const csv=lines.map(row=>row.map(value=>`"${csvSafe(value).replace(/"/g,'""')}"`).join(";")).join("\n");
   const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"});
   const url=URL.createObjectURL(blob);
   const link=document.createElement("a");
@@ -3206,8 +3376,15 @@ async function saveSettingsSection(section){
   try{
     const payload=settingsPayload(section);
     if(section==="notifications"){
-      await setDoc(doc(db,"settings","app"),{notifications:payload,updatedAt:serverTimestamp(),updatedBy:state.user.uid},{merge:true});
-      state.settings={...state.settings,notifications:payload};
+      if(owner()){
+        const batch=writeBatch(db),notificationsPrivate={discordWebhook:String(cfgValue("cfgDiscordWebhook")||"").trim()};
+        batch.set(doc(db,"settings","app"),{notifications:payload,updatedAt:serverTimestamp(),updatedBy:state.user.uid},{merge:true});
+        batch.set(doc(db,"settings","private"),{notificationsPrivate,updatedAt:serverTimestamp(),updatedBy:state.user.uid},{merge:true});
+        await batch.commit();state.settings={...state.settings,notifications:{...payload,...notificationsPrivate}};
+      }else{
+        await setDoc(doc(db,"settings","app"),{notifications:payload,updatedAt:serverTimestamp(),updatedBy:state.user.uid},{merge:true});
+        state.settings={...state.settings,notifications:{...(state.settings?.notifications||{}),...payload}};
+      }
     }else{
       await setDoc(doc(db,"settings","app"),{[section]:payload,updatedAt:serverTimestamp(),updatedBy:state.user.uid},{merge:true});
       state.settings={...state.settings,[section]:payload};
@@ -3222,6 +3399,7 @@ async function saveSettingsSection(section){
   }
 }
 
+/* Matriz legada removida; Cargos e Permissões usa rolePermissions.
 function renderPermissionMatrix(){
   const tbody=byId("permissionsRows");
   if(!tbody)return;
@@ -3241,7 +3419,7 @@ function renderPermissionMatrix(){
       return `<td><input id="perm-${role}-${module}" type="checkbox" ${checked?"checked":""} ${locked?"disabled":""}></td>`;
     }).join("")}
   </tr>`).join("");
-}
+} */
 
 let settingsFormDirty=false;
 function loadSettingsForm(force=false){
@@ -3316,7 +3494,6 @@ function loadSettingsForm(force=false){
   setCfgValue("cfgAuditChanges",security.auditChanges??true);
   setCfgValue("cfgDeniedAlerts",security.deniedAlerts??true);
 
-  renderPermissionMatrix();
   renderSettingsPreview();
   applyEnterpriseAppearance();
   renderSystemHealth();
@@ -3399,18 +3576,19 @@ function backupPayload(){
   return serializeBackupValue({
     format:"77-team-manager-backup",
     backupSchema:3,
-    version:"22.9.6",
+    version:"22.9.17",
     generatedAt:new Date().toISOString(),
     projectId:firebaseConfig.projectId,
     collections:{
       users:state.users,
       members:state.members,
+      nicknameClaims:[],
       attendance:state.attendance,
       events:state.events,
       notifications:state.notifications,
       notificationReads:state.notificationReads,
       rtPresence:state.rtPresence,
-      presenceBackups:state.presenceBackups.map(({records,rtRecords,...item})=>item),
+      presenceBackups:state.presenceBackups.filter(item=>!item.status||item.status==="completed").map(({records,rtRecords,...item})=>item),
       xpLogs:state.xpLogs,
       audit:state.audit,
       supportMessages:state.supportMessages,
@@ -3421,15 +3599,17 @@ function backupPayload(){
 }
 
 async function completeBackupPayload(){
-  if(!owner())throw new Error("Somente o DEV pode gerar o backup completo.");
+  if(!owner())throw new Error("Somente o DEV pode gerar o backup completo do Firestore.");
   const payload=backupPayload();
   const reads=await getDocs(collection(db,"notificationReads"));
   const resetJobs=await getDocs(collection(db,"resetJobs"));
+  const nicknameClaims=await getDocs(collection(db,"nicknameClaims"));
   payload.collections.notifications=serializeBackupValue(state.sentNotifications||state.notifications);
   payload.collections.notificationReads=serializeBackupValue(reads.docs.map(item=>({id:item.id,...item.data()})));
   payload.collections.resetJobs=serializeBackupValue(resetJobs.docs.map(item=>({id:item.id,...item.data()})));
+  payload.collections.nicknameClaims=serializeBackupValue(nicknameClaims.docs.map(item=>({id:item.id,...item.data()})).filter(item=>item.active!==false&&item.id===nicknameClaimKey(item.name)).map(item=>({...item,active:true})));
   payload.subcollections={presenceBackups:{}};
-  for(const backup of state.presenceBackups){
+  for(const backup of state.presenceBackups.filter(item=>!item.status||item.status==="completed")){
     const data=await loadPresenceBackupData(backup);
     payload.subcollections.presenceBackups[backup.id]={
       attendance:serializeBackupValue(data.records),
@@ -3443,10 +3623,10 @@ async function completeBackupPayload(){
   return payload;
 }
 
-function validBackupDocumentId(value){return typeof value==="string"&&/^[A-Za-z0-9_-]{1,500}$/.test(value)}
+function validBackupDocumentId(value){return typeof value==="string"&&value.length>=1&&value.length<=500&&value!=="."&&value!==".."&&!/[\/\u0000-\u001F\u007F]/.test(value)}
 function validateBackupValue(value,depth=0){
   if(depth>20)throw new Error("Backup excede a profundidade permitida.");
-  if(typeof value==="string"&&value.length>200000)throw new Error("Backup contém texto acima do limite seguro.");
+  if(typeof value==="string"&&value.length>800000)throw new Error("Backup contém texto acima do limite seguro.");
   if(Array.isArray(value)){value.forEach(item=>validateBackupValue(item,depth+1));return}
   if(value&&typeof value==="object")for(const [key,item] of Object.entries(value)){
     if(["__proto__","prototype","constructor"].includes(key))throw new Error("Backup contém uma chave não permitida.");
@@ -3459,10 +3639,13 @@ function optionalFinite(item,key){return item[key]===undefined||(typeof item[key
 function validateBackupDocument(name,item){
   const invalid=message=>{throw new Error(`Documento inválido em ${name}: ${message}.`)};
   if(name==="users"){
-    if(!optionalText(item,"name",120)||!optionalText(item,"email",254)||!optionalText(item,"role",40)||!optionalText(item,"accessRole",40)||!optionalBoolean(item,"active"))invalid("perfil ou tipos incompatíveis");
+    if(!optionalText(item,"name",120)||!optionalText(item,"email",254)||!optionalText(item,"role",40)||!optionalText(item,"accessRole",40)||!optionalText(item,"memberDocumentId",500)||!optionalBoolean(item,"active"))invalid("perfil ou tipos incompatíveis");
+    if(item.avatarDataUrl!==undefined&&(typeof item.avatarDataUrl!=="string"||item.avatarDataUrl.length>700000||(item.avatarDataUrl!==""&&!safeImageUrl(item.avatarDataUrl))))invalid("avatar inválido ou acima do limite");
     if(item.status!==undefined&&!["pending","approved","rejected"].includes(item.status))invalid("status desconhecido");
   }else if(name==="members"){
     if(typeof item.name!=="string"||!item.name.trim()||item.name.length>120||!optionalText(item,"clan",80)||!optionalText(item,"userId",128)||!optionalText(item,"role",40))invalid("campos do membro incompatíveis");
+  }else if(name==="nicknameClaims"){
+    if(typeof item.uid!=="string"||!item.uid||item.uid.length>128||!optionalText(item,"memberId",500)||typeof item.name!=="string"||item.name.length<2||item.name.length>30||item.normalizedKey!==item.id||item.name.trim().toLowerCase()!==item.id||item.active!==true)invalid("reserva de nickname incompatível");
   }else if(name==="attendance"){
     if(!optionalText(item,"memberId",500)||!optionalText(item,"userId",128)||!optionalText(item,"memberName",120)||!optionalText(item,"note",1000))invalid("campos da presença incompatíveis");
     if(item.kind!==undefined&&!["worldboss","purgatorio","eventos"].includes(item.kind))invalid("tipo de presença desconhecido");
@@ -3492,31 +3675,59 @@ function validateBackupPayload(payload){
   validateBackupValue(payload);
   if(!payload||payload.format!=="77-team-manager-backup")throw new Error("Formato de backup incompatível.");
   if(payload.projectId!==firebaseConfig.projectId)throw new Error("Este backup pertence a outro projeto Firebase.");
-  if(Number(payload.backupSchema||0)!==3)throw new Error("Schema de backup incompatível. Use um backup completo V22.8.5 a V22.9.6 com schema 3.");
-  if(!["22.8.5","22.8.6","22.8.7","22.8.8","22.8.9","22.9.0","22.9.1","22.9.2","22.9.3","22.9.4","22.9.5","22.9.6"].includes(String(payload.version||"")))throw new Error("Versão de backup incompatível.");
+  if(Number(payload.backupSchema||0)!==3)throw new Error("Schema de backup incompatível. Use um backup completo do Firestore V22.8.5 a V22.9.17 com schema 3.");
+  if(!["22.8.5","22.8.6","22.8.7","22.8.8","22.8.9","22.9.0","22.9.1","22.9.2","22.9.3","22.9.4","22.9.5","22.9.6","22.9.7","22.9.8","22.9.9","22.9.10","22.9.11","22.9.12","22.9.13","22.9.14","22.9.15","22.9.16","22.9.17"].includes(String(payload.version||"")))throw new Error("Versão de backup incompatível.");
   if(!payload.collections||typeof payload.collections!=="object"||Array.isArray(payload.collections))throw new Error("Coleções do backup ausentes.");
-  const allowed=["users","members","attendance","events","notifications","notificationReads","rtPresence","presenceBackups","resetJobs","xpLogs","audit","supportMessages","chatMessages"];
+  const allowed=["users","members","nicknameClaims","attendance","events","notifications","notificationReads","rtPresence","presenceBackups","resetJobs","xpLogs","audit","supportMessages","chatMessages"];
+  if(!Array.isArray(payload.collections.nicknameClaims))payload.collections.nicknameClaims=[];
   for(const name of allowed)if(!Array.isArray(payload.collections[name]))throw new Error(`Coleção obrigatória ausente: ${name}.`);
   for(const [name,rows] of Object.entries(payload.collections)){
     if(!allowed.includes(name))throw new Error(`Coleção não permitida: ${name}.`);
     if(!Array.isArray(rows)||rows.length>50000)throw new Error(`Coleção inválida ou excessiva: ${name}.`);
     rows.forEach(item=>{if(!item||!validBackupDocumentId(item.id))throw new Error(`Documento inválido em ${name}.`);validateBackupDocument(name,item)});
   }
+  const backupUsers=new Map(payload.collections.users.map(item=>[item.id,item]));
+  const backupMembers=new Map(payload.collections.members.map(item=>[item.id,item]));
+  const claimedUids=new Set();
+  for(const claim of payload.collections.nicknameClaims){
+    const user=backupUsers.get(claim.uid),member=claim.memberId?backupMembers.get(claim.memberId):null;
+    if(!user||String(user.name||"").trim().toLowerCase()!==claim.id)throw new Error(`Reserva de nickname sem usuário correspondente: ${claim.id}.`);
+    if(user.active!==true||String(user.status||"approved")!=="approved")throw new Error(`Reserva de nickname vinculada a usuário inativo: ${claim.id}.`);
+    if(user.nicknameClaimKey!==undefined&&user.nicknameClaimKey!==claim.id)throw new Error(`Vínculo de nickname divergente no usuário ${claim.uid}.`);
+    if(["22.9.12","22.9.13","22.9.14","22.9.15","22.9.16","22.9.17"].includes(String(payload.version||""))&&String(user.memberDocumentId||"")!==String(claim.memberId||""))throw new Error(`Documento de membro divergente na reserva ${claim.id}.`);
+    if(["22.9.12","22.9.13","22.9.14","22.9.15","22.9.16","22.9.17"].includes(String(payload.version||""))&&normalizeAccessRole(user.accessRole||user.role)!=="dev"&&!claim.memberId)throw new Error(`Reserva sem membro vinculado: ${claim.id}.`);
+    if(claim.memberId&&(!member||(member.userId!==claim.uid&&member.id!==claim.uid)||String(member.name||"").trim().toLowerCase()!==claim.id))throw new Error(`Reserva de nickname sem membro correspondente: ${claim.id}.`);
+    if(claimedUids.has(claim.uid))throw new Error(`O usuário ${claim.uid} possui mais de uma reserva de nickname.`);
+    claimedUids.add(claim.uid);
+  }
+  if(["22.9.11","22.9.12","22.9.13","22.9.14","22.9.15","22.9.16","22.9.17"].includes(String(payload.version||"")))for(const user of payload.collections.users){
+    if(user.active===true&&String(user.status||"approved")==="approved"&&normalizeAccessRole(user.accessRole||user.role)!=="dev"&&!claimedUids.has(user.id))throw new Error(`Usuário ativo sem reserva de nickname: ${user.id}.`);
+  }
   const ownerRow=payload.collections.users.find(item=>item.id===state.user?.uid);
-  if(ownerRow&&(normalizeAccessRole(ownerRow.accessRole||ownerRow.role)!=="dev"||ownerRow.active!==true||ownerRow.status!=="approved"))throw new Error("O backup tenta remover a autorização da conta DEV atual.");
+  if(!ownerRow)throw new Error("O backup não contém a conta DEV autenticada.");
+  if(normalizeAccessRole(ownerRow.accessRole||ownerRow.role)!=="dev"||ownerRow.active!==true||ownerRow.status!=="approved")throw new Error("O backup tenta remover a autorização da conta DEV atual.");
   const groups=payload.subcollections?.presenceBackups;
   if(!groups||typeof groups!=="object"||Array.isArray(groups))throw new Error("Subcoleções dos backups semanais ausentes.");
+  const backupParents=new Map(payload.collections.presenceBackups.map(item=>[item.id,item]));
+  const groupIds=Object.keys(groups);
+  if(groupIds.length!==backupParents.size||groupIds.some(id=>!backupParents.has(id)))throw new Error("Metadados e subcoleções dos backups semanais estão divergentes.");
   for(const [backupId,data] of Object.entries(groups)){
     if(!validBackupDocumentId(backupId)||!Array.isArray(data?.attendance)||!Array.isArray(data?.rt))throw new Error("Subcoleção semanal inválida.");
     if(data.attendance.length>50000||data.rt.length>10000)throw new Error("Subcoleção semanal excede o limite seguro.");
-    [...data.attendance,...data.rt].forEach(item=>{if(!item||!validBackupDocumentId(item.originalId||item.id))throw new Error(`Registro inválido no backup ${backupId}.`)});
+    const parent=backupParents.get(backupId);
+    if(String(payload.version)==="22.9.17"&&parent.status!=="completed")throw new Error(`Backup semanal incompleto: ${backupId}.`);
+    if(Number(parent.total)!==data.attendance.length||Number(parent.rtTotal)!==data.rt.length)throw new Error(`Totais divergentes no backup semanal ${backupId}.`);
+    for(const [name,rows] of Object.entries({attendance:data.attendance,rt:data.rt})){
+      const ids=new Set();
+      rows.forEach(item=>{const id=item?.originalId||item?.id;if(!item||!validBackupDocumentId(id))throw new Error(`Registro inválido no backup ${backupId}.`);if(ids.has(id))throw new Error(`ID duplicado em ${backupId}/${name}: ${id}.`);ids.add(id)});
+    }
   }
   if(!payload.settings||typeof payload.settings.public!=="object"||Array.isArray(payload.settings.public))throw new Error("Configurações públicas do backup ausentes.");
   if(!payload.generatedAt||Number.isNaN(Date.parse(payload.generatedAt)))throw new Error("Data de geração do backup inválida.");
   if(Date.parse(payload.generatedAt)>Date.now()+300000)throw new Error("Data de geração do backup está no futuro.");
   if(payload.settings.public.notificationsPrivate!==undefined)throw new Error("Backup público contém configurações privadas.");
   const color=payload.settings.public.appearance?.primaryColor;if(color!==undefined&&(typeof color!=="string"||!/^#[0-9a-fA-F]{6}$/.test(color)))throw new Error("Cor principal inválida nas configurações.");
-  if(payload.summary?.collections)for(const name of allowed)if(Number(payload.summary.collections[name])!==payload.collections[name].length)throw new Error(`Resumo divergente na coleção ${name}.`);
+  if(payload.summary?.collections)for(const name of allowed)if(name!=="nicknameClaims"||payload.summary.collections[name]!==undefined){if(Number(payload.summary.collections[name])!==payload.collections[name].length)throw new Error(`Resumo divergente na coleção ${name}.`);}
   if(payload.summary?.presenceBackupSubcollections!==undefined&&Number(payload.summary.presenceBackupSubcollections)!==Object.keys(groups).length)throw new Error("Resumo divergente nas subcoleções semanais.");
   return allowed;
 }
@@ -3573,6 +3784,8 @@ async function recoverInterruptedRestoreJobs(){
       try{await executePersistentRollback(item.ref,new Error("Restauração interrompida em sessão anterior."));await audit("rollback de restauração retomado",item.id)}
       catch(error){await updateDoc(item.ref,{status:"rollback_failed",rollbackError:String(error?.message||error).slice(0,500),updatedAt:serverTimestamp()})}
     }
+    const completed=jobs.docs.filter(item=>item.data().createdBy===state.user.uid&&item.data().status==="completed");
+    for(const item of completed)try{await cleanupPersistentRollback(item.id)}catch(error){console.warn("Limpeza de rollback será retomada no próximo acesso:",error)}
     if(unfinished.length)toast(`${unfinished.length} restauração(ões) interrompida(s) foram revertidas.`);
   }catch(error){console.error("Falha ao recuperar restoreJobs:",error)}
 }
@@ -3588,23 +3801,46 @@ async function restoreBackupPayload(payload){
     snapshots.forEach((snapshot,index)=>{
       const snapshotRef=doc(db,"restoreJobs",jobId,"rollback",String(sequence).padStart(9,"0"));
       batch.set(snapshotRef,{sequence,path:refs[index].path.split("/"),existed:snapshot.exists(),data:snapshot.exists()?snapshot.data():null,capturedAt:serverTimestamp()});
-      batch.set(refs[index],prepare(items[index]),{merge:true});sequence++;
+      batch.set(refs[index],prepare(items[index]));sequence++;
     });
     await batch.commit();
+  }
+  async function deleteCollectionRowsMissingFromBackup(collectionRef,rows){
+    const targetIds=new Set(rows.map(item=>item.id));
+    const current=await getDocs(collectionRef);
+    const extras=current.docs.filter(item=>!targetIds.has(item.id));
+    for(let index=0;index<extras.length;index+=RESTORE_GROUP_SIZE){
+      const group=extras.slice(index,index+RESTORE_GROUP_SIZE),batch=writeBatch(db);
+      group.forEach(item=>{
+        const snapshotRef=doc(db,"restoreJobs",jobId,"rollback",String(sequence).padStart(9,"0"));
+        batch.set(snapshotRef,{sequence,path:item.ref.path.split("/"),existed:true,data:item.data(),capturedAt:serverTimestamp()});
+        batch.delete(item.ref);sequence++;
+      });
+      await batch.commit();
+    }
   }
   try{
     for(const collectionName of allowed){
       const rows=collections[collectionName]||[];
       await updateDoc(jobRef,{status:"restoring",currentCollection:collectionName,total:rows.length,updatedAt:serverTimestamp()});
+      if(collectionName==="presenceBackups"){
+        const targetIds=new Set(rows.map(item=>item.id)),currentParents=await getDocs(collection(db,"presenceBackups"));
+        for(const parent of currentParents.docs.filter(item=>!targetIds.has(item.id))){
+          await deleteCollectionRowsMissingFromBackup(collection(db,"presenceBackups",parent.id,"attendance"),[]);
+          await deleteCollectionRowsMissingFromBackup(collection(db,"presenceBackups",parent.id,"rt"),[]);
+        }
+      }
+      await deleteCollectionRowsMissingFromBackup(collection(db,collectionName),rows);
       for(let index=0;index<rows.length;index+=RESTORE_GROUP_SIZE){
         const group=rows.slice(index,index+RESTORE_GROUP_SIZE),refs=group.map(item=>doc(db,collectionName,item.id));
-        await restoreGroup(refs,group,item=>{const data=deserializeBackupValue({...item});delete data.id;data.restoredBy=state.user.uid;data.restoredAt=serverTimestamp();return data});
+        await restoreGroup(refs,group,item=>{const data=deserializeBackupValue({...item});delete data.id;if(collectionName!=="nicknameClaims"){data.restoredBy=state.user.uid;data.restoredAt=serverTimestamp()}return data});
         await updateDoc(jobRef,{processed:Math.min(index+group.length,rows.length),updatedAt:serverTimestamp()});
       }
     }
     for(const [backupId,data] of Object.entries(payload.subcollections.presenceBackups)){
       for(const [subcollection,rows] of Object.entries({attendance:data.attendance,rt:data.rt})){
         await updateDoc(jobRef,{status:"restoring_subcollections",currentCollection:`presenceBackups/${backupId}/${subcollection}`,total:rows.length,updatedAt:serverTimestamp()});
+        await deleteCollectionRowsMissingFromBackup(collection(db,"presenceBackups",backupId,subcollection),rows.map(item=>({...item,id:item.originalId||item.id})));
         for(let index=0;index<rows.length;index+=RESTORE_GROUP_SIZE){
           const group=rows.slice(index,index+RESTORE_GROUP_SIZE),refs=group.map(item=>doc(db,"presenceBackups",backupId,subcollection,item.originalId||item.id));
           await restoreGroup(refs,group,item=>{const data=deserializeBackupValue({...item}),id=item.originalId||item.id;delete data.id;data.originalId=id;data.restoredBy=state.user.uid;data.restoredAt=serverTimestamp();return data});
@@ -3615,8 +3851,12 @@ async function restoreBackupPayload(payload){
     const settingsRef=doc(db,"settings","app");
     await restoreGroup([settingsRef],[publicSettings||{}],item=>item);
     await updateDoc(jobRef,{status:"completed",completedAt:serverTimestamp(),updatedAt:serverTimestamp()});
+    nicknameClaimMigrationCompleted=false;
+    nicknameClaimMigrationRunning=false;
+    clearTimeout(nicknameClaimMigrationTimer);
+    nicknameClaimMigrationTimer=setTimeout(scheduleNicknameClaimMigration,1200);
     cleanupPersistentRollback(jobId).catch(error=>console.warn("Snapshots de rollback mantidos para limpeza posterior:",error));
-    await audit("backup completo restaurado",`${jobId} · schema ${payload.backupSchema}`);
+    await audit("backup completo do Firestore restaurado",`${jobId} · schema ${payload.backupSchema}`);
     return jobId;
   }catch(error){
     try{await executePersistentRollback(jobRef,error)}catch(rollbackError){
@@ -3665,10 +3905,10 @@ function renderGoals(){
 on("settingsSearch","input",event=>filterSettingsTabs(event.target.value));
 on("refreshSystemHealth","click",renderSystemHealth);
 on("exportCompleteBackup","click",async()=>{
-  if(!owner())return toast("Somente o DEV pode gerar o backup completo.");
+  if(!owner())return toast("Somente o DEV pode gerar o backup completo do Firestore.");
   try{
     const now=localIsoDate();downloadJsonFile(`backup-77-team-${now}.json`,await completeBackupPayload());
-    const stamp=new Date().toLocaleString("pt-BR");localStorage.setItem("77team-last-backup",stamp);setText("systemLastBackup",stamp);toast("Backup completo gerado.");
+    const stamp=new Date().toLocaleString("pt-BR");localStorage.setItem("77team-last-backup",stamp);setText("systemLastBackup",stamp);toast("Backup completo do Firestore gerado.");
   }catch(error){toast(error.message||errMsg(error))}
 });
 on("restoreCompleteBackup","click",async()=>{
@@ -3747,7 +3987,7 @@ function staffRows(){
         item.id===user.id||
         item.name===user.name
       )||{};
-      const stat=stats(member.name||user.name||"");
+      const stat=stats(member);
       return {
         id:user.id,
         name:user.name||user.email||"Staff",
@@ -3981,7 +4221,7 @@ function downloadStaffCsvFile(){
     ])
   ];
 
-  const csv=lines.map(row=>row.map(value=>`"${String(value).replace(/"/g,'""')}"`).join(";")).join("\n");
+  const csv=lines.map(row=>row.map(value=>`"${csvSafe(value).replace(/"/g,'""')}"`).join(";")).join("\n");
   const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"});
   const url=URL.createObjectURL(blob);
   const link=document.createElement("a");
@@ -4099,7 +4339,7 @@ on("downloadStaffPdf","click",printStaffReport);
 on("downloadStaffCsv","click",downloadStaffCsvFile);
 on("closeStaffDrawer","click",()=>byId("staffDetailsDrawer")?.classList.add("hidden"));
 on("staffQuickBackup","click",()=>{
-  if(!owner())return toast("O backup completo é exclusivo do DEV. Use Backup de Presença para o fechamento semanal.");
+  if(!owner())return toast("O backup completo do Firestore é exclusivo do DEV. Use Backup de Presença para o fechamento semanal.");
   byId("exportCompleteBackup")?.click();
 });
 
@@ -4274,7 +4514,7 @@ function automaticXpForMember(member){
   const points=xpSettings();
 
   return state.attendance
-    .filter(item=>item.memberId===member.id||item.memberName===member.name)
+    .filter(item=>attendanceMatchesMember(item,member))
     .reduce((total,item)=>{
       if(item.status===1||item.status===2){
         return total+(item.kind==="eventos"?points.event:points.presence);
@@ -4463,8 +4703,7 @@ on("xpAdjustmentForm","submit",async event=>{
   try{
     const batch=writeBatch(db);
 
-    batch.update(doc(db,"users",user.id),{
-      progression:{
+    const progression={
         automaticXp,
         manualXp:newManual,
         totalXp:calculated.totalXp,
@@ -4474,7 +4713,13 @@ on("xpAdjustmentForm","submit",async event=>{
         requiredXp:calculated.requiredXp,
         progress:calculated.progress,
         recalculatedAt:new Date().toISOString()
-      },
+      };
+    batch.update(doc(db,"users",user.id),{
+      progression,
+      progressionUpdatedAt:serverTimestamp()
+    });
+    batch.update(doc(db,"members",member.id),{
+      progression,
       progressionUpdatedAt:serverTimestamp()
     });
 
@@ -4513,24 +4758,18 @@ function renderEnterpriseDashboard(){
   previousMonthDate.setMonth(previousMonthDate.getMonth()-1);
   const previousMonth=`${previousMonthDate.getFullYear()}-${String(previousMonthDate.getMonth()+1).padStart(2,"0")}`;
 
-  const todayPresence=state.attendance.filter(item=>(item.status===1||item.status===2)&&item.date===today).length;
-  const yesterdayPresence=state.attendance.filter(item=>(item.status===1||item.status===2)&&item.date===yesterday).length;
+  const attendance=homeAttendanceRecords();
+  const todayPresence=attendance.filter(item=>(item.status===1||item.status===2)&&item.date===today).length;
+  const yesterdayPresence=attendance.filter(item=>(item.status===1||item.status===2)&&item.date===yesterday).length;
   setText("dashboardPresenceTrend",dashboardPercentChange(todayPresence,yesterdayPresence));
 
-  const monthEvents=new Set(
-    state.attendance
-      .filter(item=>item.kind==="eventos"&&String(item.date||"").startsWith(currentMonth))
-      .map(item=>`${item.date}|${item.slot}`)
-  ).size;
-  const previousMonthEvents=new Set(
-    state.attendance
-      .filter(item=>item.kind==="eventos"&&String(item.date||"").startsWith(previousMonth))
-      .map(item=>`${item.date}|${item.slot}`)
-  ).size;
+  const monthEvents=monthlyEventKeys(currentMonth).size;
+  const previousMonthEvents=monthlyEventKeys(previousMonth).size;
   setText("dashboardEventTrend",dashboardPercentChange(monthEvents,previousMonthEvents));
 
   const joinedThisMonth=visibleMembers().filter(member=>memberCreatedMonth(member)===currentMonth).length;
-  setText("dashboardMemberTrend",joinedThisMonth?`+${joinedThisMonth}`:"0");
+  const joinedPreviousMonth=visibleMembers().filter(member=>memberCreatedMonth(member)===previousMonth).length;
+  setText("dashboardMemberTrend",dashboardPercentChange(joinedThisMonth,joinedPreviousMonth));
 
   renderDashboardTodayEvents(today);
   renderDashboardWeeklyChart();
@@ -4579,8 +4818,8 @@ function renderDashboardTodayEvents(today){
     }));
 
   const attendanceEvents=[...new Map(
-    state.attendance
-      .filter(item=>item.date===today)
+    homeAttendanceRecords()
+      .filter(item=>item.date===today&&(item.status===1||item.status===2))
       .map(item=>[
         `${item.kind}|${item.slot}`,
         {
@@ -4621,7 +4860,7 @@ function renderDashboardWeeklyChart(){
     days.push({
       iso,
       label:labels[date.getDay()],
-      value:state.attendance.filter(item=>(item.status===1||item.status===2)&&item.date===iso).length
+      value:homeAttendanceRecords().filter(item=>(item.status===1||item.status===2)&&item.date===iso).length
     });
   }
 
@@ -4660,7 +4899,7 @@ function renderDashboardClanPoints(){
   const clans={};
   visibleMembers().forEach(member=>{
     const clan=member.clan||"Sem clã";
-    clans[clan]=(clans[clan]||0)+stats(member.name).present;
+    clans[clan]=(clans[clan]||0)+stats(member).present;
   });
 
   const rows=Object.entries(clans).sort((a,b)=>b[1]-a[1]).slice(0,5);
@@ -4677,8 +4916,9 @@ function renderDashboardClanPoints(){
 }
 
 function renderDashboardPresenceRate(){
-  const present=state.attendance.filter(item=>item.status===1||item.status===2).length;
-  const marked=state.attendance.filter(item=>item.status===1||item.status===2||item.status===-1).length;
+  const attendance=homeAttendanceRecords();
+  const present=attendance.filter(item=>item.status===1||item.status===2).length;
+  const marked=attendance.filter(item=>item.status===1||item.status===2||item.status===-1).length;
   const rate=marked?Math.round(present/marked*100):0;
   const gauge=byId("dashboardRateGauge");
 
@@ -4693,14 +4933,17 @@ function renderDashboardRecentActivity(){
   if(!container)return;
 
   const presenceActivities=state.attendance
-    .slice()
-    .sort((a,b)=>String(b.date||"").localeCompare(String(a.date||"")))
+    .filter(item=>memberForAttendance(item))
+    .sort((a,b)=>attendanceTime(b)-attendanceTime(a))
     .slice(0,4)
-    .map(item=>({
-      icon:(item.memberName||"?").slice(0,1).toUpperCase(),
-      title:`${item.memberName||"Membro"} ${{"1":"registrou presença","2":"chegou atrasado","3":"justificou a ausência","-1":"teve ausência","0":"está pendente"}[String(item.status)]||"teve o registro atualizado"} em ${item.slot||item.kind}`,
-      time:formatHistoryDate(item.date)
-    }));
+    .map(item=>{
+      const member=memberForAttendance(item);
+      return {
+        icon:(member?.name||"?").slice(0,1).toUpperCase(),
+        title:`${member?.name||"Membro"} ${{"1":"registrou presença","2":"chegou atrasado","3":"justificou a ausência","-1":"teve ausência","0":"está pendente"}[String(item.status)]||"teve o registro atualizado"} em ${item.slot||item.kind}`,
+        time:formatHistoryDate(item.date)
+      };
+    });
 
   const memberActivities=visibleMembers()
     .slice()
@@ -4722,7 +4965,7 @@ function renderDashboardRecentActivity(){
 
 function renderDashboardServerStatus(){
   setText("dashboardServerUsers",visibleMembers().length);
-  setText("dashboardServerRecords",state.attendance.length);
+  setText("dashboardServerRecords",homeAttendanceRecords().length);
   setText("dashboardServerTime",new Intl.DateTimeFormat("pt-BR",{hour:"2-digit",minute:"2-digit"}).format(new Date()));
 }
 
@@ -4749,6 +4992,22 @@ function supportTime(item){
   return new Intl.DateTimeFormat("pt-BR",{dateStyle:"short",timeStyle:"short"}).format(d);
 }
 function supportStatusLabel(status){return ({open:"Aberta",in_progress:"Em atendimento",waiting_user:"Aguardando usuário",resolved:"Resolvida"})[status]||"Aberta"}
+function previousField(item,key){return Object.prototype.hasOwnProperty.call(item,key)?item[key]:deleteField()}
+async function updateConversationMessages(messages,collectionName,nextData,rollbackData){
+  const committed=[];
+  try{
+    for(let start=0;start<messages.length;start+=400){
+      const group=messages.slice(start,start+400),batch=writeBatch(db);
+      group.forEach(message=>batch.update(doc(db,collectionName,message.id),nextData(message)));
+      await batch.commit();committed.push(group);
+    }
+  }catch(error){
+    for(const group of committed.reverse()){
+      const batch=writeBatch(db);group.forEach(message=>batch.update(doc(db,collectionName,message.id),rollbackData(message)));await batch.commit();
+    }
+    throw error;
+  }
+}
 function supportTicketId(m){return m.ticketId||`legacy-${m.ownerUid}`}
 function supportTicketMessages(ticketId){return state.supportMessages.filter(m=>supportTicketId(m)===ticketId).sort((a,b)=>(a.createdAt?.toMillis?.()||0)-(b.createdAt?.toMillis?.()||0))}
 function supportTickets(){
@@ -4761,7 +5020,7 @@ function newSupportTicketId(ownerUid){return `ATD-${Date.now().toString(36).toUp
 function renderSupportBubble(m){
   const own=m.senderUid===state.user?.uid;
   const imageUrl=safeImageUrl(m.imageUrl);const image=imageUrl?`<a href="${escapeHtml(imageUrl)}" target="_blank" rel="noopener"><img class="support-image" src="${escapeHtml(imageUrl)}" alt="Imagem anexada"></a>`:"";
-  const link=m.link?`<a class="support-link" href="${escapeHtml(m.link)}" target="_blank" rel="noopener">🔗 Abrir link</a>`:"";
+  const linkUrl=safeExternalUrl(m.link);const link=linkUrl?`<a class="support-link" href="${escapeHtml(linkUrl)}" target="_blank" rel="noopener noreferrer">🔗 Abrir link</a>`:"";
   return `<article class="support-message ${own?"mine":"theirs"}"><div class="support-message-head"><strong>${escapeHtml(m.senderName||"Usuário")}</strong><small>${escapeHtml(supportTime(m))}</small></div><p>${escapeHtml(m.text||"")}</p>${image}${link}</article>`;
 }
 function scrollSupportChats(){requestAnimationFrame(()=>["profileSupportMessages","supportAdminMessages"].forEach(id=>{const el=byId(id);if(el)el.scrollTop=el.scrollHeight}))}
@@ -4773,7 +5032,6 @@ function renderSupport(){
   setText("profileSupportStatus",activeOwn?supportStatusLabel(activeOwn.status):"Novo atendimento");
   if(byId("profileSupportSubmit"))setText("profileSupportSubmit",activeOwn?"Enviar mensagem":"Abrir novo atendimento");
   const activeTickets=supportTickets().filter(t=>t.status!=="resolved");
-  setText("sidebarSupportBadge",activeTickets.length);
   setText("supportOpenCount",`${activeTickets.length} abertos`);
   if(!permissionEnabled("support_manage")){scrollSupportChats();return}
   const search=(byId("supportSearch")?.value||"").toLowerCase();
@@ -4789,7 +5047,7 @@ function renderSupport(){
   setHtml("supportAdminMessages",msgs.map(renderSupportBubble).join("")||'<p class="empty-state">Selecione um atendimento para visualizar a conversa.</p>');
   if(byId("supportStatusSelect")){byId("supportStatusSelect").value=selected?.status||"open";byId("supportStatusSelect").disabled=!selected||selected.status==="resolved"}
   if(byId("supportAdminForm"))byId("supportAdminForm").classList.toggle("hidden",!selected||selected.status==="resolved");
-  if(byId("supportDeleteBtn"))byId("supportDeleteBtn").classList.toggle("hidden",!selected||selected.status!=="resolved"||!dev());
+  if(byId("supportDeleteBtn"))byId("supportDeleteBtn").classList.toggle("hidden",!selected||selected.status!=="resolved"||!owner());
   scrollSupportChats();
 }
 async function uploadSupportImage(file,ownerUid,ticketId){
@@ -4805,17 +5063,17 @@ async function uploadSupportImage(file,ownerUid,ticketId){
 async function sendSupportMessage({ownerUid,ownerName,text,link,file,ticketId}){
   const cleanText=(text||"").trim(); if(!cleanText&&!file)throw new Error("Digite uma mensagem ou selecione uma imagem.");
   const normalizedLink=(link||"").trim();
-  if(normalizedLink&&!/^https:\/\//i.test(normalizedLink))throw new Error("O link precisa começar com https://");
+  if(normalizedLink&&!safeExternalUrl(normalizedLink))throw new Error("Informe um link HTTPS válido.");
   let currentTicket=ticketId;
   if(!currentTicket){const active=activeSupportTicketFor(ownerUid);currentTicket=active?.ticketId||newSupportTicketId(ownerUid)}
   const image=await uploadSupportImage(file,ownerUid,currentTicket);
-  try{await addDoc(collection(db,"supportMessages"),{ticketId:currentTicket,ownerUid,ownerName,senderUid:state.user.uid,senderName:state.profile?.name||state.user.email,senderRole:permissionEnabled("support_manage")?currentAccessRole():"member",text:cleanText,link:normalizedLink,imageUrl:image.url,imagePath:image.path,status:permissionEnabled("support_manage")?"waiting_user":"open",createdAt:serverTimestamp()})}catch(error){if(image.path)try{await deleteObject(storageRef(storage,image.path))}catch{}throw error}
+  try{await addDoc(collection(db,"supportMessages"),{ticketId:currentTicket,ownerUid,ownerName,senderUid:state.user.uid,senderName:state.profile?.name||state.user.email,senderRole:currentAccessRole(),text:cleanText,link:normalizedLink,imageUrl:image.url,imagePath:image.path,status:permissionEnabled("support_manage")?"waiting_user":"open",createdAt:serverTimestamp()})}catch(error){if(image.path)try{await deleteObject(storageRef(storage,image.path))}catch{}throw error}
 }
 on("profileSupportForm","submit",async e=>{e.preventDefault();try{await sendSupportMessage({ownerUid:state.user.uid,ownerName:state.profile?.name||state.user.email,text:byId("profileSupportText").value,link:byId("profileSupportLink").value,file:byId("profileSupportImage").files?.[0]});e.target.reset();byId("profileSupportText")?.focus();toast("Mensagem enviada aos responsáveis.");}catch(error){toast(error.message||errMsg(error))}});
 on("supportAdminForm","submit",async e=>{e.preventDefault();if(!permissionEnabled("support_manage")||!state.selectedSupportTicketId)return;const selected=supportTickets().find(t=>t.ticketId===state.selectedSupportTicketId);if(!selected||selected.status==="resolved")return;try{await sendSupportMessage({ownerUid:selected.ownerUid,ownerName:selected.ownerName,text:byId("supportAdminText").value,link:byId("supportAdminLink").value,file:byId("supportAdminImage").files?.[0],ticketId:selected.ticketId});e.target.reset();byId("supportAdminText")?.focus();await audit("Resposta de atendimento",`Resposta enviada em ${selected.ticketId} para ${selected.ownerName}`);toast("Resposta enviada.");}catch(error){toast(error.message||errMsg(error))}});
-on("supportStatusSelect","change",async e=>{if(!permissionEnabled("support_manage")||!state.selectedSupportTicketId)return;const selected=supportTickets().find(t=>t.ticketId===state.selectedSupportTicketId);if(!selected)return;try{await Promise.all(selected.msgs.map(m=>updateDoc(doc(db,"supportMessages",m.id),{status:e.target.value,statusUpdatedAt:serverTimestamp(),statusUpdatedBy:state.user.uid})));await audit("Status de atendimento",`${selected.ticketId}: ${supportStatusLabel(e.target.value)}`);if(e.target.value==="resolved"){state.supportView="finished";toast("Atendimento finalizado e movido para Finalizados.")}else toast("Status atualizado.");renderSupport();}catch(error){toast(errMsg(error))}});
+on("supportStatusSelect","change",async e=>{if(!permissionEnabled("support_manage")||!state.selectedSupportTicketId)return;const selected=supportTickets().find(t=>t.ticketId===state.selectedSupportTicketId);if(!selected)return;try{await updateConversationMessages(selected.msgs,"supportMessages",()=>({status:e.target.value,statusUpdatedAt:serverTimestamp(),statusUpdatedBy:state.user.uid}),m=>({status:m.status,statusUpdatedAt:previousField(m,"statusUpdatedAt"),statusUpdatedBy:previousField(m,"statusUpdatedBy")}));await audit("Status de atendimento",`${selected.ticketId}: ${supportStatusLabel(e.target.value)}`);if(e.target.value==="resolved"){state.supportView="finished";toast("Atendimento finalizado e movido para Finalizados.")}else toast("Status atualizado.");renderSupport();}catch(error){toast(errMsg(error))}});
 on("supportSearch","input",renderSupport);
-on("supportDeleteBtn","click",async()=>{if(!dev()||!state.selectedSupportTicketId)return;const selected=supportTickets().find(t=>t.ticketId===state.selectedSupportTicketId);if(!selected||selected.status!=="resolved")return;if(!confirm(`Excluir definitivamente ${selected.ticketId}? Esta ação não pode ser desfeita.`))return;try{for(const m of selected.msgs){if(m.imagePath){try{await deleteObject(storageRef(storage,m.imagePath))}catch(err){console.warn("Anexo não removido:",err)}}await deleteDoc(doc(db,"supportMessages",m.id))}await audit("Atendimento excluído",`${selected.ticketId} de ${selected.ownerName}`);state.selectedSupportTicketId="";state.selectedSupportOwnerUid="";toast("Atendimento excluído definitivamente.");}catch(error){toast(errMsg(error))}});
+on("supportDeleteBtn","click",async()=>{if(!owner()||!state.selectedSupportTicketId)return;const selected=supportTickets().find(t=>t.ticketId===state.selectedSupportTicketId);if(!selected||selected.status!=="resolved")return;if(!confirm(`Excluir definitivamente ${selected.ticketId}? Esta ação não pode ser desfeita.`))return;try{for(const m of selected.msgs){if(m.imagePath){try{await deleteObject(storageRef(storage,m.imagePath))}catch(err){console.warn("Anexo não removido:",err)}}await deleteDoc(doc(db,"supportMessages",m.id))}await audit("Atendimento excluído",`${selected.ticketId} de ${selected.ownerName}`);state.selectedSupportTicketId="";state.selectedSupportOwnerUid="";toast("Atendimento excluído definitivamente.");}catch(error){toast(errMsg(error))}});
 document.addEventListener("click",e=>{
   const view=e.target.closest("[data-support-view]");if(view){state.supportView=view.dataset.supportView;state.selectedSupportTicketId="";state.selectedSupportOwnerUid="";renderSupport();return}
   const b=e.target.closest("[data-support-ticket]");if(!b)return;state.selectedSupportTicketId=b.dataset.supportTicket;state.selectedSupportOwnerUid=b.dataset.supportOwner;renderSupport();
@@ -4848,7 +5106,7 @@ function newPrivateChatId(uid){return `CHAT-${uid.slice(0,5).toUpperCase()}-${Da
 function renderChatBubble(m){
   const own=m.senderUid===state.user?.uid;
   const imageUrl=safeImageUrl(m.imageUrl);const image=imageUrl?`<a href="${escapeHtml(imageUrl)}" target="_blank" rel="noopener"><img class="support-image" src="${escapeHtml(imageUrl)}" alt="Imagem enviada no chat"></a>`:"";
-  const link=m.link?`<a class="support-link" href="${escapeHtml(m.link)}" target="_blank" rel="noopener">🔗 Abrir link</a>`:"";
+  const linkUrl=safeExternalUrl(m.link);const link=linkUrl?`<a class="support-link" href="${escapeHtml(linkUrl)}" target="_blank" rel="noopener noreferrer">🔗 Abrir link</a>`:"";
   return `<article class="support-message ${own?"mine":"theirs"}"><div class="support-message-head"><strong>${escapeHtml(m.senderName||"Usuário")}</strong><small>${escapeHtml(chatTime(m))}</small></div><p>${escapeHtml(m.text||"")}</p>${image}${link}</article>`;
 }
 function renderPrivateChat(){
@@ -4883,7 +5141,7 @@ function renderPrivateChat(){
   const finalized=session?.status==="finalized";
   if(byId("chatAdminForm"))byId("chatAdminForm").classList.toggle("hidden",!selected||finalized||state.chatView==="finished");
   if(byId("chatFinishBtn"))byId("chatFinishBtn").classList.toggle("hidden",!session||finalized||state.chatView==="finished");
-  if(byId("chatDeleteBtn"))byId("chatDeleteBtn").classList.toggle("hidden",!session||!finalized||!dev());
+  if(byId("chatDeleteBtn"))byId("chatDeleteBtn").classList.toggle("hidden",!session||!finalized||!owner());
   const box=byId("chatAdminMessages");if(box)requestAnimationFrame(()=>box.scrollTop=box.scrollHeight);
 }
 async function uploadChatImage(file,ownerUid,chatId){
@@ -4900,18 +5158,18 @@ async function sendPrivateChat({ownerUid,ownerName,text,link,file,chatId}){
   const cleanText=(text||"").trim();
   if(!cleanText&&!file)throw new Error("Digite uma mensagem ou selecione uma imagem.");
   const normalizedLink=(link||"").trim();
-  if(normalizedLink&&!/^https:\/\//i.test(normalizedLink))throw new Error("O link precisa começar com https://");
+  if(normalizedLink&&!safeExternalUrl(normalizedLink))throw new Error("Informe um link HTTPS válido.");
   let current=chatId?chatSessions().find(s=>s.chatId===chatId&&s.ownerUid===ownerUid):activeChatFor(ownerUid);
   if(current?.status==="finalized")throw new Error("Este chat foi finalizado. Inicie uma nova conversa.");
   const currentChatId=current?.chatId||newPrivateChatId(ownerUid);
   const image=await uploadChatImage(file,ownerUid,currentChatId);
-  try{await addDoc(collection(db,"chatMessages"),{chatId:currentChatId,chatStatus:"active",ownerUid,ownerName,senderUid:state.user.uid,senderName:state.profile?.name||state.user.email,senderRole:permissionEnabled("support_manage")?currentAccessRole():"member",text:cleanText,link:normalizedLink,imageUrl:image.url,imagePath:image.path,createdAt:serverTimestamp()})}catch(error){if(image.path)try{await deleteObject(storageRef(storage,image.path))}catch{}throw error}
+  try{await addDoc(collection(db,"chatMessages"),{chatId:currentChatId,chatStatus:"active",ownerUid,ownerName,senderUid:state.user.uid,senderName:state.profile?.name||state.user.email,senderRole:currentAccessRole(),text:cleanText,link:normalizedLink,imageUrl:image.url,imagePath:image.path,createdAt:serverTimestamp()})}catch(error){if(image.path)try{await deleteObject(storageRef(storage,image.path))}catch{}throw error}
   state.selectedChatId=currentChatId;
 }
 on("profileChatForm","submit",async e=>{e.preventDefault();try{await sendPrivateChat({ownerUid:state.user.uid,ownerName:state.profile?.name||state.user.email,text:byId("profileChatText").value,link:byId("profileChatLink").value,file:byId("profileChatImage").files?.[0]});e.target.reset();byId("profileChatText")?.focus();toast("Mensagem enviada no chat privado.");}catch(error){toast(error.message||errMsg(error))}});
 on("chatAdminForm","submit",async e=>{e.preventDefault();if(!permissionEnabled("support_manage")||!state.selectedChatOwnerUid)return;const user=state.users.find(u=>u.id===state.selectedChatOwnerUid);try{await sendPrivateChat({ownerUid:state.selectedChatOwnerUid,ownerName:user?.name||user?.email||"Usuário",text:byId("chatAdminText").value,link:byId("chatAdminLink").value,file:byId("chatAdminImage").files?.[0],chatId:state.selectedChatId});e.target.reset();byId("chatAdminText")?.focus();await audit("Chat privado",`Mensagem enviada para ${user?.name||user?.email||state.selectedChatOwnerUid}`);toast("Mensagem enviada.");}catch(error){toast(error.message||errMsg(error))}});
-on("chatFinishBtn","click",async()=>{if(!permissionEnabled("support_manage"))return;const session=selectedChatSession()||activeChatFor(state.selectedChatOwnerUid);if(!session||session.status==="finalized")return;if(!confirm(`Finalizar o chat ${session.chatId} com ${session.ownerName}? A conversa ficará somente para consulta dos responsáveis.`))return;try{await Promise.all(session.msgs.map(m=>updateDoc(doc(db,"chatMessages",m.id),{chatStatus:"finalized",finalizedAt:serverTimestamp(),finalizedBy:state.user.uid})));await audit("Chat privado finalizado",`${session.chatId} com ${session.ownerName}`);state.chatView="finished";toast("Chat finalizado e movido para Finalizados.");renderPrivateChat()}catch(error){toast(errMsg(error))}});
-on("chatDeleteBtn","click",async()=>{if(!dev())return;const session=selectedChatSession();if(!session||session.status!=="finalized")return;if(!confirm(`Excluir definitivamente o chat ${session.chatId}?`))return;try{for(const message of session.msgs){if(message.imagePath)try{await deleteObject(storageRef(storage,message.imagePath))}catch{}await deleteDoc(doc(db,"chatMessages",message.id))}await audit("Chat privado excluído",`${session.chatId} com ${session.ownerName}`);state.selectedChatId="";state.selectedChatOwnerUid="";toast("Chat excluído definitivamente.")}catch(error){toast(errMsg(error))}});
+on("chatFinishBtn","click",async()=>{if(!permissionEnabled("support_manage"))return;const session=selectedChatSession()||activeChatFor(state.selectedChatOwnerUid);if(!session||session.status==="finalized")return;if(!confirm(`Finalizar o chat ${session.chatId} com ${session.ownerName}? A conversa ficará somente para consulta dos responsáveis.`))return;try{await updateConversationMessages(session.msgs,"chatMessages",()=>({chatStatus:"finalized",finalizedAt:serverTimestamp(),finalizedBy:state.user.uid}),m=>({chatStatus:m.chatStatus||"active",finalizedAt:previousField(m,"finalizedAt"),finalizedBy:previousField(m,"finalizedBy")}));await audit("Chat privado finalizado",`${session.chatId} com ${session.ownerName}`);state.chatView="finished";toast("Chat finalizado e movido para Finalizados.");renderPrivateChat()}catch(error){toast(errMsg(error))}});
+on("chatDeleteBtn","click",async()=>{if(!owner())return;const session=selectedChatSession();if(!session||session.status!=="finalized")return;if(!confirm(`Excluir definitivamente o chat ${session.chatId}?`))return;try{for(const message of session.msgs){if(message.imagePath)try{await deleteObject(storageRef(storage,message.imagePath))}catch{}await deleteDoc(doc(db,"chatMessages",message.id))}await audit("Chat privado excluído",`${session.chatId} com ${session.ownerName}`);state.selectedChatId="";state.selectedChatOwnerUid="";toast("Chat excluído definitivamente.")}catch(error){toast(errMsg(error))}});
 on("chatSearch","input",renderPrivateChat);
 document.addEventListener("click",e=>{
   const view=e.target.closest("[data-chat-view]");if(view){state.chatView=view.dataset.chatView;state.selectedChatOwnerUid="";state.selectedChatId="";renderPrivateChat();return}
@@ -5010,12 +5268,12 @@ function populateRecordsFilters(){
 function recordsRowsHtml(rows){return rows.map(item=>{const st=presenceStatus(item.status);return `<tr><td>${escapeHtml(item.date||"—")}</td><td><strong>${escapeHtml(item.memberName||"—")}</strong></td><td>${escapeHtml(item.clan||"—")}</td><td>${escapeHtml(presenceTypeLabel(item.kind))}</td><td>${escapeHtml(item.slot||"—")}</td><td><span class="presence-status-chip ${st.cls}">${st.icon} ${st.label}</span></td><td>${escapeHtml(item.note||"—")}</td><td>${escapeHtml(item.updatedByName||"—")}</td><td>${escapeHtml(recordTimestamp(item))}</td></tr>`}).join("")||'<tr><td colspan="9">Nenhum registro encontrado com os filtros selecionados.</td></tr>'}
 function renderRecordsCenter(){
   if(!permissionEnabled("access_staff"))return;const root=byId("registros");if(!root)return;populateRecordsFilters();
-  const rows=recordsFilteredRows();setText("recordsResultCount",`${rows.length} registro${rows.length===1?"":"s"}`);setText("sidebarRecordsBadge",state.attendance.length);setText("recordsTotal",rows.length);setText("recordsPresent",rows.filter(x=>Number(x.status)===1).length);setText("recordsJustified",rows.filter(x=>Number(x.status)===3).length);setText("recordsAbsent",rows.filter(x=>Number(x.status)===-1).length);setText("recordsPanelTitle",recordsMode==="individual"?"Consulta Individual":"Consulta Geral");setHtml("recordsRows",recordsRowsHtml(rows));
+  const rows=recordsFilteredRows();setText("recordsResultCount",`${rows.length} registro${rows.length===1?"":"s"}`);setText("recordsTotal",rows.length);setText("recordsPresent",rows.filter(x=>Number(x.status)===1).length);setText("recordsJustified",rows.filter(x=>Number(x.status)===3).length);setText("recordsAbsent",rows.filter(x=>Number(x.status)===-1).length);setText("recordsPanelTitle",recordsMode==="individual"?"Consulta Individual":"Consulta Geral");setHtml("recordsRows",recordsRowsHtml(rows));
   document.querySelectorAll("[data-record-mode]").forEach(btn=>btn.classList.toggle("primary",btn.dataset.recordMode===recordsMode));
   const member=byId("recordsMember");if(member){member.disabled=false;member.querySelector('option[value=""]')?.replaceChildren(document.createTextNode(recordsMode==="individual"?"Selecione um membro":"Todos os membros"));}
 }
 function recordsExportMatrix(){return [["Data","Membro","Clã","Evento","Horário/Atividade","Status","Observação","Responsável","Atualização"],...recordsFilteredRows().map(i=>[i.date||"",i.memberName||"",i.clan||"",presenceTypeLabel(i.kind),i.slot||"",presenceStatus(i.status).label,i.note||"",i.updatedByName||"",recordTimestamp(i)])]}
-function downloadRecordsCsv(){const matrix=recordsExportMatrix(),csv=matrix.map(row=>row.map(v=>`"${String(v??"").replaceAll('"','""')}"`).join(";")).join("\n"),blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`77-team-registros-${recordsMode}-${todayIso()}.csv`;a.click();URL.revokeObjectURL(a.href)}
+function downloadRecordsCsv(){const matrix=recordsExportMatrix(),csv=matrix.map(row=>row.map(v=>`"${csvSafe(v).replaceAll('"','""')}"`).join(";")).join("\n"),blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`77-team-registros-${recordsMode}-${todayIso()}.csv`;a.click();URL.revokeObjectURL(a.href)}
 function downloadRecordsExcel(){const matrix=recordsExportMatrix(),html=`<html><head><meta charset="utf-8"></head><body><table border="1">${matrix.map((row,index)=>`<tr>${row.map(v=>index?`<td>${escapeHtml(v)}</td>`:`<th>${escapeHtml(v)}</th>`).join("")}</tr>`).join("")}</table></body></html>`,blob=new Blob(["\ufeff"+html],{type:"application/vnd.ms-excel"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`77-team-registros-${recordsMode}-${todayIso()}.xls`;a.click();URL.revokeObjectURL(a.href)}
 function printRecords(autoPrint=true){const rows=recordsFilteredRows(),memberName=recordsMode==="individual"?(state.members.find(m=>m.id===byId("recordsMember")?.value)?.name||"Membro não selecionado"):"Todos os membros",w=window.open("","_blank");if(!w)return toast("Permita pop-ups para gerar o relatório.");w.document.write(`<html><head><meta charset="utf-8"><title>77 TEAM - Registros</title><style>body{font-family:Arial;padding:26px;color:#151515}h1{margin:0}p{color:#555}table{width:100%;border-collapse:collapse;font-size:12px;margin-top:20px}th,td{border:1px solid #bbb;padding:7px;text-align:left}th{background:#eee}.summary{display:flex;gap:18px;margin:18px 0}.summary b{font-size:20px;display:block}</style></head><body><h1>77 TEAM Manager</h1><p>${recordsMode==="individual"?`Registro Individual — ${escapeHtml(memberName)}`:"Registro Geral de Presenças"}</p><div class="summary"><span><b>${rows.length}</b>Total</span><span><b>${rows.filter(x=>x.status===1).length}</b>Presentes</span><span><b>${rows.filter(x=>x.status===3).length}</b>Justificados</span><span><b>${rows.filter(x=>x.status===-1).length}</b>Ausentes</span></div><table><thead><tr><th>Data</th><th>Membro</th><th>Clã</th><th>Evento</th><th>Horário</th><th>Status</th><th>Observação</th><th>Responsável</th></tr></thead><tbody>${rows.map(i=>`<tr><td>${escapeHtml(i.date||"—")}</td><td>${escapeHtml(i.memberName||"—")}</td><td>${escapeHtml(i.clan||"—")}</td><td>${escapeHtml(presenceTypeLabel(i.kind))}</td><td>${escapeHtml(i.slot||"—")}</td><td>${escapeHtml(presenceStatus(i.status).label)}</td><td>${escapeHtml(i.note||"—")}</td><td>${escapeHtml(i.updatedByName||"—")}</td></tr>`).join("")}</tbody></table></body></html>`);finalizePrintWindow(w,autoPrint)}
 document.addEventListener("click",event=>{const mode=event.target.closest("[data-record-mode]");if(mode){recordsMode=mode.dataset.recordMode;renderRecordsCenter();return}});
