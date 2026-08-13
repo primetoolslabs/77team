@@ -1,6 +1,6 @@
-# 77 TEAM Manager V22.9.4 Hotfix — HOME
+# 77 TEAM Manager V22.9.5 Hotfix — HOME Final
 
-Esta versão conclui a revisão funcional da categoria **HOME** e mantém integralmente as melhorias anteriores. Corrige Visão Geral, Meu Perfil, Membros, Histórico, Ranking, Calendário e Estatísticas. O Firebase App Check continua removido; mantenha Firestore e Storage em **Monitorando** ou **Não aplicado**. Consulte `CHANGELOG-V22.9.4.md` e `PUBLICACAO-V22.9.4.md`.
+Esta versão conclui as nove correções residuais da categoria **HOME** e mantém integralmente as melhorias anteriores. XP, Level, status, eventos, membros ativos, ícones e datas usam critérios unificados. O Firebase App Check continua removido; mantenha Firestore e Storage em **Monitorando** ou **Não aplicado**. Consulte `CHANGELOG-V22.9.5.md` e `PUBLICACAO-V22.9.5.md`.
 
 ## Sétima auditoria — 13 achados corrigidos
 

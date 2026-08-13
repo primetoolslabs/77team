@@ -176,6 +176,15 @@ service cloud.firestore {
           leadership() && permission('roles_change', true)
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role','accessRole','memberRole','updatedAt'])
           && (isMemberRole(accessRoleOf(request.resource.data)) || isStaffRole(accessRoleOf(request.resource.data)))
+        )
+        || (
+          editor() && permission('xp_manage', true)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['progression','progressionUpdatedAt'])
+          && request.resource.data.progression is map
+          && request.resource.data.progression.keys().hasOnly(['automaticXp','manualXp','totalXp','level','title','currentXp','requiredXp','progress','recalculatedAt'])
+          && request.resource.data.progression.manualXp is int
+          && request.resource.data.progression.level is int
+          && request.resource.data.progression.level >= 1
         );
       allow delete: if editor() && permission('members_delete', false);
     }
