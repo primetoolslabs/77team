@@ -1,6 +1,6 @@
-# 77 TEAM Manager V22.9.17 Hotfix — auditoria geral e integridade
+# 77 TEAM Manager V22.9.19 🟢 Stable — versão final
 
-Esta versão fecha os pontos encontrados na auditoria geral da V22.9.16: autorização real de restauração/rollback, sincronização de e-mail, proteção definitiva das permissões, webhook privado, avatares em backups e validações de navegação. O Firebase App Check continua removido. Consulte `CHANGELOG-V22.9.17.md` e `PUBLICACAO-V22.9.17.md`.
+Versão final promovida diretamente da V22.9.18 após aprovação da auditoria geral. Preserva integralmente layout, lógica e funcionalidades existentes, com backups de até 200 MB, restauração controlada por `restoreJob`, rollback persistente, permissões reforçadas, PWA e proteção contra XSS. O Firebase App Check continua removido. Consulte `CHANGELOG-V22.9.19.md` e `PUBLICACAO-V22.9.19.md`.
 
 ## Sétima auditoria — 13 achados corrigidos
 

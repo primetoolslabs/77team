@@ -8,7 +8,7 @@ const main=read("js/main.js"),ui=read("js/ui.js"),rules=read("firestore.rules"),
 const firebase=JSON.parse(read("firebase.json")),manifest=JSON.parse(read("manifest.json")),indexes=JSON.parse(read("firestore.indexes.json"));
 
 execFileSync(process.execPath,["--check",new URL("js/main.js",root).pathname],{stdio:"pipe"});
-assert.equal(manifest.version,"22.9.17");
+assert.equal(manifest.version,"22.9.19");
 assert.equal(firebase.firestore.indexes,"firestore.indexes.json");
 assert.ok(firebase.emulators?.firestore?.port);
 assert.ok(indexes.indexes.some(index=>index.collectionGroup==="supportMessages"));
@@ -35,6 +35,8 @@ assert.ok(main.includes("Totais divergentes no backup semanal"));
 assert.ok(main.includes("ID duplicado em"));
 assert.ok(main.includes("avatar inválido ou acima do limite"));
 assert.ok(main.includes("Arquivo acima do limite seguro de 200 MB"));
+assert.ok(main.includes("O backup excede o limite seguro de 200 MB"));
+assert.ok(!main.includes("limite seguro de 50 MB"));
 assert.ok(main.includes("updateEmail(auth.currentUser,previousEmail)"));
 assert.ok(main.includes('doc(db,"settings","private")'));
 assert.ok(main.includes("csvSafe("));
@@ -59,4 +61,4 @@ const pageTargets=[...html.matchAll(/data-page(?:-jump)?="([^"]+)"/g),...ui.matc
 assert.deepEqual([...new Set(pageTargets.filter(id=>!pageIds.has(id)))],[],"Menu contém destino sem página");
 assert.ok(!html.includes("</input>"));
 assert.ok(!html.includes("App Check"));
-console.log("Auditoria estática V22.9.17: OK");
+console.log("Auditoria estática V22.9.19 Stable: OK");
