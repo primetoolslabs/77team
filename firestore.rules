@@ -483,11 +483,14 @@ service cloud.firestore {
     match /payments/{id} {
       allow read: if editor() && permission('payments_manage', true);
       allow create: if dev() || (editor() && permission('payments_manage', true)
-        && request.resource.data.keys().hasOnly(['nickname','paymentType','responsibleUid','responsibleNick','createdAt'])
+        && request.resource.data.keys().hasOnly(['nickname','paymentType','quantity','responsibleUid','responsibleNick','createdAt'])
         && request.resource.data.nickname is string
         && request.resource.data.nickname.size() >= 2
         && request.resource.data.nickname.size() <= 120
         && request.resource.data.paymentType in ['Pedra Mística','Pedra Obscura','Aço Negro','Payout','Criação de Item','Adiantamento']
+        && request.resource.data.quantity is int
+        && request.resource.data.quantity >= 1
+        && request.resource.data.quantity <= 1000000000
         && request.resource.data.responsibleUid == request.auth.uid
         && request.resource.data.responsibleNick is string
         && request.resource.data.responsibleNick.size() > 0

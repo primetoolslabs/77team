@@ -1,6 +1,6 @@
 {
-  "name": "77 TEAM Manager V22.9.21 Hotfix",
-  "short_name": "77 TEAM V22.9.21",
+  "name": "77 TEAM Manager V22.9.22 Hotfix",
+  "short_name": "77 TEAM V22.9.22",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
@@ -18,7 +18,7 @@
       "type": "image/png"
     }
   ],
-  "description": "77 TEAM Manager V22.9.21 Hotfix — módulo de pagamentos da equipe com histórico protegido.",
-  "version": "22.9.21",
-  "version_name": "22.9.21"
+  "description": "77 TEAM Manager V22.9.22 Hotfix — quantidades e exclusão DEV no histórico de pagamentos.",
+  "version": "22.9.22",
+  "version_name": "22.9.22"
 }

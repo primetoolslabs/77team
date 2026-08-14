@@ -1,6 +1,6 @@
-# 77 TEAM Manager V22.9.21 🟠 Hotfix — pagamentos da equipe
+# 77 TEAM Manager V22.9.22 🟠 Hotfix — quantidade e gestão do histórico
 
-Esta versão preserva integralmente a V22.9.20 e adiciona **STAFF → Pagamentos**. Responsáveis autorizados podem registrar nickname e tipo de pagamento; data, horário e responsável são gravados automaticamente. O histórico é protegido por regras, auditado e incluído no backup/restauração. Consulte `CHANGELOG-V22.9.21.md` e `PUBLICACAO-V22.9.21.md`.
+Esta versão preserva integralmente a V22.9.21 e adiciona quantidade aos pagamentos. O DEV pode excluir um registro individual ou apagar todo o histórico, sempre com confirmação e Auditoria. Consulte `CHANGELOG-V22.9.22.md` e `PUBLICACAO-V22.9.22.md`.
 
 ## Sétima auditoria — 13 achados corrigidos
 
