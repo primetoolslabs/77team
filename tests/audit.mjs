@@ -8,7 +8,7 @@ const main=read("js/main.js"),ui=read("js/ui.js"),rules=read("firestore.rules"),
 const firebase=JSON.parse(read("firebase.json")),manifest=JSON.parse(read("manifest.json")),indexes=JSON.parse(read("firestore.indexes.json"));
 
 execFileSync(process.execPath,["--check",new URL("js/main.js",root).pathname],{stdio:"pipe"});
-assert.equal(manifest.version,"22.9.22");
+assert.equal(manifest.version,"22.9.23");
 assert.equal(firebase.firestore.indexes,"firestore.indexes.json");
 assert.ok(firebase.emulators?.firestore?.port);
 assert.ok(indexes.indexes.some(index=>index.collectionGroup==="supportMessages"));
@@ -67,6 +67,9 @@ assert.ok(html.includes('id="clearPaymentHistory"'));
 assert.ok(main.includes('data-delete-payment'));
 assert.ok(main.includes('quantity,responsibleUid'));
 assert.ok(rules.includes("request.resource.data.quantity is int"));
+assert.ok(html.includes('max="99000000"'));
+assert.ok(main.includes('quantity>99000000'));
+assert.ok(rules.includes('request.resource.data.quantity <= 99000000'));
 
 const knownIds=new Set([...html.matchAll(/\bid=["']([^"']+)["']/g),...main.matchAll(/\bid=["']([^"'${}]+)["']/g)].map(match=>match[1]));
 const missingDirectIds=[...main.matchAll(/\$\(["']#([^"']+)["']\)(?!\?)/g)].map(match=>match[1]).filter(id=>!knownIds.has(id));
@@ -76,4 +79,4 @@ const pageTargets=[...html.matchAll(/data-page(?:-jump)?="([^"]+)"/g),...ui.matc
 assert.deepEqual([...new Set(pageTargets.filter(id=>!pageIds.has(id)))],[],"Menu contém destino sem página");
 assert.ok(!html.includes("</input>"));
 assert.ok(!html.includes("App Check"));
-console.log("Auditoria estática V22.9.22: OK");
+console.log("Auditoria estática V22.9.23: OK");

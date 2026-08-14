@@ -567,7 +567,7 @@ on("paymentForm","submit",async event=>{
   const nickname=String(byId("paymentNickname")?.value||"").trim(),paymentType=String(byId("paymentType")?.value||""),quantity=Number(byId("paymentQuantity")?.value);
   if(nickname.length<2||nickname.length>120)return toast("Informe um nickname válido.");
   if(!PAYMENT_TYPES.includes(paymentType))return toast("Selecione um tipo de pagamento válido.");
-  if(!Number.isSafeInteger(quantity)||quantity<1||quantity>1000000000)return toast("Informe uma quantidade inteira entre 1 e 1.000.000.000.");
+  if(!Number.isSafeInteger(quantity)||quantity<1||quantity>99000000)return toast("Informe uma quantidade inteira entre 1 e 99.000.000.");
   const button=byId("confirmPayment");if(button)button.disabled=true;
   try{
     const responsibleNick=String(state.profile?.name||state.profile?.displayName||state.user?.email||"Responsável").slice(0,120);
@@ -725,7 +725,7 @@ async function createPresenceBackup({automatic=false}={}){
   const rtRecords=state.rtPresence.map(item=>({...item,originalId:item.id}));
   if(!records.length&&!rtRecords.length){toast("Não existem dados de presença para salvar.");return null}
   const now=new Date(),week=isoWeek(todayIso()),counts=presenceBackupCounts(records),id=`${week}__${now.toISOString().replace(/[^0-9]/g,"").slice(0,14)}`;
-  const payload={week,counts,total:records.length,rtTotal:rtRecords.length,automatic,backupSchema:2,status:"writing",createdBy:state.user.uid,createdByName:state.profile?.name||state.user.email,createdAt:serverTimestamp(),createdAtText:now.toISOString(),sourceVersion:"22.9.22"};
+  const payload={week,counts,total:records.length,rtTotal:rtRecords.length,automatic,backupSchema:2,status:"writing",createdBy:state.user.uid,createdByName:state.profile?.name||state.user.email,createdAt:serverTimestamp(),createdAtText:now.toISOString(),sourceVersion:"22.9.23"};
   const backupRef=doc(db,"presenceBackups",id);
   await setDoc(backupRef,payload);
   try{
@@ -794,7 +794,7 @@ async function resetPresenceWithBackup(){
     toast("Reset interrompido. O backup e o registro de recuperação foram preservados.");
   }
 }
-async function downloadPresenceBackup(id){const item=state.presenceBackups.find(row=>row.id===id);if(!item)return toast("Backup não encontrado.");const data=await loadPresenceBackupData(item);downloadJson(`presenca-${item.week||id}.json`,{version:"22.9.22",exportedAt:new Date().toISOString(),backup:{...item,...data}});}
+async function downloadPresenceBackup(id){const item=state.presenceBackups.find(row=>row.id===id);if(!item)return toast("Backup não encontrado.");const data=await loadPresenceBackupData(item);downloadJson(`presenca-${item.week||id}.json`,{version:"22.9.23",exportedAt:new Date().toISOString(),backup:{...item,...data}});}
 
 
 function backupCenterDateValue(item){return rtDateValue(item?.createdAt)||Date.parse(item?.createdAtText||0)||0}
@@ -1374,7 +1374,7 @@ function renderAdvancedCenter(){
   const logs=state.audit.slice().sort((a,b)=>(b.createdAt?.toMillis?.()||0)-(a.createdAt?.toMillis?.()||0));
   setHtml("advancedLogsRows",logs.map(a=>`<tr><td>${a.createdAt?.toDate?a.createdAt.toDate().toLocaleString("pt-BR"):"—"}</td><td>${escapeHtml(a.userName||"—")}</td><td>${escapeHtml(a.action||"—")}</td><td>${escapeHtml(a.details||"")}</td></tr>`).join("")||'<tr><td colspan="4">Nenhum log disponível.</td></tr>');
   setHtml("firebaseStatusCards",[diagnosticCard("Autenticação",advancedDiagnostics.auth),diagnosticCard("Cloud Firestore",advancedDiagnostics.firestore),diagnosticCard("Listeners em tempo real",advancedDiagnostics.listeners)].join(""));
-  setHtml("servicesStatusGrid",[diagnosticCard("Aplicação web",{ok:true,text:`V22.9.22 carregada · ${location.protocol==="https:"?"HTTPS":"ambiente local"}`}),diagnosticCard("Firebase Auth",advancedDiagnostics.auth),diagnosticCard("Cloud Firestore",advancedDiagnostics.firestore),diagnosticCard("PWA / Service Worker",advancedDiagnostics.pwa),diagnosticCard("GitHub",{ok:githubDiagnostics.ok,text:githubDiagnostics.text})].join(""));
+  setHtml("servicesStatusGrid",[diagnosticCard("Aplicação web",{ok:true,text:`V22.9.23 carregada · ${location.protocol==="https:"?"HTTPS":"ambiente local"}`}),diagnosticCard("Firebase Auth",advancedDiagnostics.auth),diagnosticCard("Cloud Firestore",advancedDiagnostics.firestore),diagnosticCard("PWA / Service Worker",advancedDiagnostics.pwa),diagnosticCard("GitHub",{ok:githubDiagnostics.ok,text:githubDiagnostics.text})].join(""));
   renderSessions();renderGithubStatus();
   setHtml("systemStatsGrid",[
     ["Usuários",state.users.filter(user=>resolveAccessRole(user)!=="dev").length],["Membros",visibleMembers().length],["Presenças",state.attendance.length],["Eventos",state.events.length],["Notificações",state.sentNotifications.length||state.notifications.length],["Logs",state.audit.length]
@@ -1400,7 +1400,7 @@ async function checkGithub(){
   setText("githubUpdateStatus","Consultando GitHub...");
   try{const [repoResponse,runsResponse,releaseResponse]=await Promise.all([fetch(`https://api.github.com/repos/${repository}`,{headers:{Accept:"application/vnd.github+json"}}),fetch(`https://api.github.com/repos/${repository}/actions/runs?per_page=1`,{headers:{Accept:"application/vnd.github+json"}}),fetch(`https://api.github.com/repos/${repository}/releases/latest`,{headers:{Accept:"application/vnd.github+json"}})]);if(!repoResponse.ok)throw new Error(`Repositório indisponível (${repoResponse.status})`);const repo=await repoResponse.json(),runs=runsResponse.ok?await runsResponse.json():null,release=releaseResponse.ok?await releaseResponse.json():null,lastRun=runs?.workflow_runs?.[0];githubDiagnostics={ok:true,configured:true,repository,text:`${repo.full_name} · branch ${repo.default_branch} · atualizado ${new Date(repo.updated_at).toLocaleString("pt-BR")}`,workflows:lastRun?`${lastRun.name}: ${lastRun.conclusion||lastRun.status}`:"Nenhuma execução pública",release:release?.tag_name||"Nenhuma release publicada",testedAt:new Date().toISOString()};setText("githubUpdateStatus","Consulta concluída com sucesso.");renderAdvancedCenter();return true}catch(error){githubDiagnostics={ok:false,configured:true,repository,text:error.message||"Falha ao consultar GitHub",workflows:"Indisponível",release:"Indisponível"};setText("githubUpdateStatus",githubDiagnostics.text);renderAdvancedCenter();return false}
 }
-on("checkUpdatesButton","click",async()=>{const button=byId("checkUpdatesButton");if(button)button.disabled=true;try{const response=await fetch(`manifest.json?check=${Date.now()}`,{cache:"no-store"});if(!response.ok)throw new Error("Manifesto indisponível");const manifest=await response.json(),repository=state.settings?.advanced?.githubRepository||"";let message=`Versão publicada: ${manifest.version_name||manifest.version||"não informada"}. Versão carregada: 22.9.22.`;if(repository){await checkGithub();if(githubDiagnostics.release!=="Nenhuma release publicada"&&githubDiagnostics.release!=="Indisponível")message+=` GitHub: ${githubDiagnostics.release}.`}setText("updateStatusText",message);toast("Verificação concluída.")}catch(error){setText("updateStatusText",`Falha na verificação: ${error.message}`)}finally{if(button)button.disabled=false}});
+on("checkUpdatesButton","click",async()=>{const button=byId("checkUpdatesButton");if(button)button.disabled=true;try{const response=await fetch(`manifest.json?check=${Date.now()}`,{cache:"no-store"});if(!response.ok)throw new Error("Manifesto indisponível");const manifest=await response.json(),repository=state.settings?.advanced?.githubRepository||"";let message=`Versão publicada: ${manifest.version_name||manifest.version||"não informada"}. Versão carregada: 22.9.23.`;if(repository){await checkGithub();if(githubDiagnostics.release!=="Nenhuma release publicada"&&githubDiagnostics.release!=="Indisponível")message+=` GitHub: ${githubDiagnostics.release}.`}setText("updateStatusText",message);toast("Verificação concluída.")}catch(error){setText("updateStatusText",`Falha na verificação: ${error.message}`)}finally{if(button)button.disabled=false}});
 on("createBackupButton","click",async()=>{if(!owner())return;try{downloadJson(`77-team-backup-${localIsoDate()}.json`,await completeBackupPayload());toast("Backup completo do Firestore e seguro gerado.")}catch(error){toast(error.message||errMsg(error))}});
 on("restoreBackupFile","change",async e=>{const file=e.target.files?.[0],button=byId("restoreAdvancedBackup");validatedAdvancedBackup=null;if(button)button.disabled=true;if(!file)return;if(file.size>200*1024*1024)return setText("restoreBackupInfo","Arquivo acima do limite seguro de 200 MB.");try{const data=JSON.parse(await file.text());validateBackupPayload(data);validatedAdvancedBackup=data;if(button)button.disabled=false;setText("restoreBackupInfo",`✓ Backup validado: V${data.version}, projeto ${data.projectId}, schema ${data.backupSchema}, gerado em ${new Date(data.generatedAt).toLocaleString("pt-BR")}.`)}catch(error){setText("restoreBackupInfo",`✕ Backup recusado: ${error.message||"arquivo inválido"}`)}});
 on("restoreAdvancedBackup","click",async()=>{if(!owner()||!validatedAdvancedBackup)return;if(!confirm("Restaurar este backup validado? Um restoreJob persistente fará rollback automático em caso de falha."))return;const button=byId("restoreAdvancedBackup");button.disabled=true;setText("restoreBackupInfo","Restauração controlada em andamento. Não feche esta página...");try{const jobId=await restoreBackupPayload(validatedAdvancedBackup);setText("restoreBackupInfo",`✓ Restauração concluída. restoreJob: ${jobId}`);validatedAdvancedBackup=null;toast("Backup restaurado com rollback protegido.")}catch(error){setText("restoreBackupInfo",`✕ Restauração revertida: ${error.message||error}`);button.disabled=false}});
@@ -1901,7 +1901,7 @@ function updateLiveClock(){
 }
 updateLiveClock();
 setInterval(updateLiveClock,1000);
-if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js?v=22.9.22").catch(error=>console.warn("Service Worker indisponível:",error)));
+if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js?v=22.9.23").catch(error=>console.warn("Service Worker indisponível:",error)));
 
 function animateNumber(id,target,suffix=""){
   const el=byId(id);
@@ -2195,7 +2195,7 @@ on("profileNicknameForm","submit",async event=>{
   }catch(error){
     console.error("Falha ao salvar o próprio perfil:",error);
     toast(error?.code==="permission-denied"
-      ? "Permissão negada ao salvar o perfil. Publique o firestore.rules da V22.9.22 no Firebase e confirme o projeto team-f78cd."
+      ? "Permissão negada ao salvar o perfil. Publique o firestore.rules da V22.9.23 no Firebase e confirme o projeto team-f78cd."
       : (error.message||"Não foi possível atualizar o perfil."));
   }
 });
@@ -3591,7 +3591,7 @@ function backupPayload(){
   return serializeBackupValue({
     format:"77-team-manager-backup",
     backupSchema:3,
-    version:"22.9.22",
+    version:"22.9.23",
     generatedAt:new Date().toISOString(),
     projectId:firebaseConfig.projectId,
     collections:{
@@ -3693,19 +3693,19 @@ function validateBackupPayload(payload){
   validateBackupValue(payload);
   if(!payload||payload.format!=="77-team-manager-backup")throw new Error("Formato de backup incompatível.");
   if(payload.projectId!==firebaseConfig.projectId)throw new Error("Este backup pertence a outro projeto Firebase.");
-  if(Number(payload.backupSchema||0)!==3)throw new Error("Schema de backup incompatível. Use um backup completo do Firestore V22.8.5 a V22.9.22 com schema 3.");
-  if(!["22.8.5","22.8.6","22.8.7","22.8.8","22.8.9","22.9.0","22.9.1","22.9.2","22.9.3","22.9.4","22.9.5","22.9.6","22.9.7","22.9.8","22.9.9","22.9.10","22.9.11","22.9.12","22.9.13","22.9.14","22.9.15","22.9.16","22.9.17","22.9.18","22.9.19","22.9.20","22.9.21","22.9.22"].includes(String(payload.version||"")))throw new Error("Versão de backup incompatível.");
+  if(Number(payload.backupSchema||0)!==3)throw new Error("Schema de backup incompatível. Use um backup completo do Firestore V22.8.5 a V22.9.23 com schema 3.");
+  if(!["22.8.5","22.8.6","22.8.7","22.8.8","22.8.9","22.9.0","22.9.1","22.9.2","22.9.3","22.9.4","22.9.5","22.9.6","22.9.7","22.9.8","22.9.9","22.9.10","22.9.11","22.9.12","22.9.13","22.9.14","22.9.15","22.9.16","22.9.17","22.9.18","22.9.19","22.9.20","22.9.21","22.9.22","22.9.23"].includes(String(payload.version||"")))throw new Error("Versão de backup incompatível.");
   if(!payload.collections||typeof payload.collections!=="object"||Array.isArray(payload.collections))throw new Error("Coleções do backup ausentes.");
   const allowed=["users","members","nicknameClaims","attendance","events","notifications","notificationReads","rtPresence","presenceBackups","resetJobs","xpLogs","payments","audit","supportMessages","chatMessages"];
   if(!Array.isArray(payload.collections.nicknameClaims))payload.collections.nicknameClaims=[];
-  if(!Array.isArray(payload.collections.payments)&&String(payload.version||"")!=="22.9.22")payload.collections.payments=[];
+  if(!Array.isArray(payload.collections.payments)&&String(payload.version||"")!=="22.9.23")payload.collections.payments=[];
   for(const name of allowed)if(!Array.isArray(payload.collections[name]))throw new Error(`Coleção obrigatória ausente: ${name}.`);
   for(const [name,rows] of Object.entries(payload.collections)){
     if(!allowed.includes(name))throw new Error(`Coleção não permitida: ${name}.`);
     if(!Array.isArray(rows)||rows.length>50000)throw new Error(`Coleção inválida ou excessiva: ${name}.`);
     rows.forEach(item=>{if(!item||!validBackupDocumentId(item.id))throw new Error(`Documento inválido em ${name}.`);validateBackupDocument(name,item)});
   }
-  if(String(payload.version||"")==="22.9.22"&&payload.collections.payments.some(item=>!Number.isSafeInteger(item.quantity)||item.quantity<1||item.quantity>1000000000))throw new Error("Pagamento sem quantidade válida no backup.");
+  if(String(payload.version||"")==="22.9.23"&&payload.collections.payments.some(item=>!Number.isSafeInteger(item.quantity)||item.quantity<1||item.quantity>99000000))throw new Error("Pagamento sem quantidade válida no backup.");
   const backupUsers=new Map(payload.collections.users.map(item=>[item.id,item]));
   const backupMembers=new Map(payload.collections.members.map(item=>[item.id,item]));
   const claimedUids=new Set();
@@ -3714,13 +3714,13 @@ function validateBackupPayload(payload){
     if(!user||String(user.name||"").trim().toLowerCase()!==claim.id)throw new Error(`Reserva de nickname sem usuário correspondente: ${claim.id}.`);
     if(user.active!==true||String(user.status||"approved")!=="approved")throw new Error(`Reserva de nickname vinculada a usuário inativo: ${claim.id}.`);
     if(user.nicknameClaimKey!==undefined&&user.nicknameClaimKey!==claim.id)throw new Error(`Vínculo de nickname divergente no usuário ${claim.uid}.`);
-    if(["22.9.12","22.9.13","22.9.14","22.9.15","22.9.16","22.9.17","22.9.18","22.9.19","22.9.20","22.9.21","22.9.22"].includes(String(payload.version||""))&&String(user.memberDocumentId||"")!==String(claim.memberId||""))throw new Error(`Documento de membro divergente na reserva ${claim.id}.`);
-    if(["22.9.12","22.9.13","22.9.14","22.9.15","22.9.16","22.9.17","22.9.18","22.9.19","22.9.20","22.9.21","22.9.22"].includes(String(payload.version||""))&&normalizeAccessRole(user.accessRole||user.role)!=="dev"&&!claim.memberId)throw new Error(`Reserva sem membro vinculado: ${claim.id}.`);
+    if(["22.9.12","22.9.13","22.9.14","22.9.15","22.9.16","22.9.17","22.9.18","22.9.19","22.9.20","22.9.21","22.9.22","22.9.23"].includes(String(payload.version||""))&&String(user.memberDocumentId||"")!==String(claim.memberId||""))throw new Error(`Documento de membro divergente na reserva ${claim.id}.`);
+    if(["22.9.12","22.9.13","22.9.14","22.9.15","22.9.16","22.9.17","22.9.18","22.9.19","22.9.20","22.9.21","22.9.22","22.9.23"].includes(String(payload.version||""))&&normalizeAccessRole(user.accessRole||user.role)!=="dev"&&!claim.memberId)throw new Error(`Reserva sem membro vinculado: ${claim.id}.`);
     if(claim.memberId&&(!member||(member.userId!==claim.uid&&member.id!==claim.uid)||String(member.name||"").trim().toLowerCase()!==claim.id))throw new Error(`Reserva de nickname sem membro correspondente: ${claim.id}.`);
     if(claimedUids.has(claim.uid))throw new Error(`O usuário ${claim.uid} possui mais de uma reserva de nickname.`);
     claimedUids.add(claim.uid);
   }
-  if(["22.9.11","22.9.12","22.9.13","22.9.14","22.9.15","22.9.16","22.9.17","22.9.18","22.9.19","22.9.20","22.9.21","22.9.22"].includes(String(payload.version||"")))for(const user of payload.collections.users){
+  if(["22.9.11","22.9.12","22.9.13","22.9.14","22.9.15","22.9.16","22.9.17","22.9.18","22.9.19","22.9.20","22.9.21","22.9.22","22.9.23"].includes(String(payload.version||"")))for(const user of payload.collections.users){
     if(user.active===true&&String(user.status||"approved")==="approved"&&normalizeAccessRole(user.accessRole||user.role)!=="dev"&&!claimedUids.has(user.id))throw new Error(`Usuário ativo sem reserva de nickname: ${user.id}.`);
   }
   const ownerRow=payload.collections.users.find(item=>item.id===state.user?.uid);
@@ -3735,7 +3735,7 @@ function validateBackupPayload(payload){
     if(!validBackupDocumentId(backupId)||!Array.isArray(data?.attendance)||!Array.isArray(data?.rt))throw new Error("Subcoleção semanal inválida.");
     if(data.attendance.length>50000||data.rt.length>10000)throw new Error("Subcoleção semanal excede o limite seguro.");
     const parent=backupParents.get(backupId);
-    if(["22.9.17","22.9.18","22.9.19","22.9.20","22.9.21","22.9.22"].includes(String(payload.version))&&parent.status!=="completed")throw new Error(`Backup semanal incompleto: ${backupId}.`);
+    if(["22.9.17","22.9.18","22.9.19","22.9.20","22.9.21","22.9.22","22.9.23"].includes(String(payload.version))&&parent.status!=="completed")throw new Error(`Backup semanal incompleto: ${backupId}.`);
     if(Number(parent.total)!==data.attendance.length||Number(parent.rtTotal)!==data.rt.length)throw new Error(`Totais divergentes no backup semanal ${backupId}.`);
     for(const [name,rows] of Object.entries({attendance:data.attendance,rt:data.rt})){
       const ids=new Set();

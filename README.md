@@ -1,6 +1,6 @@
-# 77 TEAM Manager V22.9.22 🟠 Hotfix — quantidade e gestão do histórico
+# 77 TEAM Manager V22.9.23 🟠 Hotfix — limite de quantidade
 
-Esta versão preserva integralmente a V22.9.21 e adiciona quantidade aos pagamentos. O DEV pode excluir um registro individual ou apagar todo o histórico, sempre com confirmação e Auditoria. Consulte `CHANGELOG-V22.9.22.md` e `PUBLICACAO-V22.9.22.md`.
+Esta versão preserva integralmente a V22.9.22 e limita a quantidade de cada pagamento ao intervalo de **1 a 99.000.000** no formulário, JavaScript, regras do Firestore e backups. Consulte `CHANGELOG-V22.9.23.md` e `PUBLICACAO-V22.9.23.md`.
 
 ## Sétima auditoria — 13 achados corrigidos
 
