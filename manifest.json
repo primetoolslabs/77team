@@ -1,6 +1,6 @@
 {
-  "name": "77 TEAM Manager V22.9.25 Hotfix",
-  "short_name": "77 TEAM V22.9.25",
+  "name": "77 TEAM Manager V22.9.26 Hotfix",
+  "short_name": "77 TEAM V22.9.26",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
@@ -18,7 +18,7 @@
       "type": "image/png"
     }
   ],
-  "description": "77 TEAM Manager V22.9.25 Hotfix — histórico de pagamentos com quantidade de 1 a 99.000.000 e exportação semanal ou mensal em PDF.",
-  "version": "22.9.25",
-  "version_name": "22.9.25"
+  "description": "77 TEAM Manager V22.9.26 Hotfix — entrada de quantidades em milhões e PDFs de pagamentos completamente renderizados.",
+  "version": "22.9.26",
+  "version_name": "22.9.26"
 }

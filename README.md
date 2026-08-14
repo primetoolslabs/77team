@@ -1,6 +1,6 @@
-# 77 TEAM Manager V22.9.25 🟠 Hotfix — pagamentos em PDF
+# 77 TEAM Manager V22.9.26 🟠 Hotfix — quantidades e PDF corrigidos
 
-Esta versão preserva integralmente a V22.9.24, mantém a quantidade entre 1 e 99.000.000 gravada e exibida no histórico e gera o histórico semanal ou mensal de pagamentos em PDF. Consulte `CHANGELOG-V22.9.25.md` e `PUBLICACAO-V22.9.25.md`.
+Esta versão preserva integralmente a V22.9.25. Ao digitar 20, o sistema registra e exibe 20.000.000; os relatórios semanais e mensais aguardam a renderização completa antes de abrir a impressão em PDF. Consulte `CHANGELOG-V22.9.26.md` e `PUBLICACAO-V22.9.26.md`.
 
 ## Sétima auditoria — 13 achados corrigidos
 
