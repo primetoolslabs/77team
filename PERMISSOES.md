@@ -5,7 +5,7 @@
 | Aceitar solicitações | ✅ | ✅ | ✅ | ❌ |
 | Rejeitar solicitações | ✅ | ✅ | ✅ | ❌ |
 | Alterar cargos | ✅ | ✅ | ❌ | ❌ |
-| Excluir membros | ✅ | ✅ | ❌ | ❌ |
+| Excluir membros | ✅ | ✅ | ✅ | ❌ |
 | Editar membros | ✅ | ✅ | ✅ | ❌ |
 | Alterar clã dos jogadores | ✅ | ✅ | ✅ | ❌ |
 | Registrar presença | ✅ | ✅ | ✅ | ❌ |
