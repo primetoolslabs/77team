@@ -480,6 +480,21 @@ service cloud.firestore {
         && request.resource.data.reason is string && request.resource.data.reason.size() >= 3 && request.resource.data.reason.size() <= 500);
       allow update, delete: if dev();
     }
+    match /payments/{id} {
+      allow read: if editor() && permission('payments_manage', true);
+      allow create: if dev() || (editor() && permission('payments_manage', true)
+        && request.resource.data.keys().hasOnly(['nickname','paymentType','responsibleUid','responsibleNick','createdAt'])
+        && request.resource.data.nickname is string
+        && request.resource.data.nickname.size() >= 2
+        && request.resource.data.nickname.size() <= 120
+        && request.resource.data.paymentType in ['Pedra Mística','Pedra Obscura','Aço Negro','Payout','Criação de Item','Adiantamento']
+        && request.resource.data.responsibleUid == request.auth.uid
+        && request.resource.data.responsibleNick is string
+        && request.resource.data.responsibleNick.size() > 0
+        && request.resource.data.responsibleNick.size() <= 120
+        && request.resource.data.createdAt == request.time);
+      allow update, delete: if dev();
+    }
     match /audit/{id} {
       allow read: if dev() || (leadership() && permission('audit_view', true));
       allow create: if ((editor() || active())

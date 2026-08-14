@@ -1,6 +1,6 @@
-# 77 TEAM Manager V22.9.20 🟠 Hotfix — login simplificado
+# 77 TEAM Manager V22.9.21 🟠 Hotfix — pagamentos da equipe
 
-Esta versão preserva integralmente a V22.9.19 Stable e remove da tela de login o fluxo de configuração do primeiro DEV. Permanecem disponíveis somente o login normal e o cadastro de membros. A conta DEV existente, as regras, permissões, backups, restauração, PWA e demais funcionalidades foram preservados. Consulte `CHANGELOG-V22.9.20.md` e `PUBLICACAO-V22.9.20.md`.
+Esta versão preserva integralmente a V22.9.20 e adiciona **STAFF → Pagamentos**. Responsáveis autorizados podem registrar nickname e tipo de pagamento; data, horário e responsável são gravados automaticamente. O histórico é protegido por regras, auditado e incluído no backup/restauração. Consulte `CHANGELOG-V22.9.21.md` e `PUBLICACAO-V22.9.21.md`.
 
 ## Sétima auditoria — 13 achados corrigidos
 

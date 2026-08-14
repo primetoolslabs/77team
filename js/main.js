@@ -49,7 +49,7 @@ function configuredPresenceSlots(kind){
 }
 function configuredEventEnabled(kind){const cfg=state.settings?.events||{};return kind==="worldboss"?cfg.worldbossEnabled!==false:kind==="purgatorio"?cfg.purgatorioEnabled!==false:cfg.customEventsEnabled!==false}
 
-const state={user:null,profile:null,onboardingRequired:false,members:[],membersLoaded:false,attendance:[],rtPresence:[],users:[],usersLoaded:false,audit:[],events:[],notifications:[],sentNotifications:[],notificationReads:[],settings:{},xpLogs:[],supportMessages:[],selectedSupportOwnerUid:"",selectedSupportTicketId:"",supportView:"active",chatMessages:[],selectedChatOwnerUid:"",selectedChatId:"",chatView:"active",chatSearch:"",editingCharacterUserId:"",presenceFilters:{},presenceBackups:[],sessions:[],unsubs:[]};
+const state={user:null,profile:null,onboardingRequired:false,members:[],membersLoaded:false,attendance:[],rtPresence:[],users:[],usersLoaded:false,audit:[],events:[],notifications:[],sentNotifications:[],notificationReads:[],settings:{},xpLogs:[],payments:[],supportMessages:[],selectedSupportOwnerUid:"",selectedSupportTicketId:"",supportView:"active",chatMessages:[],selectedChatOwnerUid:"",selectedChatId:"",chatView:"active",chatSearch:"",editingCharacterUserId:"",presenceFilters:{},presenceBackups:[],sessions:[],unsubs:[]};
 
 function toast(msg){const el=$("#toast");el.textContent=msg;el.classList.add("show");clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.remove("show"),3000)}
 function errMsg(e){return ({'auth/invalid-credential':'E-mail ou senha incorretos.','auth/user-disabled':'Esta conta foi desativada.','auth/too-many-requests':'Muitas tentativas. Aguarde alguns minutos e tente novamente.','auth/network-request-failed':'Falha de conexão. Verifique sua internet.','auth/email-already-in-use':'Este e-mail já existe.','auth/weak-password':'A senha precisa ter pelo menos 6 caracteres.','permission-denied':'Permissão negada. Publique o firestore.rules novo.'})[e?.code]||`${e?.code||'erro'}: ${e?.message||'Falha inesperada'}`}
@@ -160,7 +160,7 @@ function selectedCargoValue(member,user){
 }
 
 const HOME_PAGES=new Set(["dashboard","meu-perfil","membros","historico","ranking","calendario","estatisticas","sobre"]);
-const STAFF_PAGES=new Set(["staff-hub","presencas","registros","worldboss","purgatorio","eventos","personagens","metas","solicitacoes","notificacoes","atendimento","chat"]);
+const STAFF_PAGES=new Set(["staff-hub","presencas","registros","pagamentos","worldboss","purgatorio","eventos","personagens","metas","solicitacoes","notificacoes","atendimento","chat"]);
 const ADMIN_PAGES=new Set(["staff","configuracoes","backup-central","auditoria"]);
 const ADVANCED_PAGES=new Set(["atualizacoes","backup","logs-sistema","status-firebase","status-github","sessoes","manutencao","status-servicos","limpeza-cache","estatisticas-sistema","personalizar-login","permissoes-cargos"]);
 
@@ -184,6 +184,7 @@ const ROLE_PERMISSION_DEFINITIONS=Object.freeze([
   {group:"Personagens",key:"character_delete",label:"Excluir personagens permitidos",defaults:{dev:true,leadership:true,staff:true,member:true}},
   {group:"Comunicação",key:"notifications_send",label:"Enviar notificações",defaults:{dev:true,leadership:true,staff:true,member:false}},
   {group:"Comunicação",key:"support_manage",label:"Gerenciar atendimento e chat",defaults:{dev:true,leadership:true,staff:true,member:false}},
+  {group:"Financeiro",key:"payments_manage",label:"Registrar e consultar pagamentos",defaults:{dev:true,leadership:true,staff:true,member:false}},
   {group:"Administração",key:"audit_view",label:"Visualizar Auditoria",defaults:{dev:true,leadership:true,staff:false,member:false}},
   {group:"Administração",key:"settings_view",label:"Visualizar Configurações",defaults:{dev:true,leadership:true,staff:false,member:false}},
   {group:"Administração",key:"settings_edit",label:"Alterar Configurações",defaults:{dev:true,leadership:false,staff:false,member:false}},
@@ -206,7 +207,7 @@ const PERMISSION_ALLOWED_ROLES=Object.freeze({
   requests_approve:["dev","leadership","staff"],requests_reject:["dev","leadership","staff"],roles_change:["dev","leadership"],
   members_delete:["dev","leadership","staff"],members_edit:["dev","leadership","staff"],
   character_view:["dev","leadership","staff","member"],character_edit:["dev","leadership","staff","member"],character_delete:["dev","leadership","staff","member"],
-  notifications_send:["dev","leadership","staff"],support_manage:["dev","leadership","staff"],
+  notifications_send:["dev","leadership","staff"],support_manage:["dev","leadership","staff"],payments_manage:["dev","leadership","staff"],
   audit_view:["dev","leadership"],settings_view:["dev","leadership"],settings_edit:["dev"],login_customize:["dev"],
   xp_manage:["dev","leadership","staff"],goals_manage:["dev","leadership","staff"]
 });
@@ -240,6 +241,7 @@ function canOpenPage(page){
   if(page==="solicitacoes")return permissionEnabled("access_staff")&&(permissionEnabled("requests_approve")||permissionEnabled("requests_reject"));
   if(page==="notificacoes")return permissionEnabled("access_staff")&&permissionEnabled("notifications_send");
   if(page==="atendimento"||page==="chat")return permissionEnabled("access_staff")&&permissionEnabled("support_manage");
+  if(page==="pagamentos")return permissionEnabled("access_staff")&&permissionEnabled("payments_manage");
   if(page==="metas")return permissionEnabled("access_staff")&&permissionEnabled("goals_manage");
   if(page==="configuracoes")return permissionEnabled("access_admin")&&permissionEnabled("settings_view");
   if(page==="auditoria"||page==="logs-sistema")return permissionEnabled(page==="auditoria"?"access_admin":"access_advanced")&&permissionEnabled("audit_view");
@@ -247,7 +249,7 @@ function canOpenPage(page){
   return permissionEnabled(`access_${area}`);
 }
 function permissionMessage(page){
-  if(["personagens","solicitacoes","notificacoes","atendimento","chat","metas"].includes(page))return "Seu cargo não possui a permissão necessária para este módulo.";
+  if(["personagens","solicitacoes","notificacoes","atendimento","chat","pagamentos","metas"].includes(page))return "Seu cargo não possui a permissão necessária para este módulo.";
   const area=pageArea(page);
   if(area==="advanced")return "Esta área é exclusiva do DEV.";
   if(area==="admin")return "Esta área é exclusiva do DEV e da Liderança.";
@@ -490,6 +492,7 @@ function subscribeAll(){
   if(editor())state.unsubs.push(onSnapshot(collection(db,"users"),s=>{state.users=s.docs.map(d=>{const user={id:d.id,...d.data()};return {...user,resolvedAccessRole:resolveAccessRole(user)}});state.usersLoaded=true;render();scheduleAttendanceUserMigration();scheduleAccountRoleSync();scheduleNicknameClaimMigration()}));
   if(permissionEnabled("audit_view"))state.unsubs.push(onSnapshot(collection(db,"audit"),s=>{state.audit=s.docs.map(d=>({id:d.id,...d.data()}));render()}));
   if(editor())state.unsubs.push(onSnapshot(collection(db,"xpLogs"),s=>{state.xpLogs=s.docs.map(d=>({id:d.id,...d.data()}));render()}));
+  if(permissionEnabled("payments_manage"))state.unsubs.push(onSnapshot(collection(db,"payments"),s=>{state.payments=s.docs.map(d=>({id:d.id,...d.data()}));renderPayments()},error=>console.error("Falha ao carregar pagamentos:",error)));
   state.unsubs.push(onSnapshot(collection(db,"events"),s=>{state.events=s.docs.map(d=>({id:d.id,...d.data()}));render()}));
   if(state.user){
     state.unsubs.push(onSnapshot(
@@ -547,6 +550,30 @@ function subscribeAll(){
   },error=>console.warn("Configurações privadas indisponíveis:",error)));
 }
 async function audit(action,details){if(!state.user||!editor())return;const label=String(action||"");const critical=/dev|cargo|permiss|restaur|rollback|exclu|senha|seguran|login|sessão|backup/i.test(label);if(state.settings?.security?.auditChanges===false&&!critical)return;try{await addDoc(collection(db,"audit"),{userId:state.user.uid,userName:state.profile?.name||state.profile?.email||"Usuário",action:label.slice(0,160),details:String(details||"").slice(0,2000),createdAt:serverTimestamp()})}catch{}}
+
+const PAYMENT_TYPES=Object.freeze(["Pedra Mística","Pedra Obscura","Aço Negro","Payout","Criação de Item","Adiantamento"]);
+function paymentDate(value){const date=value?.toDate?.()||new Date(value||0);return Number.isNaN(date.getTime())?"Processando...":date.toLocaleString("pt-BR",{dateStyle:"short",timeStyle:"medium"})}
+function renderPayments(){
+  const rowsHost=byId("paymentRows");if(!rowsHost)return;
+  const options=byId("paymentNicknameOptions");if(options)options.innerHTML=visibleMembers().slice().sort((a,b)=>String(a.name||"").localeCompare(String(b.name||""))).map(member=>`<option value="${escapeHtml(member.name||"")}"></option>`).join("");
+  const search=String(byId("paymentSearch")?.value||"").trim().toLowerCase();
+  const rows=state.payments.slice().sort((a,b)=>sessionTime(b.createdAt)-sessionTime(a.createdAt)).filter(item=>!search||`${item.nickname||""} ${item.paymentType||""} ${item.responsibleNick||""}`.toLowerCase().includes(search));
+  setText("paymentsCount",`${rows.length} pagamento${rows.length===1?"":"s"}`);
+  rowsHost.innerHTML=rows.map(item=>`<tr><td>${escapeHtml(paymentDate(item.createdAt))}</td><td><strong>${escapeHtml(item.nickname||"—")}</strong></td><td>${escapeHtml(item.paymentType||"—")}</td><td>${escapeHtml(item.responsibleNick||"—")}</td></tr>`).join("")||'<tr><td colspan="4">Nenhum pagamento registrado.</td></tr>';
+}
+on("paymentSearch","input",renderPayments);
+on("paymentForm","submit",async event=>{
+  event.preventDefault();if(!permissionEnabled("payments_manage"))return toast("Seu cargo não possui permissão para registrar pagamentos.");
+  const nickname=String(byId("paymentNickname")?.value||"").trim(),paymentType=String(byId("paymentType")?.value||"");
+  if(nickname.length<2||nickname.length>120)return toast("Informe um nickname válido.");
+  if(!PAYMENT_TYPES.includes(paymentType))return toast("Selecione um tipo de pagamento válido.");
+  const button=byId("confirmPayment");if(button)button.disabled=true;
+  try{
+    const responsibleNick=String(state.profile?.name||state.profile?.displayName||state.user?.email||"Responsável").slice(0,120);
+    await addDoc(collection(db,"payments"),{nickname,paymentType,responsibleUid:state.user.uid,responsibleNick,createdAt:serverTimestamp()});
+    await audit("pagamento registrado",`${nickname} · ${paymentType}`);event.target.reset();toast("Pagamento confirmado e registrado.");
+  }catch(error){toast(errMsg(error))}finally{if(button)button.disabled=false}
+});
 
 let sessionHeartbeatTimer=null;
 let sessionHeartbeatCreated=false;
@@ -681,7 +708,7 @@ async function createPresenceBackup({automatic=false}={}){
   const rtRecords=state.rtPresence.map(item=>({...item,originalId:item.id}));
   if(!records.length&&!rtRecords.length){toast("Não existem dados de presença para salvar.");return null}
   const now=new Date(),week=isoWeek(todayIso()),counts=presenceBackupCounts(records),id=`${week}__${now.toISOString().replace(/[^0-9]/g,"").slice(0,14)}`;
-  const payload={week,counts,total:records.length,rtTotal:rtRecords.length,automatic,backupSchema:2,status:"writing",createdBy:state.user.uid,createdByName:state.profile?.name||state.user.email,createdAt:serverTimestamp(),createdAtText:now.toISOString(),sourceVersion:"22.9.20"};
+  const payload={week,counts,total:records.length,rtTotal:rtRecords.length,automatic,backupSchema:2,status:"writing",createdBy:state.user.uid,createdByName:state.profile?.name||state.user.email,createdAt:serverTimestamp(),createdAtText:now.toISOString(),sourceVersion:"22.9.21"};
   const backupRef=doc(db,"presenceBackups",id);
   await setDoc(backupRef,payload);
   try{
@@ -750,7 +777,7 @@ async function resetPresenceWithBackup(){
     toast("Reset interrompido. O backup e o registro de recuperação foram preservados.");
   }
 }
-async function downloadPresenceBackup(id){const item=state.presenceBackups.find(row=>row.id===id);if(!item)return toast("Backup não encontrado.");const data=await loadPresenceBackupData(item);downloadJson(`presenca-${item.week||id}.json`,{version:"22.9.20",exportedAt:new Date().toISOString(),backup:{...item,...data}});}
+async function downloadPresenceBackup(id){const item=state.presenceBackups.find(row=>row.id===id);if(!item)return toast("Backup não encontrado.");const data=await loadPresenceBackupData(item);downloadJson(`presenca-${item.week||id}.json`,{version:"22.9.21",exportedAt:new Date().toISOString(),backup:{...item,...data}});}
 
 
 function backupCenterDateValue(item){return rtDateValue(item?.createdAt)||Date.parse(item?.createdAtText||0)||0}
@@ -1304,7 +1331,7 @@ function render(){
   const pending=state.users.filter(u=>normalizeAccessRole(u.role)==="member"&&u.status==="pending");
   const requestOptions=REQUEST_ACCESS_OPTIONS[owner()?"dev":leadership()?"leadership":"staff"]||[];
   $("#requestRows").innerHTML=pending.map(u=>`<tr><td>${escapeHtml(u.name)}</td><td>${escapeHtml(u.email)}</td><td><select data-clan="${escapeHtml(u.id)}">${'<option value="">Clã</option>'+CLANS.map(x=>`<option>${x}</option>`).join("")}</select></td><td><select data-role="${escapeHtml(u.id)}">${requestOptions.map(option=>`<option value="${option.value}">${option.label}</option>`).join("")}</select></td><td><div class="request-actions">${permissionEnabled("requests_approve")?`<button class="btn primary" data-approve="${escapeHtml(u.id)}" type="button">Aprovar</button>`:""}${permissionEnabled("requests_reject")?`<button class="btn danger" data-reject="${escapeHtml(u.id)}" type="button">Rejeitar</button>`:""}</div></td></tr>`).join("")||"<tr><td colspan='5'>Nenhuma solicitação pendente.</td></tr>";
-  renderAuditTable();
+  renderAuditTable();renderPayments();
   renderNotifications();renderCalendar();renderStatistics();renderOwnProfile();renderCharacterProfile();renderCharactersTable();renderCharacterCenter();renderHistoryCenter();renderGoals();renderSystemHealth();renderStaffCommandCenter();renderLevelSystem();renderAdvancedCenter();scheduleProgressionSync();applyRestrictedVisibility();
   window.SidebarV13?.updateBadges();
 }
@@ -1330,7 +1357,7 @@ function renderAdvancedCenter(){
   const logs=state.audit.slice().sort((a,b)=>(b.createdAt?.toMillis?.()||0)-(a.createdAt?.toMillis?.()||0));
   setHtml("advancedLogsRows",logs.map(a=>`<tr><td>${a.createdAt?.toDate?a.createdAt.toDate().toLocaleString("pt-BR"):"—"}</td><td>${escapeHtml(a.userName||"—")}</td><td>${escapeHtml(a.action||"—")}</td><td>${escapeHtml(a.details||"")}</td></tr>`).join("")||'<tr><td colspan="4">Nenhum log disponível.</td></tr>');
   setHtml("firebaseStatusCards",[diagnosticCard("Autenticação",advancedDiagnostics.auth),diagnosticCard("Cloud Firestore",advancedDiagnostics.firestore),diagnosticCard("Listeners em tempo real",advancedDiagnostics.listeners)].join(""));
-  setHtml("servicesStatusGrid",[diagnosticCard("Aplicação web",{ok:true,text:`V22.9.20 carregada · ${location.protocol==="https:"?"HTTPS":"ambiente local"}`}),diagnosticCard("Firebase Auth",advancedDiagnostics.auth),diagnosticCard("Cloud Firestore",advancedDiagnostics.firestore),diagnosticCard("PWA / Service Worker",advancedDiagnostics.pwa),diagnosticCard("GitHub",{ok:githubDiagnostics.ok,text:githubDiagnostics.text})].join(""));
+  setHtml("servicesStatusGrid",[diagnosticCard("Aplicação web",{ok:true,text:`V22.9.21 carregada · ${location.protocol==="https:"?"HTTPS":"ambiente local"}`}),diagnosticCard("Firebase Auth",advancedDiagnostics.auth),diagnosticCard("Cloud Firestore",advancedDiagnostics.firestore),diagnosticCard("PWA / Service Worker",advancedDiagnostics.pwa),diagnosticCard("GitHub",{ok:githubDiagnostics.ok,text:githubDiagnostics.text})].join(""));
   renderSessions();renderGithubStatus();
   setHtml("systemStatsGrid",[
     ["Usuários",state.users.filter(user=>resolveAccessRole(user)!=="dev").length],["Membros",visibleMembers().length],["Presenças",state.attendance.length],["Eventos",state.events.length],["Notificações",state.sentNotifications.length||state.notifications.length],["Logs",state.audit.length]
@@ -1356,7 +1383,7 @@ async function checkGithub(){
   setText("githubUpdateStatus","Consultando GitHub...");
   try{const [repoResponse,runsResponse,releaseResponse]=await Promise.all([fetch(`https://api.github.com/repos/${repository}`,{headers:{Accept:"application/vnd.github+json"}}),fetch(`https://api.github.com/repos/${repository}/actions/runs?per_page=1`,{headers:{Accept:"application/vnd.github+json"}}),fetch(`https://api.github.com/repos/${repository}/releases/latest`,{headers:{Accept:"application/vnd.github+json"}})]);if(!repoResponse.ok)throw new Error(`Repositório indisponível (${repoResponse.status})`);const repo=await repoResponse.json(),runs=runsResponse.ok?await runsResponse.json():null,release=releaseResponse.ok?await releaseResponse.json():null,lastRun=runs?.workflow_runs?.[0];githubDiagnostics={ok:true,configured:true,repository,text:`${repo.full_name} · branch ${repo.default_branch} · atualizado ${new Date(repo.updated_at).toLocaleString("pt-BR")}`,workflows:lastRun?`${lastRun.name}: ${lastRun.conclusion||lastRun.status}`:"Nenhuma execução pública",release:release?.tag_name||"Nenhuma release publicada",testedAt:new Date().toISOString()};setText("githubUpdateStatus","Consulta concluída com sucesso.");renderAdvancedCenter();return true}catch(error){githubDiagnostics={ok:false,configured:true,repository,text:error.message||"Falha ao consultar GitHub",workflows:"Indisponível",release:"Indisponível"};setText("githubUpdateStatus",githubDiagnostics.text);renderAdvancedCenter();return false}
 }
-on("checkUpdatesButton","click",async()=>{const button=byId("checkUpdatesButton");if(button)button.disabled=true;try{const response=await fetch(`manifest.json?check=${Date.now()}`,{cache:"no-store"});if(!response.ok)throw new Error("Manifesto indisponível");const manifest=await response.json(),repository=state.settings?.advanced?.githubRepository||"";let message=`Versão publicada: ${manifest.version_name||manifest.version||"não informada"}. Versão carregada: 22.9.20.`;if(repository){await checkGithub();if(githubDiagnostics.release!=="Nenhuma release publicada"&&githubDiagnostics.release!=="Indisponível")message+=` GitHub: ${githubDiagnostics.release}.`}setText("updateStatusText",message);toast("Verificação concluída.")}catch(error){setText("updateStatusText",`Falha na verificação: ${error.message}`)}finally{if(button)button.disabled=false}});
+on("checkUpdatesButton","click",async()=>{const button=byId("checkUpdatesButton");if(button)button.disabled=true;try{const response=await fetch(`manifest.json?check=${Date.now()}`,{cache:"no-store"});if(!response.ok)throw new Error("Manifesto indisponível");const manifest=await response.json(),repository=state.settings?.advanced?.githubRepository||"";let message=`Versão publicada: ${manifest.version_name||manifest.version||"não informada"}. Versão carregada: 22.9.21.`;if(repository){await checkGithub();if(githubDiagnostics.release!=="Nenhuma release publicada"&&githubDiagnostics.release!=="Indisponível")message+=` GitHub: ${githubDiagnostics.release}.`}setText("updateStatusText",message);toast("Verificação concluída.")}catch(error){setText("updateStatusText",`Falha na verificação: ${error.message}`)}finally{if(button)button.disabled=false}});
 on("createBackupButton","click",async()=>{if(!owner())return;try{downloadJson(`77-team-backup-${localIsoDate()}.json`,await completeBackupPayload());toast("Backup completo do Firestore e seguro gerado.")}catch(error){toast(error.message||errMsg(error))}});
 on("restoreBackupFile","change",async e=>{const file=e.target.files?.[0],button=byId("restoreAdvancedBackup");validatedAdvancedBackup=null;if(button)button.disabled=true;if(!file)return;if(file.size>200*1024*1024)return setText("restoreBackupInfo","Arquivo acima do limite seguro de 200 MB.");try{const data=JSON.parse(await file.text());validateBackupPayload(data);validatedAdvancedBackup=data;if(button)button.disabled=false;setText("restoreBackupInfo",`✓ Backup validado: V${data.version}, projeto ${data.projectId}, schema ${data.backupSchema}, gerado em ${new Date(data.generatedAt).toLocaleString("pt-BR")}.`)}catch(error){setText("restoreBackupInfo",`✕ Backup recusado: ${error.message||"arquivo inválido"}`)}});
 on("restoreAdvancedBackup","click",async()=>{if(!owner()||!validatedAdvancedBackup)return;if(!confirm("Restaurar este backup validado? Um restoreJob persistente fará rollback automático em caso de falha."))return;const button=byId("restoreAdvancedBackup");button.disabled=true;setText("restoreBackupInfo","Restauração controlada em andamento. Não feche esta página...");try{const jobId=await restoreBackupPayload(validatedAdvancedBackup);setText("restoreBackupInfo",`✓ Restauração concluída. restoreJob: ${jobId}`);validatedAdvancedBackup=null;toast("Backup restaurado com rollback protegido.")}catch(error){setText("restoreBackupInfo",`✕ Restauração revertida: ${error.message||error}`);button.disabled=false}});
@@ -1857,7 +1884,7 @@ function updateLiveClock(){
 }
 updateLiveClock();
 setInterval(updateLiveClock,1000);
-if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js?v=22.9.20").catch(error=>console.warn("Service Worker indisponível:",error)));
+if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js?v=22.9.21").catch(error=>console.warn("Service Worker indisponível:",error)));
 
 function animateNumber(id,target,suffix=""){
   const el=byId(id);
@@ -2151,7 +2178,7 @@ on("profileNicknameForm","submit",async event=>{
   }catch(error){
     console.error("Falha ao salvar o próprio perfil:",error);
     toast(error?.code==="permission-denied"
-      ? "Permissão negada ao salvar o perfil. Publique o firestore.rules da V22.9.20 no Firebase e confirme o projeto team-f78cd."
+      ? "Permissão negada ao salvar o perfil. Publique o firestore.rules da V22.9.21 no Firebase e confirme o projeto team-f78cd."
       : (error.message||"Não foi possível atualizar o perfil."));
   }
 });
@@ -2273,12 +2300,12 @@ window.TeamManagerCanOpenPage=canOpenPage;
 function applyRestrictedVisibility(){
   const allowed=permissionEnabled("access_staff");
 
-  ["staff-hub","presencas","registros"].forEach(page=>{
+  ["staff-hub","presencas","registros","pagamentos"].forEach(page=>{
     const section=byId(page);
     if(section)section.classList.toggle("hidden",!allowed);
   });
 
-  document.querySelectorAll('[data-page="staff-hub"],[data-page="presencas"],[data-page="registros"]')
+  document.querySelectorAll('[data-page="staff-hub"],[data-page="presencas"],[data-page="registros"],[data-page="pagamentos"]')
     .forEach(button=>button.classList.toggle("hidden",!allowed));
 
   document.querySelectorAll(".attendance-private")
@@ -3547,7 +3574,7 @@ function backupPayload(){
   return serializeBackupValue({
     format:"77-team-manager-backup",
     backupSchema:3,
-    version:"22.9.20",
+    version:"22.9.21",
     generatedAt:new Date().toISOString(),
     projectId:firebaseConfig.projectId,
     collections:{
@@ -3561,6 +3588,7 @@ function backupPayload(){
       rtPresence:state.rtPresence,
       presenceBackups:state.presenceBackups.filter(item=>!item.status||item.status==="completed").map(({records,rtRecords,...item})=>item),
       xpLogs:state.xpLogs,
+      payments:state.payments,
       audit:state.audit,
       supportMessages:state.supportMessages,
       chatMessages:state.chatMessages
@@ -3636,6 +3664,8 @@ function validateBackupDocument(name,item){
     if(!optionalText(item,"createdBy",128)||!optionalText(item,"status",40))invalid("resetJob incompatível");
   }else if(name==="xpLogs"){
     if(!optionalFinite(item,"amount")||!optionalText(item,"reason",500)||!optionalText(item,"staffId",128))invalid("log de XP incompatível");
+  }else if(name==="payments"){
+    if(!optionalText(item,"nickname",120)||!optionalText(item,"responsibleUid",128)||!optionalText(item,"responsibleNick",120)||!["Pedra Mística","Pedra Obscura","Aço Negro","Payout","Criação de Item","Adiantamento"].includes(item.paymentType))invalid("pagamento incompatível");
   }else if(name==="audit"){
     if(!optionalText(item,"userId",128)||!optionalText(item,"userName",120)||!optionalText(item,"action",160)||!optionalText(item,"details",2000))invalid("registro de auditoria incompatível");
   }else if(name==="supportMessages"||name==="chatMessages"){
@@ -3646,11 +3676,12 @@ function validateBackupPayload(payload){
   validateBackupValue(payload);
   if(!payload||payload.format!=="77-team-manager-backup")throw new Error("Formato de backup incompatível.");
   if(payload.projectId!==firebaseConfig.projectId)throw new Error("Este backup pertence a outro projeto Firebase.");
-  if(Number(payload.backupSchema||0)!==3)throw new Error("Schema de backup incompatível. Use um backup completo do Firestore V22.8.5 a V22.9.20 com schema 3.");
-  if(!["22.8.5","22.8.6","22.8.7","22.8.8","22.8.9","22.9.0","22.9.1","22.9.2","22.9.3","22.9.4","22.9.5","22.9.6","22.9.7","22.9.8","22.9.9","22.9.10","22.9.11","22.9.12","22.9.13","22.9.14","22.9.15","22.9.16","22.9.17","22.9.18","22.9.19","22.9.20"].includes(String(payload.version||"")))throw new Error("Versão de backup incompatível.");
+  if(Number(payload.backupSchema||0)!==3)throw new Error("Schema de backup incompatível. Use um backup completo do Firestore V22.8.5 a V22.9.21 com schema 3.");
+  if(!["22.8.5","22.8.6","22.8.7","22.8.8","22.8.9","22.9.0","22.9.1","22.9.2","22.9.3","22.9.4","22.9.5","22.9.6","22.9.7","22.9.8","22.9.9","22.9.10","22.9.11","22.9.12","22.9.13","22.9.14","22.9.15","22.9.16","22.9.17","22.9.18","22.9.19","22.9.20","22.9.21"].includes(String(payload.version||"")))throw new Error("Versão de backup incompatível.");
   if(!payload.collections||typeof payload.collections!=="object"||Array.isArray(payload.collections))throw new Error("Coleções do backup ausentes.");
-  const allowed=["users","members","nicknameClaims","attendance","events","notifications","notificationReads","rtPresence","presenceBackups","resetJobs","xpLogs","audit","supportMessages","chatMessages"];
+  const allowed=["users","members","nicknameClaims","attendance","events","notifications","notificationReads","rtPresence","presenceBackups","resetJobs","xpLogs","payments","audit","supportMessages","chatMessages"];
   if(!Array.isArray(payload.collections.nicknameClaims))payload.collections.nicknameClaims=[];
+  if(!Array.isArray(payload.collections.payments)&&String(payload.version||"")!=="22.9.21")payload.collections.payments=[];
   for(const name of allowed)if(!Array.isArray(payload.collections[name]))throw new Error(`Coleção obrigatória ausente: ${name}.`);
   for(const [name,rows] of Object.entries(payload.collections)){
     if(!allowed.includes(name))throw new Error(`Coleção não permitida: ${name}.`);
@@ -3665,13 +3696,13 @@ function validateBackupPayload(payload){
     if(!user||String(user.name||"").trim().toLowerCase()!==claim.id)throw new Error(`Reserva de nickname sem usuário correspondente: ${claim.id}.`);
     if(user.active!==true||String(user.status||"approved")!=="approved")throw new Error(`Reserva de nickname vinculada a usuário inativo: ${claim.id}.`);
     if(user.nicknameClaimKey!==undefined&&user.nicknameClaimKey!==claim.id)throw new Error(`Vínculo de nickname divergente no usuário ${claim.uid}.`);
-    if(["22.9.12","22.9.13","22.9.14","22.9.15","22.9.16","22.9.17","22.9.18","22.9.19","22.9.20"].includes(String(payload.version||""))&&String(user.memberDocumentId||"")!==String(claim.memberId||""))throw new Error(`Documento de membro divergente na reserva ${claim.id}.`);
-    if(["22.9.12","22.9.13","22.9.14","22.9.15","22.9.16","22.9.17","22.9.18","22.9.19","22.9.20"].includes(String(payload.version||""))&&normalizeAccessRole(user.accessRole||user.role)!=="dev"&&!claim.memberId)throw new Error(`Reserva sem membro vinculado: ${claim.id}.`);
+    if(["22.9.12","22.9.13","22.9.14","22.9.15","22.9.16","22.9.17","22.9.18","22.9.19","22.9.20","22.9.21"].includes(String(payload.version||""))&&String(user.memberDocumentId||"")!==String(claim.memberId||""))throw new Error(`Documento de membro divergente na reserva ${claim.id}.`);
+    if(["22.9.12","22.9.13","22.9.14","22.9.15","22.9.16","22.9.17","22.9.18","22.9.19","22.9.20","22.9.21"].includes(String(payload.version||""))&&normalizeAccessRole(user.accessRole||user.role)!=="dev"&&!claim.memberId)throw new Error(`Reserva sem membro vinculado: ${claim.id}.`);
     if(claim.memberId&&(!member||(member.userId!==claim.uid&&member.id!==claim.uid)||String(member.name||"").trim().toLowerCase()!==claim.id))throw new Error(`Reserva de nickname sem membro correspondente: ${claim.id}.`);
     if(claimedUids.has(claim.uid))throw new Error(`O usuário ${claim.uid} possui mais de uma reserva de nickname.`);
     claimedUids.add(claim.uid);
   }
-  if(["22.9.11","22.9.12","22.9.13","22.9.14","22.9.15","22.9.16","22.9.17","22.9.18","22.9.19","22.9.20"].includes(String(payload.version||"")))for(const user of payload.collections.users){
+  if(["22.9.11","22.9.12","22.9.13","22.9.14","22.9.15","22.9.16","22.9.17","22.9.18","22.9.19","22.9.20","22.9.21"].includes(String(payload.version||"")))for(const user of payload.collections.users){
     if(user.active===true&&String(user.status||"approved")==="approved"&&normalizeAccessRole(user.accessRole||user.role)!=="dev"&&!claimedUids.has(user.id))throw new Error(`Usuário ativo sem reserva de nickname: ${user.id}.`);
   }
   const ownerRow=payload.collections.users.find(item=>item.id===state.user?.uid);
@@ -3686,7 +3717,7 @@ function validateBackupPayload(payload){
     if(!validBackupDocumentId(backupId)||!Array.isArray(data?.attendance)||!Array.isArray(data?.rt))throw new Error("Subcoleção semanal inválida.");
     if(data.attendance.length>50000||data.rt.length>10000)throw new Error("Subcoleção semanal excede o limite seguro.");
     const parent=backupParents.get(backupId);
-    if(["22.9.17","22.9.18","22.9.19","22.9.20"].includes(String(payload.version))&&parent.status!=="completed")throw new Error(`Backup semanal incompleto: ${backupId}.`);
+    if(["22.9.17","22.9.18","22.9.19","22.9.20","22.9.21"].includes(String(payload.version))&&parent.status!=="completed")throw new Error(`Backup semanal incompleto: ${backupId}.`);
     if(Number(parent.total)!==data.attendance.length||Number(parent.rtTotal)!==data.rt.length)throw new Error(`Totais divergentes no backup semanal ${backupId}.`);
     for(const [name,rows] of Object.entries({attendance:data.attendance,rt:data.rt})){
       const ids=new Set();

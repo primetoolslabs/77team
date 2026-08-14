@@ -168,7 +168,7 @@
       ["dashboard","📊","Visão Geral"],["meu-perfil","👤","Meu Perfil"],["membros","👥","Membros"],["historico","📜","Histórico"],["ranking","📈","Ranking"],["calendario","📅","Calendário"],["estatisticas","📊","Estatísticas"]
     ]},
     staff:{title:"STAFF",icon:"👥",defaultPage:"presencas",role:"editor",items:[
-      ["presencas","📅","Presenças"],["personagens","⚔️","Personagens"],["solicitacoes","📥","Solicitações"],["notificacoes","🔔","Notificações"],["atendimento","🎧","Atendimento"],["chat","💬","Chat Privado"],["registros","📁","Consultar Registros"],["metas","🎯","Metas"]
+      ["presencas","📅","Presenças"],["personagens","⚔️","Personagens"],["solicitacoes","📥","Solicitações"],["notificacoes","🔔","Notificações"],["atendimento","🎧","Atendimento"],["chat","💬","Chat Privado"],["registros","📁","Consultar Registros"],["pagamentos","💰","Pagamentos"],["metas","🎯","Metas"]
     ]},
     administracao:{title:"ADMINISTRAÇÃO",icon:"🛡️",defaultPage:"staff",role:"administrator",items:[
       ["staff","👥","Staff"],["configuracoes","⚙️","Configurações"],["backup-central","💾","Backup"],["auditoria","📜","Auditoria"]

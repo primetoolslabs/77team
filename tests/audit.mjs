@@ -8,7 +8,7 @@ const main=read("js/main.js"),ui=read("js/ui.js"),rules=read("firestore.rules"),
 const firebase=JSON.parse(read("firebase.json")),manifest=JSON.parse(read("manifest.json")),indexes=JSON.parse(read("firestore.indexes.json"));
 
 execFileSync(process.execPath,["--check",new URL("js/main.js",root).pathname],{stdio:"pipe"});
-assert.equal(manifest.version,"22.9.20");
+assert.equal(manifest.version,"22.9.21");
 assert.equal(firebase.firestore.indexes,"firestore.indexes.json");
 assert.ok(firebase.emulators?.firestore?.port);
 assert.ok(indexes.indexes.some(index=>index.collectionGroup==="supportMessages"));
@@ -55,6 +55,13 @@ assert.ok(rules.includes("allow create: if dev() || (permission('presence_reset'
 assert.ok(rules.includes("allow create: if dev() || (editor() && permission('xp_manage', true)"));
 assert.ok(rules.includes("!request.resource.data.diff(resource.data).affectedKeys().hasAny(['rolePermissions','security','maintenance','advanced','loginCustomization'])"));
 assert.ok(rules.includes("allow update, delete: if dev();"));
+assert.ok(html.includes('id="pagamentos"'));
+assert.ok(html.includes('id="paymentForm"'));
+assert.ok(ui.includes('["pagamentos","💰","Pagamentos"]'));
+assert.ok(main.includes('collection(db,"payments")'));
+assert.ok(main.includes('payments:state.payments'));
+assert.ok(rules.includes("match /payments/{id}"));
+assert.ok(rules.includes("permission('payments_manage', true)"));
 
 const knownIds=new Set([...html.matchAll(/\bid=["']([^"']+)["']/g),...main.matchAll(/\bid=["']([^"'${}]+)["']/g)].map(match=>match[1]));
 const missingDirectIds=[...main.matchAll(/\$\(["']#([^"']+)["']\)(?!\?)/g)].map(match=>match[1]).filter(id=>!knownIds.has(id));
@@ -64,4 +71,4 @@ const pageTargets=[...html.matchAll(/data-page(?:-jump)?="([^"]+)"/g),...ui.matc
 assert.deepEqual([...new Set(pageTargets.filter(id=>!pageIds.has(id)))],[],"Menu contém destino sem página");
 assert.ok(!html.includes("</input>"));
 assert.ok(!html.includes("App Check"));
-console.log("Auditoria estática V22.9.20: OK");
+console.log("Auditoria estática V22.9.21: OK");
