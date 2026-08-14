@@ -8,7 +8,7 @@ const main=read("js/main.js"),ui=read("js/ui.js"),rules=read("firestore.rules"),
 const firebase=JSON.parse(read("firebase.json")),manifest=JSON.parse(read("manifest.json")),indexes=JSON.parse(read("firestore.indexes.json"));
 
 execFileSync(process.execPath,["--check",new URL("js/main.js",root).pathname],{stdio:"pipe"});
-assert.equal(manifest.version,"22.9.24");
+assert.equal(manifest.version,"22.9.25");
 assert.equal(firebase.firestore.indexes,"firestore.indexes.json");
 assert.ok(firebase.emulators?.firestore?.port);
 assert.ok(indexes.indexes.some(index=>index.collectionGroup==="supportMessages"));
@@ -75,7 +75,11 @@ assert.ok(html.includes('id="paymentExportMonth"'));
 assert.ok(html.includes('id="downloadPaymentWeek"'));
 assert.ok(html.includes('id="downloadPaymentMonth"'));
 assert.ok(main.includes('function downloadPaymentHistory'));
-assert.ok(main.includes('["Data/Hora","Nickname","Pagamento","Quantidade","Responsável"]'));
+assert.ok(main.includes("Histórico de pagamentos —"));
+assert.ok(html.includes("Baixar semana em PDF"));
+assert.ok(html.includes("Baixar mês em PDF"));
+assert.ok(main.includes("Salvar como PDF"));
+assert.ok(main.includes("Quantidade (1 a 99.000.000)"));
 
 const knownIds=new Set([...html.matchAll(/\bid=["']([^"']+)["']/g),...main.matchAll(/\bid=["']([^"'${}]+)["']/g)].map(match=>match[1]));
 const missingDirectIds=[...main.matchAll(/\$\(["']#([^"']+)["']\)(?!\?)/g)].map(match=>match[1]).filter(id=>!knownIds.has(id));
@@ -85,4 +89,4 @@ const pageTargets=[...html.matchAll(/data-page(?:-jump)?="([^"]+)"/g),...ui.matc
 assert.deepEqual([...new Set(pageTargets.filter(id=>!pageIds.has(id)))],[],"Menu contém destino sem página");
 assert.ok(!html.includes("</input>"));
 assert.ok(!html.includes("App Check"));
-console.log("Auditoria estática V22.9.24: OK");
+console.log("Auditoria estática V22.9.25: OK");

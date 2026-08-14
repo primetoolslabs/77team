@@ -1,6 +1,6 @@
-# 77 TEAM Manager V22.9.24 🟠 Hotfix — exportação dos pagamentos
+# 77 TEAM Manager V22.9.25 🟠 Hotfix — pagamentos em PDF
 
-Esta versão preserva integralmente a V22.9.23, mantém a quantidade gravada e exibida no histórico e adiciona exportação CSV por semana e por mês. Consulte `CHANGELOG-V22.9.24.md` e `PUBLICACAO-V22.9.24.md`.
+Esta versão preserva integralmente a V22.9.24, mantém a quantidade entre 1 e 99.000.000 gravada e exibida no histórico e gera o histórico semanal ou mensal de pagamentos em PDF. Consulte `CHANGELOG-V22.9.25.md` e `PUBLICACAO-V22.9.25.md`.
 
 ## Sétima auditoria — 13 achados corrigidos
 

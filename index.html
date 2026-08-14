@@ -5,10 +5,10 @@
 <meta charset="utf-8"/>
 <meta content="width=device-width,initial-scale=1,viewport-fit=cover" name="viewport"/>
 <meta content="#09070f" name="theme-color"/>
-<title>77 TEAM Manager V22.9.24 Hotfix</title>
+<title>77 TEAM Manager V22.9.25 Hotfix</title>
 <link href="manifest.json" rel="manifest"/>
 <link href="icons/icon-192.png" rel="icon"/>
-<link href="css/style.css?v=22.9.24" rel="stylesheet"/>
+<link href="css/style.css?v=22.9.25" rel="stylesheet"/>
 </head>
 <body>
 <div class="loading" id="loading">
@@ -44,7 +44,7 @@
 <div class="login-v222-safe"><strong>🛡 SEUS DADOS PROTEGIDOS</strong><span>Autenticação segura e base original preservada.</span></div>
 </main>
 </div>
-<footer class="login-v222-footer">© 2026 77 TEAM Manager • V22.9.24 Hotfix • Desenvolvido por <strong>PrimeTools Labs</strong></footer>
+<footer class="login-v222-footer">© 2026 77 TEAM Manager • V22.9.25 Hotfix • Desenvolvido por <strong>PrimeTools Labs</strong></footer>
 </section>
 <div class="app hidden" id="app">
 <aside class="sidebar sidebar-v13" id="sidebar">
@@ -76,7 +76,7 @@
 <button aria-label="Abrir menu" class="menu-toggle" id="menuButton" type="button">☰</button>
 <div>
 <h2>Bem-vindo, <span id="welcomeName">Usuário</span>!</h2>
-<p>Gestão completa da 77 TEAM <span class="manager-version-badge">Manager</span><span class="stable-badge" id="systemVersion">v22.9.24 Hotfix</span></p>
+<p>Gestão completa da 77 TEAM <span class="manager-version-badge">Manager</span><span class="stable-badge" id="systemVersion">v22.9.25 Hotfix</span></p>
 </div>
 </div>
 <div class="topbar-center">
@@ -301,8 +301,8 @@
 </form>
 </div></article>
 </div>
-<article class="panel"><div class="panel-head"><div><h3>Baixar histórico</h3><p>Escolha uma semana ou um mês para gerar um arquivo CSV.</p></div></div><div class="panel-body"><div class="button-row"><label>Semana<input id="paymentExportWeek" type="week"/></label><button class="btn" id="downloadPaymentWeek" type="button">Baixar semana</button><label>Mês<input id="paymentExportMonth" type="month"/></label><button class="btn" id="downloadPaymentMonth" type="button">Baixar mês</button></div></div></article>
-<article class="panel"><div class="panel-head"><div><h3>Histórico de pagamentos</h3><p>Registros ordenados do mais recente para o mais antigo.</p></div><div class="button-row"><input id="paymentSearch" placeholder="Buscar nickname, tipo ou responsável..." type="search"/><button class="btn danger owner-only" id="clearPaymentHistory" type="button">Apagar todo o histórico</button></div></div><div class="panel-body table-wrap"><table><thead><tr><th>Data/Hora</th><th>Nickname</th><th>Pagamento</th><th>Quantidade</th><th>Responsável</th><th>Ações</th></tr></thead><tbody id="paymentRows"></tbody></table></div></article>
+<article class="panel"><div class="panel-head"><div><h3>Baixar histórico em PDF</h3><p>Escolha uma semana ou um mês para gerar o relatório em PDF.</p></div></div><div class="panel-body"><div class="button-row"><label>Semana<input id="paymentExportWeek" type="week"/></label><button class="btn" id="downloadPaymentWeek" type="button">Baixar semana em PDF</button><label>Mês<input id="paymentExportMonth" type="month"/></label><button class="btn" id="downloadPaymentMonth" type="button">Baixar mês em PDF</button></div></div></article>
+<article class="panel"><div class="panel-head"><div><h3>Histórico de pagamentos</h3><p>Registros ordenados do mais recente para o mais antigo. Quantidade permitida: 1 a 99.000.000.</p></div><div class="button-row"><input id="paymentSearch" placeholder="Buscar nickname, tipo ou responsável..." type="search"/><button class="btn danger owner-only" id="clearPaymentHistory" type="button">Apagar todo o histórico</button></div></div><div class="panel-body table-wrap"><table><thead><tr><th>Data/Hora</th><th>Nickname</th><th>Pagamento</th><th>Quantidade (1 a 99.000.000)</th><th>Responsável</th><th>Ações</th></tr></thead><tbody id="paymentRows"></tbody></table></div></article>
 </section>
 <section class="page page-animate editor-only" id="registros">
 <div class="page-title"><div><h2>📁 Registros</h2><p>Consulte e baixe registros gerais ou individuais de presença.</p></div><span class="badge" id="recordsResultCount">0 registros</span></div>
@@ -1104,7 +1104,7 @@
 <section class="settings-tab" data-settings-panel="system">
 <div class="settings-page-head"><div><span>CONFIGURAÇÕES</span><h2>Sistema</h2><p>Saúde e estatísticas técnicas da aplicação.</p></div><button class="btn" id="refreshSystemHealth" type="button">Atualizar</button></div>
 <div class="system-health-grid">
-<article><span>Versão</span><strong>22.9.24</strong><small>Hotfix atual</small></article>
+<article><span>Versão</span><strong>22.9.25</strong><small>Hotfix atual</small></article>
 <article><span>Projeto Firebase</span><strong id="systemProjectId">—</strong><small>Conectado</small></article>
 <article><span>Usuários</span><strong id="systemUsersCount">0</strong><small>Perfis</small></article>
 <article><span>Membros</span><strong id="systemMembersCount">0</strong><small>Ativos</small></article>
@@ -1119,7 +1119,7 @@
 <article class="settings-card about-enterprise-card">
 <img alt="Nova logo 77 TEAM Manager" src="assets/logo-77-team-manager-nova.webp?v=22.8.5"/>
 <h2>77 TEAM Manager</h2>
-<strong>Versão 22.9.24 Hotfix</strong>
+<strong>Versão 22.9.25 Hotfix</strong>
 <p>Plataforma de gestão de membros, presenças, personagens, metas, eventos e inteligência administrativa da 77 TEAM.</p>
 <div class="version-history"><span>v7.0 Player Center</span><span>v7.1 Central de Personagens</span><span>v13.2 Central de Histórico</span><span>v14 Menu por Permissões</span></div>
 </article>
@@ -1129,7 +1129,7 @@
 </section>
 <section class="page page-animate owner-only advanced-page" id="atualizacoes">
 <div class="page-head"><div><h2>🚀 Atualizações</h2><p>Central de implantação do 77 TEAM Manager.</p></div></div>
-<div class="advanced-grid"><article class="panel"><div class="panel-head"><h3>Versão do sistema</h3></div><div class="panel-body advanced-card"><strong>22.9.24 Hotfix</strong><p id="updateStatusText">Aguardando verificação do manifesto.</p><div class="version-details"><span>Base oficial: 22.9.23</span><span>Compilação: 14/08/2026</span></div><button class="btn primary" id="checkUpdatesButton" type="button">Verificar atualização</button></div></article><article class="panel"><div class="panel-head"><h3>Novidades da V22.9.24</h3></div><div class="panel-body"><ul class="release-notes"><li>Quantidade permanece gravada e visível no histórico.</li><li>Seleção de semana para exportar pagamentos em CSV.</li><li>Seleção de mês para exportar pagamentos em CSV.</li><li>Arquivos incluem data, nickname, tipo, quantidade e responsável.</li></ul></div></article><article class="panel"><div class="panel-head"><h3>Repositório GitHub</h3></div><div class="panel-body stack"><p>Consulte repositórios públicos sem armazenar tokens no navegador.</p><label>Repositório<input id="githubRepository" placeholder="organizacao/repositorio" maxlength="180"/></label><div class="button-row"><button class="btn" id="saveGithubRepository" type="button">Salvar</button><button class="btn primary" id="checkGithubButton" type="button">Consultar GitHub</button></div><p class="muted" id="githubUpdateStatus">Nenhum repositório configurado.</p></div></article></div>
+<div class="advanced-grid"><article class="panel"><div class="panel-head"><h3>Versão do sistema</h3></div><div class="panel-body advanced-card"><strong>22.9.25 Hotfix</strong><p id="updateStatusText">Aguardando verificação do manifesto.</p><div class="version-details"><span>Base oficial: 22.9.24</span><span>Compilação: 14/08/2026</span></div><button class="btn primary" id="checkUpdatesButton" type="button">Verificar atualização</button></div></article><article class="panel"><div class="panel-head"><h3>Novidades da V22.9.25</h3></div><div class="panel-body"><ul class="release-notes"><li>Quantidade permitida e exibida entre 1 e 99.000.000.</li><li>Exportação semanal do histórico de pagamentos em PDF.</li><li>Exportação mensal do histórico de pagamentos em PDF.</li><li>PDF inclui data/hora, nickname, tipo, quantidade e responsável.</li></ul></div></article><article class="panel"><div class="panel-head"><h3>Repositório GitHub</h3></div><div class="panel-body stack"><p>Consulte repositórios públicos sem armazenar tokens no navegador.</p><label>Repositório<input id="githubRepository" placeholder="organizacao/repositorio" maxlength="180"/></label><div class="button-row"><button class="btn" id="saveGithubRepository" type="button">Salvar</button><button class="btn primary" id="checkGithubButton" type="button">Consultar GitHub</button></div><p class="muted" id="githubUpdateStatus">Nenhum repositório configurado.</p></div></article></div>
 </section>
 <section class="page page-animate owner-only advanced-page" id="backup"><div class="page-head"><div><h2>💾 Backup e restauração</h2><p>Exporte, valide e restaure dados com rollback persistente.</p></div></div><div class="advanced-grid"><article class="panel"><div class="panel-head"><h3>Novo backup</h3></div><div class="panel-body"><p>Gera um backup completo do Firestore com projeto, versão, coleções e subcoleções semanais.</p><button class="btn primary" id="createBackupButton" type="button">Gerar backup JSON</button></div></article><article class="panel"><div class="panel-head"><h3>Restauração controlada</h3></div><div class="panel-body stack"><p>O arquivo é validado antes de qualquer gravação. Em caso de falha, o restoreJob executa rollback.</p><input accept="application/json" id="restoreBackupFile" type="file"/><button class="btn primary" disabled id="restoreAdvancedBackup" type="button">Restaurar backup validado</button><p class="muted" id="restoreBackupInfo">Selecione um backup completo do Firestore.</p></div></article></div></section>
 <section class="page page-animate owner-only advanced-page" id="logs-sistema"><div class="page-head"><div><h2>📋 Logs do sistema</h2><p>Registros de auditoria e eventos operacionais.</p></div></div><article class="panel"><div class="table-wrap"><table><thead><tr><th>Data</th><th>Usuário</th><th>Ação</th><th>Detalhes</th></tr></thead><tbody id="advancedLogsRows"></tbody></table></div></article></section>
@@ -1204,7 +1204,7 @@
 <div><span>DESENVOLVIDO POR</span><h3>PrimeTools Labs</h3><p>Tecnologia • Soluções • Resultados</p></div>
 </div>
 <div class="about-v152-meta">
-<div><span>Versão</span><strong>22.9.24 Hotfix</strong></div>
+<div><span>Versão</span><strong>22.9.25 Hotfix</strong></div>
 <div><span>Tecnologias</span><strong>HTML5, CSS3, JavaScript e Firebase</strong></div>
 <div><span>Licença</span><strong>Uso exclusivo da 77 TEAM</strong></div>
 </div>
@@ -1330,7 +1330,7 @@
 </div>
 <div class="global-search-results hidden" id="globalSearchResults"></div>
 <div class="toast" id="toast"></div>
-<script src="js/ui.js?v=22.9.24"></script>
-<script src="js/main.js?v=22.9.24" type="module"></script>
+<script src="js/ui.js?v=22.9.25"></script>
+<script src="js/main.js?v=22.9.25" type="module"></script>
 </body>
 </html>
