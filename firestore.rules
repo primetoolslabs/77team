@@ -1,0 +1,496 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn(){return request.auth != null;}
+    function profileExists(){return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid));}
+    function profile(){return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;}
+    // Compatibilidade com contas novas e perfis legados. accessRole é a
+    // fonte preferencial; os demais campos só são usados como fallback.
+    function accessRoleOf(data){
+      return data.get('accessRole',
+        data.get('systemRole',
+          data.get('permissionRole',
+            data.get('userRole',
+              data.get('cargo', data.get('role','member'))))));
+    }
+    function isDevRole(role){return role in ['dev','owner','DEV','Owner','developer'];}
+    function isLeadershipRole(role){return role in ['leadership','lideranca','Liderança','Lideranca','lider','leader','administrador','admin'];}
+    function isStaffRole(role){return role in ['staff','Staff','moderador','moderator'];}
+    function isMemberRole(role){return role in ['member','membro','membros','Membro','Membros','PT TIME','PT BOOST','PT CORE'];}
+    function currentAccessRole(){return profileExists() ? accessRoleOf(profile()) : 'guest';}
+    function active(){return profileExists() && profile().get('active',false) == true && profile().get('status','approved') == 'approved';}
+    function dev(){return active() && isDevRole(currentAccessRole());}
+    function leadership(){return active() && isLeadershipRole(currentAccessRole());}
+    function staff(){return active() && isStaffRole(currentAccessRole());}
+    function editor(){return dev() || leadership() || staff();}
+    function roleKey(){ return dev() ? 'dev' : leadership() ? 'leadership' : staff() ? 'staff' : active() ? 'member' : 'guest'; }
+    function permission(key, fallback){
+      let cfg = get(/databases/$(database)/documents/settings/app).data.get('rolePermissions', {});
+      return dev() || cfg.get(key, {}).get(roleKey(), fallback);
+    }
+    function ownerExists(){return exists(/databases/$(database)/documents/system/owner);}
+    function bootstrapAuthorized(){
+      return signedIn()
+        && exists(/databases/$(database)/documents/system/bootstrap)
+        && get(/databases/$(database)/documents/system/bootstrap).data.allowedEmail == request.auth.token.email;
+    }
+    function pendingMember(){return isMemberRole(accessRoleOf(resource.data)) && resource.data.get('status','pending') == 'pending' && resource.data.get('active',false) == false;}
+    function approvalFields(){return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role','accessRole','active','status','clan','memberRole','nicknameClaimKey','memberDocumentId','approvedAt','roleUpdatedAt','roleUpdatedBy','updatedAt']);}
+    function rejectionFields(){return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['active','status','rejectedAt','rejectedBy','updatedAt']);}
+    function nicknameKey(data){return data.get('nicknameClaimKey', data.get('name','').trim().lower());}
+    function claimPath(key){return /databases/$(database)/documents/nicknameClaims/$(key);}
+    function userPath(uid){return /databases/$(database)/documents/users/$(uid);}
+    function memberPath(id){return /databases/$(database)/documents/members/$(id);}
+    function validNickname(name,key){return name is string && name.size() >= 2 && name.size() <= 30 && !name.matches('.*[/].*') && name.trim().lower() == key;}
+    function validOptionalHttps(value){return value is string && value.size() <= 2048 && (value == '' || value.matches('https://[A-Za-z0-9.-]+(:[0-9]+)?([/?#].*)?'));}
+    function linkedMemberMatchesAfter(uid,memberId){
+      let user = getAfter(userPath(uid)).data;
+      return user.get('memberDocumentId','') == memberId
+        && (
+          (isDevRole(accessRoleOf(user)) && memberId == '')
+          || (memberId != ''
+            && getAfter(memberPath(memberId)).data.get('userId',memberId) == uid
+            && getAfter(memberPath(memberId)).data.name == user.name)
+        );
+    }
+    function claimMatchesAfter(uid,key){
+      return getAfter(claimPath(key)).data.uid == uid
+        && getAfter(claimPath(key)).data.active == true
+        && getAfter(claimPath(key)).data.normalizedKey == key
+        && getAfter(claimPath(key)).data.name == getAfter(userPath(uid)).data.name
+        && linkedMemberMatchesAfter(uid,getAfter(claimPath(key)).data.memberId);
+    }
+
+    match /system/owner {
+      allow get: if signedIn();
+      allow create: if bootstrapAuthorized() && !ownerExists() && request.resource.data.uid == request.auth.uid
+        && request.resource.data.keys().hasOnly(['uid','createdAt'])
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && isDevRole(accessRoleOf(get(/databases/$(database)/documents/users/$(request.auth.uid)).data))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.active == true
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'approved';
+      allow update, delete: if dev();
+    }
+    match /system/bootstrap {
+      allow read: if false;
+      allow create, update, delete: if dev();
+    }
+
+    match /users/{uid} {
+      // A leitura do próprio perfil não depende da avaliação de cargo.
+      // Isso evita bloquear o login enquanto o sistema ainda está carregando o perfil.
+      allow get: if signedIn() && request.auth.uid == uid;
+      allow get, list: if editor();
+      allow create: if signedIn() && (
+        (request.auth.uid == uid && !ownerExists() && bootstrapAuthorized()
+          && request.resource.data.email == request.auth.token.email
+          && isDevRole(accessRoleOf(request.resource.data)) && request.resource.data.active == true && request.resource.data.status == 'approved')
+        ||
+        // Recuperação segura do perfil do DEV quando system/owner aponta para o usuário autenticado.
+        (request.auth.uid == uid && ownerExists()
+          && get(/databases/$(database)/documents/system/owner).data.uid == request.auth.uid
+          && isDevRole(accessRoleOf(request.resource.data))
+          && request.resource.data.active == true && request.resource.data.status == 'approved')
+        ||
+        (request.auth.uid == uid && isMemberRole(accessRoleOf(request.resource.data)) && request.resource.data.active == false && request.resource.data.status == 'pending')
+        ||
+        (dev() && (isDevRole(accessRoleOf(request.resource.data)) || isLeadershipRole(accessRoleOf(request.resource.data)) || isStaffRole(accessRoleOf(request.resource.data))) && request.resource.data.active == true && request.resource.data.status == 'approved')
+        ||
+        dev()
+      );
+
+      // V22.7.0 — autoedição segura e direta do próprio perfil/personagem.
+      // Esta condição é avaliada antes das regras administrativas e permite ao
+      // usuário alterar somente os campos pessoais listados abaixo. Campos de
+      // cargo, status, ativação, UID e permissões não entram na lista e, por
+      // isso, permanecem protegidos automaticamente.
+      allow update: if (
+          signedIn()
+          && request.auth.uid == uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'name','displayName','nickname','discord','whatsapp','birthDate','bio',
+            'email','avatarDataUrl','updatedAt',
+            'nicknameClaimKey','memberDocumentId',
+            'character','characterUpdatedAt','characterUpdatedBy',
+            'characterDeletedAt','characterDeletedBy',
+            'firstLogin','profileCompleted','profileCompletedAt'
+          ])
+          && request.resource.data.get('memberDocumentId','') == resource.data.get('memberDocumentId','')
+          && (
+            (
+              request.resource.data.get('name','') == resource.data.get('name','')
+              && request.resource.data.get('nicknameClaimKey','') == resource.data.get('nicknameClaimKey','')
+            )
+            || (
+              validNickname(request.resource.data.name, request.resource.data.nicknameClaimKey)
+              && claimMatchesAfter(uid, request.resource.data.nicknameClaimKey)
+              && (
+                (!resource.data.keys().hasAny(['nicknameClaimKey']) && nicknameKey(resource.data) == request.resource.data.nicknameClaimKey)
+                || (!resource.data.keys().hasAny(['nicknameClaimKey']) && exists(claimPath(nicknameKey(resource.data))) && get(claimPath(nicknameKey(resource.data))).data.uid != uid)
+                || !exists(claimPath(nicknameKey(resource.data)))
+                || getAfter(claimPath(nicknameKey(resource.data))).data.active == false
+              )
+            )
+          )
+        )
+        || dev()
+        || (
+          leadership() && permission('requests_approve', true) && pendingMember() && approvalFields()
+          && (isMemberRole(accessRoleOf(request.resource.data)) || isStaffRole(accessRoleOf(request.resource.data)))
+          && request.resource.data.active == true && request.resource.data.status == 'approved'
+          && request.resource.data.roleUpdatedBy == request.auth.uid
+        )
+        || (
+          staff() && permission('requests_approve', true) && pendingMember() && approvalFields()
+          && isMemberRole(accessRoleOf(request.resource.data))
+          && request.resource.data.active == true && request.resource.data.status == 'approved'
+          && request.resource.data.roleUpdatedBy == request.auth.uid
+        )
+        || (
+          editor() && permission('requests_reject', true) && pendingMember() && rejectionFields()
+          && isMemberRole(accessRoleOf(request.resource.data))
+          && request.resource.data.active == false && request.resource.data.status == 'rejected'
+          && request.resource.data.rejectedBy == request.auth.uid
+        )
+        || (
+          leadership() && permission('roles_change', true)
+          && resource.data.get('status','approved') == 'approved' && resource.data.get('active',true) == true
+          && (isMemberRole(accessRoleOf(resource.data)) || isStaffRole(accessRoleOf(resource.data)))
+          && (isMemberRole(accessRoleOf(request.resource.data)) || isStaffRole(accessRoleOf(request.resource.data)))
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role','accessRole','memberRole','roleUpdatedAt','roleUpdatedBy','updatedAt'])
+          && request.resource.data.roleUpdatedBy == request.auth.uid
+        )
+        || (
+          editor() && permission('character_edit', true)
+          && resource.data.get('status','approved') == 'approved' && resource.data.get('active',true) == true
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['character','characterUpdatedAt','characterUpdatedBy','updatedAt'])
+          && request.resource.data.characterUpdatedBy == request.auth.uid
+        )
+        || (
+          editor() && permission('members_edit', true)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['clan','clanUpdatedAt','clanUpdatedBy','updatedAt'])
+          && request.resource.data.clanUpdatedBy == request.auth.uid
+        )
+        || (
+          editor() && permission('xp_manage', true)
+          && (isMemberRole(accessRoleOf(resource.data)) || isStaffRole(accessRoleOf(resource.data)))
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['progression','progressionUpdatedAt'])
+          && request.resource.data.progression is map
+          && request.resource.data.progression.keys().hasOnly(['automaticXp','manualXp','totalXp','level','title','currentXp','requiredXp','progress','recalculatedAt'])
+          && request.resource.data.progression.manualXp is int
+          && request.resource.data.progression.level is int
+          && request.resource.data.progression.level >= 1
+        )
+        || (
+          editor() && permission('character_delete', true)
+          && resource.data.keys().hasAny(['character'])
+          && !request.resource.data.keys().hasAny(['character'])
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['character','characterUpdatedAt','characterUpdatedBy','characterDeletedAt','characterDeletedBy','updatedAt'])
+          && request.resource.data.characterDeletedBy == request.auth.uid
+          && (
+            dev()
+            || (leadership() && (isMemberRole(accessRoleOf(resource.data)) || isStaffRole(accessRoleOf(resource.data))))
+            || (staff() && isMemberRole(accessRoleOf(resource.data)))
+          )
+        );
+      allow delete: if (dev() && uid != request.auth.uid)
+        || (signedIn() && request.auth.uid == uid && !ownerExists() && bootstrapAuthorized());
+    }
+
+    match /members/{id} {
+      allow read: if active();
+      allow create: if dev() || (
+        editor() && permission('members_edit', true)
+        && request.resource.data.keys().hasOnly(['name','role','clan','userId','accessRole','memberRole','active','createdAt','updatedAt'])
+        && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 120
+        && request.resource.data.get('clan','') is string
+        && request.resource.data.get('clan','').size() <= 80
+        && (isMemberRole(accessRoleOf(request.resource.data)) || isStaffRole(accessRoleOf(request.resource.data)))
+      );
+      allow update: if dev()
+        || (
+          active() && (
+            resource.data.get('userId','') == request.auth.uid
+            || (!resource.data.keys().hasAny(['userId']) && id == request.auth.uid)
+          )
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name','updatedAt'])
+          && request.resource.data.name is string
+          && request.resource.data.name.size() >= 2
+          && request.resource.data.name.size() <= 120
+          && getAfter(userPath(request.auth.uid)).data.name == request.resource.data.name
+          && claimMatchesAfter(request.auth.uid, nicknameKey(getAfter(userPath(request.auth.uid)).data))
+        )
+        || (
+          editor() && permission('members_edit', true)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['clan','clanUpdatedAt','clanUpdatedBy','updatedAt'])
+          && request.resource.data.clan is string && request.resource.data.clan.size() <= 80
+          && request.resource.data.clanUpdatedBy == request.auth.uid
+        )
+        || (
+          leadership() && permission('roles_change', true)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role','accessRole','memberRole','updatedAt'])
+          && (isMemberRole(accessRoleOf(request.resource.data)) || isStaffRole(accessRoleOf(request.resource.data)))
+        )
+        || (
+          editor() && permission('xp_manage', true)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['progression','progressionUpdatedAt'])
+          && request.resource.data.progression is map
+          && request.resource.data.progression.keys().hasOnly(['automaticXp','manualXp','totalXp','level','title','currentXp','requiredXp','progress','recalculatedAt'])
+          && request.resource.data.progression.manualXp is int
+          && request.resource.data.progression.level is int
+          && request.resource.data.progression.level >= 1
+        );
+      allow delete: if editor() && permission('members_delete', false);
+    }
+    match /nicknameClaims/{key} {
+      allow read: if active();
+      allow create: if dev() || (active()
+        && request.resource.data.keys().hasOnly(['uid','memberId','name','normalizedKey','active','updatedAt'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.name is string
+        && request.resource.data.normalizedKey == key
+        && request.resource.data.active == true
+        && validNickname(request.resource.data.name,key)
+        && getAfter(userPath(request.auth.uid)).data.name == request.resource.data.name
+        && getAfter(userPath(request.auth.uid)).data.nicknameClaimKey == key
+        && linkedMemberMatchesAfter(request.auth.uid,request.resource.data.memberId)) || (editor()
+        && request.resource.data.keys().hasOnly(['uid','memberId','name','normalizedKey','active','updatedAt'])
+        && request.resource.data.normalizedKey == key
+        && request.resource.data.active == true
+        && validNickname(request.resource.data.name,key)
+        && getAfter(userPath(request.resource.data.uid)).data.active == true
+        && getAfter(userPath(request.resource.data.uid)).data.status == 'approved'
+        && getAfter(userPath(request.resource.data.uid)).data.name == request.resource.data.name
+        && getAfter(userPath(request.resource.data.uid)).data.nicknameClaimKey == key
+        && linkedMemberMatchesAfter(request.resource.data.uid,request.resource.data.memberId));
+      allow update: if dev()
+        || (active()
+          && resource.data.active == false
+          && request.resource.data.active == true
+          && request.resource.data.keys().hasOnly(['uid','memberId','name','normalizedKey','active','updatedAt'])
+          && request.resource.data.normalizedKey == key
+          && validNickname(request.resource.data.name,key)
+          && getAfter(userPath(request.auth.uid)).data.name == request.resource.data.name
+          && getAfter(userPath(request.auth.uid)).data.nicknameClaimKey == key
+          && request.resource.data.uid == request.auth.uid
+          && linkedMemberMatchesAfter(request.auth.uid,request.resource.data.memberId))
+        || (editor()
+          && resource.data.active == false
+          && request.resource.data.active == true
+          && request.resource.data.keys().hasOnly(['uid','memberId','name','normalizedKey','active','updatedAt'])
+          && request.resource.data.normalizedKey == key
+          && validNickname(request.resource.data.name,key)
+          && getAfter(userPath(request.resource.data.uid)).data.active == true
+          && getAfter(userPath(request.resource.data.uid)).data.status == 'approved'
+          && getAfter(userPath(request.resource.data.uid)).data.name == request.resource.data.name
+          && getAfter(userPath(request.resource.data.uid)).data.nicknameClaimKey == key
+          && linkedMemberMatchesAfter(request.resource.data.uid,request.resource.data.memberId))
+        || (active()
+          && resource.data.active == true
+          && resource.data.uid == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['active','updatedAt'])
+          && request.resource.data.active == false
+          && getAfter(userPath(request.auth.uid)).data.nicknameClaimKey != key
+          && claimMatchesAfter(request.auth.uid,getAfter(userPath(request.auth.uid)).data.nicknameClaimKey));
+      allow delete: if dev();
+    }
+    match /attendance/{id} {
+      // HOME exibe ranking e estatísticas gerais para todas as contas aprovadas.
+      allow read: if active();
+      allow create: if dev() || (permission('presence_register', false)
+        && request.resource.data.keys().hasOnly(['memberId','userId','memberName','clan','role','kind','slot','status','date','note','updatedBy','updatedByName','createdAt','updatedAt'])
+        && request.resource.data.memberId is string && request.resource.data.userId is string
+        && request.resource.data.memberName is string && request.resource.data.memberName.size() <= 120
+        && request.resource.data.kind in ['worldboss','purgatorio','eventos']
+        && request.resource.data.status in [-1,0,1,2,3]
+        && request.resource.data.updatedBy == request.auth.uid);
+      allow update: if dev() || (permission('presence_edit', false)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberId','userId','memberName','clan','role','kind','slot','status','date','note','updatedBy','updatedByName','updatedAt','migratedAt'])
+        && request.resource.data.kind in ['worldboss','purgatorio','eventos']
+        && request.resource.data.status in [-1,0,1,2,3]
+        && request.resource.data.get('note','') is string && request.resource.data.get('note','').size() <= 1000
+        && request.resource.data.updatedBy == request.auth.uid)
+        || (editor() && permission('members_edit', true)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['userId','migratedAt']));
+      allow delete: if permission('presence_delete', false) || permission('presence_reset', false);
+    }
+    match /events/{id} {
+      allow read: if active();
+      allow create: if dev() || (editor() && request.resource.data.keys().hasOnly(['title','date','time','type','description','createdBy','createdAt'])
+        && request.resource.data.title is string && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 120
+        && request.resource.data.get('time','') is string && request.resource.data.get('time','').size() <= 5
+        && request.resource.data.description is string && request.resource.data.description.size() <= 1000
+        && request.resource.data.createdBy == request.auth.uid);
+      allow update: if dev() || (editor()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title','date','time','type','description','updatedBy','updatedAt'])
+        && request.resource.data.title is string && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 120
+        && request.resource.data.get('time','') is string && request.resource.data.get('time','').size() <= 5
+        && request.resource.data.description is string && request.resource.data.description.size() <= 1000
+        && request.resource.data.updatedBy == request.auth.uid);
+      allow delete: if editor();
+    }
+    match /rtPresence/{id} {
+      allow read: if editor();
+      allow create: if dev() || (permission('presence_finalize', false)
+        && request.resource.data.keys().hasOnly(['kind','typeLabel','date','week','slot','slotLabel','clan','records','counts','total','status','finalizedBy','finalizedByName','finalizedAt','createdAt','updatedBy','updatedByName','updatedAt'])
+        && request.resource.data.kind in ['worldboss','purgatorio','eventos']
+        && request.resource.data.records is list && request.resource.data.records.size() <= 5000
+        && request.resource.data.status in ['open','finalized']
+        && (request.resource.data.get('finalizedBy',request.auth.uid) == request.auth.uid || request.resource.data.get('updatedBy',request.auth.uid) == request.auth.uid));
+      allow update: if dev() || (permission('presence_finalize', false)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['records','counts','total','status','finalizedBy','finalizedByName','finalizedAt','updatedBy','updatedByName','updatedAt'])
+        && request.resource.data.records is list && request.resource.data.records.size() <= 5000
+        && request.resource.data.status in ['open','finalized']
+        && (request.resource.data.get('finalizedBy',request.auth.uid) == request.auth.uid || request.resource.data.get('updatedBy',request.auth.uid) == request.auth.uid));
+      allow delete: if permission('presence_reset', false) || dev();
+    }
+    match /presenceBackups/{id} {
+      allow read: if editor();
+      allow create: if dev() || (editor() && permission('presence_register', true)
+        && request.resource.data.keys().hasOnly(['week','counts','total','rtTotal','automatic','backupSchema','status','createdBy','createdByName','createdAt','createdAtText','sourceVersion'])
+        && request.resource.data.createdBy == request.auth.uid && request.resource.data.backupSchema == 2 && request.resource.data.status == 'writing');
+      allow update: if dev() || (editor() && permission('presence_register', true)
+        && resource.data.createdBy == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','completedAt','errorMessage','updatedAt'])
+        && request.resource.data.status in ['completed','failed']);
+      allow delete: if dev();
+      match /attendance/{recordId} { allow read: if editor(); allow create: if dev() || (editor() && permission('presence_register', true) && request.resource.data.originalId == recordId); allow update: if dev(); allow delete: if dev(); }
+      match /rt/{recordId} { allow read: if editor(); allow create: if dev() || (editor() && permission('presence_register', true) && request.resource.data.originalId == recordId); allow update: if dev(); allow delete: if dev(); }
+    }
+    match /resetJobs/{id} {
+      allow read: if permission('presence_reset', false);
+      allow create: if dev() || (permission('presence_reset', false)
+        && request.resource.data.keys().hasOnly(['status','week','createdBy','createdByName','attendanceTotal','rtTotal','createdAt','updatedAt'])
+        && request.resource.data.createdBy == request.auth.uid && request.resource.data.status == 'preparing');
+      allow update: if permission('presence_reset', false)
+        && resource.data.createdBy == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','backupId','errorCode','errorMessage','rollbackError','completedAt','rolledBackAt','updatedAt'])
+        && request.resource.data.status in ['preparing','backup_created','deleting_attendance','deleting_rt','rolling_back','rolled_back','completed','failed','rollback_failed'];
+      allow delete: if dev();
+    }
+    match /restoreJobs/{id} {
+      allow read, create, update, delete: if dev();
+      match /rollback/{snapshotId} { allow read, create, update, delete: if dev(); }
+    }
+    match /sessions/{id} {
+      allow read, list: if dev();
+      allow create, update: if active()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.accessRole == roleKey()
+        && request.resource.data.keys().hasOnly(['userId','userName','email','accessRole','sessionId','online','device','createdAt','lastSeen','updatedAt'])
+        && request.resource.data.userName is string && request.resource.data.userName.size() <= 120
+        && request.resource.data.email is string && request.resource.data.email.size() <= 254
+        && request.resource.data.sessionId is string && request.resource.data.sessionId.size() <= 80
+        && request.resource.data.device is string && request.resource.data.device.size() <= 300
+        && request.resource.data.lastSeen == request.time
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if dev() || (active() && resource.data.userId == request.auth.uid);
+    }
+    match /notifications/{id} {
+      allow read: if editor() || (active() && (
+        resource.data.get('targetType','all') == 'all'
+        || resource.data.get('targetUserId','') == request.auth.uid
+        || (resource.data.get('targetType','') == 'member' && isMemberRole(currentAccessRole()))
+        || (resource.data.get('targetType','') == 'staff' && (isStaffRole(currentAccessRole()) || isLeadershipRole(currentAccessRole()) || isDevRole(currentAccessRole())))
+      ));
+      allow create: if (editor() && permission('notifications_send', true) && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.get('targetType','all') in ['all','user','member','staff']
+        && request.resource.data.get('title','') is string && request.resource.data.get('title','').size() > 0 && request.resource.data.get('title','').size() <= 160
+        && request.resource.data.get('message','') is string && request.resource.data.get('message','').size() > 0 && request.resource.data.get('message','').size() <= 4000)
+        || dev();
+      allow update: if dev();
+      allow delete: if dev();
+    }
+    match /notificationReads/{id} {
+      allow read: if dev() || (active() && resource.data.userId == request.auth.uid);
+      allow create, update: if (active() && request.resource.data.userId == request.auth.uid && request.resource.data.notificationId is string)
+        || dev();
+      allow delete: if dev() || (active() && resource.data.userId == request.auth.uid);
+    }
+
+    match /supportMessages/{id} {
+      allow read: if (editor() && permission('support_manage', true)) || (active() && resource.data.ownerUid == request.auth.uid && resource.data.status != 'resolved');
+      allow create: if (active()
+        && request.resource.data.senderUid == request.auth.uid
+        && request.resource.data.senderName == profile().get('name',profile().get('email','Usuário'))
+        && request.resource.data.senderRole == roleKey()
+        && request.resource.data.ownerUid is string
+        && request.resource.data.ownerName is string && request.resource.data.ownerName.size() <= 120
+        && request.resource.data.text is string
+        && request.resource.data.text.size() <= 2000
+        && validOptionalHttps(request.resource.data.get('link',''))
+        && request.resource.data.get('status','open') in ['open','in_progress','waiting_user']
+        && (request.resource.data.text.size() > 0 || request.resource.data.get('imageUrl','') != '')
+        && ((editor() && permission('support_manage', true)) || (request.resource.data.ownerUid == request.auth.uid && request.resource.data.ownerName == profile().get('name',profile().get('email','Usuário')))))
+        || dev();
+      allow update: if (editor() && permission('support_manage', true)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','statusUpdatedAt','statusUpdatedBy'])
+        && request.resource.data.status in ['open','in_progress','waiting_user','resolved'])
+        || dev();
+      allow delete: if dev();
+    }
+
+    match /chatMessages/{id} {
+      allow read: if (editor() && permission('support_manage', true)) || (active() && resource.data.ownerUid == request.auth.uid);
+      allow create: if (active()
+        && request.resource.data.senderUid == request.auth.uid
+        && request.resource.data.senderName == profile().get('name',profile().get('email','Usuário'))
+        && request.resource.data.senderRole == roleKey()
+        && request.resource.data.ownerUid is string
+        && request.resource.data.ownerName is string && request.resource.data.ownerName.size() <= 120
+        && request.resource.data.text is string
+        && request.resource.data.text.size() <= 2000
+        && validOptionalHttps(request.resource.data.get('link',''))
+        && request.resource.data.get('chatStatus','active') == 'active'
+        && (request.resource.data.text.size() > 0 || request.resource.data.get('imageUrl','') != '')
+        && ((editor() && permission('support_manage', true)) || (request.resource.data.ownerUid == request.auth.uid && request.resource.data.ownerName == profile().get('name',profile().get('email','Usuário')))))
+        || dev();
+      allow update: if (editor() && permission('support_manage', true)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['chatStatus','finalizedAt','finalizedBy'])
+        && request.resource.data.chatStatus in ['active','finalized'])
+        || dev();
+      allow delete: if dev();
+    }
+    match /settings/{id} {
+      allow read: if id == 'app' || (id == 'private' && dev());
+      allow create: if dev() || (id == 'app' && permission('settings_edit', false)
+        && !request.resource.data.keys().hasAny(['rolePermissions','security','maintenance','advanced','loginCustomization']));
+      allow update: if (id == 'app' && (
+          dev()
+          || (permission('settings_edit', false)
+            && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['rolePermissions','security','maintenance','advanced','loginCustomization']))
+          || (editor() && permission('goals_manage', true)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['goals','updatedAt'])
+            && request.resource.data.goals is list
+            && request.resource.data.goals.size() <= 200)
+          || (leadership()
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['staffJournal','updatedAt'])
+            && request.resource.data.staffJournal is list
+            && request.resource.data.staffJournal.size() <= 300)
+        )) || (id == 'private' && dev());
+      allow delete: if dev();
+    }
+    match /xpLogs/{id} {
+      allow read: if editor();
+      allow create: if dev() || (editor() && permission('xp_manage', true)
+        && request.resource.data.keys().hasOnly(['memberId','userId','memberName','amount','reason','beforeManualXp','afterManualXp','totalXpAfter','levelAfter','staffId','staffName','createdAt'])
+        && request.resource.data.staffId == request.auth.uid
+        && request.resource.data.amount is int && request.resource.data.amount >= -100000 && request.resource.data.amount <= 100000
+        && request.resource.data.reason is string && request.resource.data.reason.size() >= 3 && request.resource.data.reason.size() <= 500);
+      allow update, delete: if dev();
+    }
+    match /audit/{id} {
+      allow read: if dev() || (leadership() && permission('audit_view', true));
+      allow create: if ((editor() || active())
+          && request.resource.data.keys().hasOnly(['userId','userName','action','details','createdAt'])
+          && request.resource.data.userId == request.auth.uid
+          && request.resource.data.userName == profile().get('name',profile().get('email','Usuário'))
+          && request.resource.data.action is string && request.resource.data.action.size() > 0 && request.resource.data.action.size() <= 160
+          && request.resource.data.details is string && request.resource.data.details.size() <= 2000
+          && request.resource.data.createdAt == request.time)
+        || dev();
+      allow update, delete: if dev();
+    }
+  }
+}
