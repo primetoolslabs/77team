@@ -1,6 +1,6 @@
-# 77 TEAM Manager V22.9.27 🟠 Hotfix — PDF direto corrigido
+# 77 TEAM Manager V22.9.28 🟠 Hotfix — exclusão de membros pelo STAFF
 
-Esta versão preserva integralmente a V22.9.26. O histórico semanal e mensal agora é criado como arquivo PDF real e baixado diretamente, sem depender da impressão do navegador. Consulte `CHANGELOG-V22.9.27.md` e `PUBLICACAO-V22.9.27.md`.
+Esta versão preserva integralmente a V22.9.27 e permite que o cargo STAFF exclua jogadores do cargo Membro, com proteção para STAFF, Liderança, DEV e para a própria conta. Consulte `CHANGELOG-V22.9.28.md` e `PUBLICACAO-V22.9.28.md`.
 
 ## Sétima auditoria — 13 achados corrigidos
 

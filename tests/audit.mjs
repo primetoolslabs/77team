@@ -10,7 +10,7 @@ const firebase=JSON.parse(read("firebase.json")),manifest=JSON.parse(read("manif
 
 execFileSync(process.execPath,["--check",new URL("js/main.js",root).pathname],{stdio:"pipe"});
 execFileSync(process.execPath,["--check",new URL("js/pdf-generator.js",root).pathname],{stdio:"pipe"});
-assert.equal(manifest.version,"22.9.27");
+assert.equal(manifest.version,"22.9.28");
 assert.equal(firebase.firestore.indexes,"firestore.indexes.json");
 assert.ok(firebase.emulators?.firestore?.port);
 assert.ok(indexes.indexes.some(index=>index.collectionGroup==="supportMessages"));
@@ -57,6 +57,10 @@ assert.ok(rules.includes("allow create: if dev() || (permission('presence_reset'
 assert.ok(rules.includes("allow create: if dev() || (editor() && permission('xp_manage', true)"));
 assert.ok(rules.includes("!request.resource.data.diff(resource.data).affectedKeys().hasAny(['rolePermissions','security','maintenance','advanced','loginCustomization'])"));
 assert.ok(rules.includes("allow update, delete: if dev();"));
+assert.ok(main.includes('key:"members_delete",label:"Excluir membros",defaults:{dev:true,leadership:true,staff:true,member:false}'));
+assert.ok(main.includes('key==="members_delete"&&role==="staff"'));
+assert.ok(main.includes("function canDeleteMemberRecord"));
+assert.ok(rules.includes("staff() && isMemberRole(accessRoleOf(resource.data))"));
 assert.ok(html.includes('id="pagamentos"'));
 assert.ok(html.includes('id="paymentForm"'));
 assert.ok(ui.includes('["pagamentos","💰","Pagamentos"]'));
@@ -104,4 +108,4 @@ const pageTargets=[...html.matchAll(/data-page(?:-jump)?="([^"]+)"/g),...ui.matc
 assert.deepEqual([...new Set(pageTargets.filter(id=>!pageIds.has(id)))],[],"Menu contém destino sem página");
 assert.ok(!html.includes("</input>"));
 assert.ok(!html.includes("App Check"));
-console.log("Auditoria estática V22.9.27: OK");
+console.log("Auditoria estática V22.9.28: OK");

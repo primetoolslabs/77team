@@ -1,6 +1,6 @@
 {
-  "name": "77 TEAM Manager V22.9.27 Hotfix",
-  "short_name": "77 TEAM V22.9.27",
+  "name": "77 TEAM Manager V22.9.28 Hotfix",
+  "short_name": "77 TEAM V22.9.28",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
@@ -18,7 +18,7 @@
       "type": "image/png"
     }
   ],
-  "description": "77 TEAM Manager V22.9.27 Hotfix — geração direta de arquivos PDF do histórico de pagamentos.",
-  "version": "22.9.27",
-  "version_name": "22.9.27"
+  "description": "77 TEAM Manager V22.9.28 Hotfix — STAFF autorizado a excluir membros com proteção de hierarquia.",
+  "version": "22.9.28",
+  "version_name": "22.9.28"
 }

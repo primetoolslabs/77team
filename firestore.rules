@@ -240,7 +240,9 @@ service cloud.firestore {
           && request.resource.data.progression.level is int
           && request.resource.data.progression.level >= 1
         );
-      allow delete: if editor() && permission('members_delete', false);
+      allow delete: if dev()
+        || (leadership() && permission('members_delete', true) && !isDevRole(accessRoleOf(resource.data)))
+        || (staff() && isMemberRole(accessRoleOf(resource.data)));
     }
     match /nicknameClaims/{key} {
       allow read: if active();
