@@ -1,6 +1,6 @@
-# 77 TEAM Manager V22.9.23 🟠 Hotfix — limite de quantidade
+# 77 TEAM Manager V22.9.24 🟠 Hotfix — exportação dos pagamentos
 
-Esta versão preserva integralmente a V22.9.22 e limita a quantidade de cada pagamento ao intervalo de **1 a 99.000.000** no formulário, JavaScript, regras do Firestore e backups. Consulte `CHANGELOG-V22.9.23.md` e `PUBLICACAO-V22.9.23.md`.
+Esta versão preserva integralmente a V22.9.23, mantém a quantidade gravada e exibida no histórico e adiciona exportação CSV por semana e por mês. Consulte `CHANGELOG-V22.9.24.md` e `PUBLICACAO-V22.9.24.md`.
 
 ## Sétima auditoria — 13 achados corrigidos
 
