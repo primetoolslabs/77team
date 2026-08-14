@@ -1,6 +1,6 @@
-# 77 TEAM Manager V22.9.28 🟠 Hotfix — exclusão de membros pelo STAFF
+# 77 TEAM Manager V22.9.29 🟠 Hotfix — alteração de clã pelo STAFF
 
-Esta versão preserva integralmente a V22.9.27 e permite que o cargo STAFF exclua jogadores do cargo Membro, com proteção para STAFF, Liderança, DEV e para a própria conta. Consulte `CHANGELOG-V22.9.28.md` e `PUBLICACAO-V22.9.28.md`.
+Esta versão preserva integralmente a V22.9.28 e permite que o cargo STAFF altere o clã dos membros, sincronizando o cadastro do jogador e a conta vinculada. Consulte `CHANGELOG-V22.9.29.md` e `PUBLICACAO-V22.9.29.md`.
 
 ## Sétima auditoria — 13 achados corrigidos
 

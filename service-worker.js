@@ -1,4 +1,4 @@
-const CACHE_NAME="77-team-manager-v22.9.28";
+const CACHE_NAME="77-team-manager-v22.9.29";
 const FIREBASE_SDK=[
   "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js",
   "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js",
@@ -6,8 +6,8 @@ const FIREBASE_SDK=[
   "https://www.gstatic.com/firebasejs/12.15.0/firebase-storage.js"
 ];
 const APP_SHELL=[
-  "./","./index.html","./manifest.json","./css/style.css?v=22.9.28",
-  "./js/ui.js?v=22.9.28","./js/main.js?v=22.9.28","./js/firebase-config.js","./js/pdf-generator.js?v=22.9.28",
+  "./","./index.html","./manifest.json","./css/style.css?v=22.9.29",
+  "./js/ui.js?v=22.9.29","./js/main.js?v=22.9.29","./js/firebase-config.js","./js/pdf-generator.js?v=22.9.29",
   "./icons/icon-192.png","./icons/icon-512.png",
   "./assets/logo-77-team-manager-nova.webp","./assets/logo-77-team-manager-oficial.png",
   "./assets/logo-77-team-vertical.webp","./assets/primetools-labs.png"
