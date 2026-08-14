@@ -1,6 +1,6 @@
-# 77 TEAM Manager V22.9.26 🟠 Hotfix — quantidades e PDF corrigidos
+# 77 TEAM Manager V22.9.27 🟠 Hotfix — PDF direto corrigido
 
-Esta versão preserva integralmente a V22.9.25. Ao digitar 20, o sistema registra e exibe 20.000.000; os relatórios semanais e mensais aguardam a renderização completa antes de abrir a impressão em PDF. Consulte `CHANGELOG-V22.9.26.md` e `PUBLICACAO-V22.9.26.md`.
+Esta versão preserva integralmente a V22.9.26. O histórico semanal e mensal agora é criado como arquivo PDF real e baixado diretamente, sem depender da impressão do navegador. Consulte `CHANGELOG-V22.9.27.md` e `PUBLICACAO-V22.9.27.md`.
 
 ## Sétima auditoria — 13 achados corrigidos
 

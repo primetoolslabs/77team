@@ -5,10 +5,12 @@ import {execFileSync} from "node:child_process";
 const root=new URL("../",import.meta.url);
 const read=file=>readFileSync(new URL(file,root),"utf8");
 const main=read("js/main.js"),ui=read("js/ui.js"),rules=read("firestore.rules"),html=read("index.html");
+const pdfGenerator=read("js/pdf-generator.js");
 const firebase=JSON.parse(read("firebase.json")),manifest=JSON.parse(read("manifest.json")),indexes=JSON.parse(read("firestore.indexes.json"));
 
 execFileSync(process.execPath,["--check",new URL("js/main.js",root).pathname],{stdio:"pipe"});
-assert.equal(manifest.version,"22.9.26");
+execFileSync(process.execPath,["--check",new URL("js/pdf-generator.js",root).pathname],{stdio:"pipe"});
+assert.equal(manifest.version,"22.9.27");
 assert.equal(firebase.firestore.indexes,"firestore.indexes.json");
 assert.ok(firebase.emulators?.firestore?.port);
 assert.ok(indexes.indexes.some(index=>index.collectionGroup==="supportMessages"));
@@ -77,11 +79,22 @@ assert.ok(html.includes('id="paymentExportMonth"'));
 assert.ok(html.includes('id="downloadPaymentWeek"'));
 assert.ok(html.includes('id="downloadPaymentMonth"'));
 assert.ok(main.includes('function downloadPaymentHistory'));
-assert.ok(main.includes("Histórico de pagamentos —"));
+assert.ok(main.includes("Historico de pagamentos -"));
 assert.ok(html.includes("Baixar semana em PDF"));
 assert.ok(html.includes("Baixar mês em PDF"));
 assert.ok(main.includes("Salvar como PDF"));
-assert.ok(main.includes("Quantidade (1 a 99.000.000)"));
+assert.ok(html.includes("Quantidade (1 a 99.000.000)"));
+assert.ok(main.includes("function createPaymentPdf"));
+assert.ok(pdfGenerator.includes('type:"application/pdf"'));
+assert.ok(main.includes('link.download=`77-team-pagamentos-${label}.pdf`'));
+
+const {createTextPdf}=await import(new URL("js/pdf-generator.js",root));
+const samplePdf=createTextPdf([["77 TEAM MANAGER","Nickname | Quantidade","Teste | 20.000.000"]]);
+const sampleBytes=Buffer.from(await samplePdf.arrayBuffer());
+assert.equal(samplePdf.type,"application/pdf");
+assert.ok(sampleBytes.subarray(0,8).toString("ascii").startsWith("%PDF-1.4"));
+assert.ok(sampleBytes.toString("ascii").includes("Teste | 20.000.000"));
+assert.ok(sampleBytes.toString("ascii").endsWith("%%EOF"));
 
 const knownIds=new Set([...html.matchAll(/\bid=["']([^"']+)["']/g),...main.matchAll(/\bid=["']([^"'${}]+)["']/g)].map(match=>match[1]));
 const missingDirectIds=[...main.matchAll(/\$\(["']#([^"']+)["']\)(?!\?)/g)].map(match=>match[1]).filter(id=>!knownIds.has(id));
@@ -91,4 +104,4 @@ const pageTargets=[...html.matchAll(/data-page(?:-jump)?="([^"]+)"/g),...ui.matc
 assert.deepEqual([...new Set(pageTargets.filter(id=>!pageIds.has(id)))],[],"Menu contém destino sem página");
 assert.ok(!html.includes("</input>"));
 assert.ok(!html.includes("App Check"));
-console.log("Auditoria estática V22.9.26: OK");
+console.log("Auditoria estática V22.9.27: OK");
