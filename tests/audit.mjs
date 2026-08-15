@@ -10,7 +10,7 @@ const firebase=JSON.parse(read("firebase.json")),manifest=JSON.parse(read("manif
 
 execFileSync(process.execPath,["--check",new URL("js/main.js",root).pathname],{stdio:"pipe"});
 execFileSync(process.execPath,["--check",new URL("js/pdf-generator.js",root).pathname],{stdio:"pipe"});
-assert.equal(manifest.version,"22.9.30");
+assert.equal(manifest.version,"22.9.32");
 assert.equal(firebase.firestore.indexes,"firestore.indexes.json");
 assert.ok(firebase.emulators?.firestore?.port);
 assert.ok(indexes.indexes.some(index=>index.collectionGroup==="supportMessages"));
@@ -26,6 +26,15 @@ assert.ok(!html.includes('id="openFirstDevSetup"'));
 assert.ok(!main.includes('"first-dev-"+Date.now()'));
 assert.ok(!main.includes('"setupScreen"'));
 assert.ok(main.includes("deleteUser(cred.user)"));
+assert.ok(main.includes('createError?.code!=="auth/email-already-in-use"'));
+assert.ok(main.includes('await cred.user.getIdToken(true)'));
+assert.ok(main.includes('accessRole:"member",memberRole:"Membros"'));
+assert.ok(rules.includes("request.resource.data.email == request.auth.token.email"));
+assert.ok(html.includes('id="publicHomeBanner"'));
+assert.ok(html.includes('id="publicLoginButton"'));
+assert.ok(main.includes("function showPublicHome"));
+assert.ok(main.includes('if(!state.user)return page==="dashboard"||page==="sobre"'));
+assert.ok(main.includes('document.body.dataset.publicView="true"'));
 assert.ok(main.includes("updateConversationMessages"));
 assert.ok(!main.includes("Atendimento muito longo para finalização atômica"));
 assert.ok(main.includes("window.TeamManagerState=state"));
@@ -113,4 +122,4 @@ const pageTargets=[...html.matchAll(/data-page(?:-jump)?="([^"]+)"/g),...ui.matc
 assert.deepEqual([...new Set(pageTargets.filter(id=>!pageIds.has(id)))],[],"Menu contém destino sem página");
 assert.ok(!html.includes("</input>"));
 assert.ok(!html.includes("App Check"));
-console.log("Auditoria estática V22.9.30: OK");
+console.log("Auditoria estática V22.9.32: OK");

@@ -92,7 +92,10 @@ service cloud.firestore {
           && isDevRole(accessRoleOf(request.resource.data))
           && request.resource.data.active == true && request.resource.data.status == 'approved')
         ||
-        (request.auth.uid == uid && isMemberRole(accessRoleOf(request.resource.data)) && request.resource.data.active == false && request.resource.data.status == 'pending')
+        (request.auth.uid == uid
+          && request.resource.data.email == request.auth.token.email
+          && isMemberRole(accessRoleOf(request.resource.data))
+          && request.resource.data.active == false && request.resource.data.status == 'pending')
         ||
         (dev() && (isDevRole(accessRoleOf(request.resource.data)) || isLeadershipRole(accessRoleOf(request.resource.data)) || isStaffRole(accessRoleOf(request.resource.data))) && request.resource.data.active == true && request.resource.data.status == 'approved')
         ||

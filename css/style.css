@@ -5500,3 +5500,9 @@ body[data-access-role="leadership"] #configuracoes .settings-content:before{cont
 .backup-center-actions{display:flex;justify-content:flex-end;gap:7px;flex-wrap:wrap}
 @media(max-width:1100px){.backup-center-card{grid-template-columns:1fr 1fr}.backup-center-actions{justify-content:flex-start;grid-column:1/-1}}
 @media(max-width:700px){.backup-center-kpis{grid-template-columns:1fr}.backup-center-toolbar{align-items:stretch;flex-direction:column}.backup-center-filters{flex-direction:column}.backup-center-filters input{min-width:0;width:100%}.backup-center-card{grid-template-columns:1fr}.backup-center-actions{grid-column:auto}.backup-center-actions .btn{flex:1}}
+
+/* V22.9.32 — HOME pública somente para visualização */
+.public-home-banner{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:18px;padding:16px 18px;border:1px solid rgba(168,60,255,.55);border-radius:14px;background:linear-gradient(135deg,rgba(91,26,130,.34),rgba(22,12,35,.88));box-shadow:0 10px 30px rgba(0,0,0,.18)}
+.public-home-banner.hidden{display:none}.public-home-banner>div{display:flex;flex-direction:column;gap:5px}.public-home-banner strong{color:#dca5ff;font-size:1rem}.public-home-banner span{color:var(--muted);line-height:1.45}
+body[data-public-view="true"] .global-search-wrap,body[data-public-view="true"] .notification-button,body[data-public-view="true"] .profile-chevron{display:none!important}
+@media(max-width:700px){.public-home-banner{align-items:stretch;flex-direction:column}.public-home-banner .btn{width:100%}}

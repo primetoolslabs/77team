@@ -53,7 +53,7 @@ function configuredEventEnabled(kind){const cfg=state.settings?.events||{};retur
 const state={user:null,profile:null,onboardingRequired:false,members:[],membersLoaded:false,attendance:[],rtPresence:[],users:[],usersLoaded:false,audit:[],events:[],notifications:[],sentNotifications:[],notificationReads:[],settings:{},xpLogs:[],payments:[],supportMessages:[],selectedSupportOwnerUid:"",selectedSupportTicketId:"",supportView:"active",chatMessages:[],selectedChatOwnerUid:"",selectedChatId:"",chatView:"active",chatSearch:"",editingCharacterUserId:"",presenceFilters:{},presenceBackups:[],sessions:[],unsubs:[]};
 
 function toast(msg){const el=$("#toast");el.textContent=msg;el.classList.add("show");clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.remove("show"),3000)}
-function errMsg(e){return ({'auth/invalid-credential':'E-mail ou senha incorretos.','auth/user-disabled':'Esta conta foi desativada.','auth/too-many-requests':'Muitas tentativas. Aguarde alguns minutos e tente novamente.','auth/network-request-failed':'Falha de conexão. Verifique sua internet.','auth/email-already-in-use':'Este e-mail já existe.','auth/weak-password':'A senha precisa ter pelo menos 6 caracteres.','permission-denied':'Permissão negada. Publique o firestore.rules novo.'})[e?.code]||`${e?.code||'erro'}: ${e?.message||'Falha inesperada'}`}
+function errMsg(e){return ({'auth/invalid-credential':'E-mail ou senha incorretos.','auth/user-disabled':'Esta conta foi desativada.','auth/too-many-requests':'Muitas tentativas. Aguarde alguns minutos e tente novamente.','auth/network-request-failed':'Falha de conexão. Verifique sua internet.','auth/email-already-in-use':'Este e-mail já possui uma conta. Use a mesma senha para recuperar o cadastro pendente.','auth/operation-not-allowed':'Ative o provedor E-mail/Senha em Firebase Authentication.','auth/invalid-email':'Informe um endereço de e-mail válido.','auth/weak-password':'A senha precisa ter pelo menos 6 caracteres.','permission-denied':'Permissão negada. Publique o firestore.rules novo.'})[e?.code]||`${e?.code||'erro'}: ${e?.message||'Falha inesperada'}`}
 function showOnly(id){document.body.dataset.screen=id;["loading","authScreen","app"].forEach(x=>$("#"+x).classList.toggle("hidden",x!==id))}
 
 function accessRoleFromMemberRole(memberRole, explicitAccessRole=""){
@@ -250,6 +250,7 @@ function pageArea(page){
   return "home";
 }
 function canOpenPage(page){
+  if(!state.user)return page==="dashboard"||page==="sobre";
   if(state.onboardingRequired)return page==="meu-perfil"||page==="sobre";
   if(page==="personagens")return permissionEnabled("access_staff")&&permissionEnabled("character_view");
   if(page==="solicitacoes")return permissionEnabled("access_staff")&&(permissionEnabled("requests_approve")||permissionEnabled("requests_reject"));
@@ -263,6 +264,7 @@ function canOpenPage(page){
   return permissionEnabled(`access_${area}`);
 }
 function permissionMessage(page){
+  if(!state.user)return "Para acessar esta área, crie uma conta e faça login.";
   if(["personagens","solicitacoes","notificacoes","atendimento","chat","pagamentos","metas"].includes(page))return "Seu cargo não possui a permissão necessária para este módulo.";
   const area=pageArea(page);
   if(area==="advanced")return "Esta área é exclusiva do DEV.";
@@ -322,7 +324,16 @@ function fillSelects(){
 fillSelects();
 
 async function decideInitialScreen(){
-  showOnly("authScreen");
+  showPublicHome();
+}
+function showPublicHome(){
+  clearSubs();state.user=null;state.onboardingRequired=false;
+  state.profile={name:"Visitante",displayName:"Visitante",role:"member",accessRole:"member",active:false,status:"public"};
+  document.body.dataset.publicView="true";showOnly("app");applyPermissions();
+  setText("welcomeName","Visitante");setText("topbarUserName","Visitante");setText("userBadge","Visualização");
+  byId("publicHomeBanner")?.classList.remove("hidden");
+  const logoutLabel=byId("sidebarLogout")?.querySelector(".menu-label");if(logoutLabel)logoutLabel.textContent="Entrar / Cadastrar";
+  window.TeamManagerUI?.activatePage("dashboard");window.syncModuleNavigation?.("dashboard");
 }
 decideInitialScreen();
 
@@ -352,24 +363,35 @@ $("#toggleSignup").onclick=()=>$("#signupBox").classList.toggle("hidden");
 
 $("#signupForm").onsubmit=async e=>{
   e.preventDefault();
-  let secondary,signupAuth,cred;
+  let secondary,signupAuth,cred,createdNow=false;
+  const submit=e.currentTarget.querySelector('button[type="submit"]');
   try{
+    if(submit){submit.disabled=true;submit.dataset.originalText=submit.textContent;submit.textContent="CRIANDO CONTA..."}
     secondary=initializeApp(firebaseConfig,"signup-"+Date.now());
     signupAuth=getAuth(secondary);const sd=getFirestore(secondary);
     const name=$("#signupName").value.trim(),email=$("#signupEmail").value.trim().toLowerCase(),password=$("#signupPassword").value;
     const nicknameError=nicknameValidationError(name);if(nicknameError)throw new Error(nicknameError);
-    cred=await createUserWithEmailAndPassword(signupAuth,email,password);
-    await setDoc(doc(sd,"users",cred.user.uid),{name,email,role:"member",active:false,status:"pending",firstLogin:true,profileCompleted:false,createdAt:serverTimestamp()});
+    try{cred=await createUserWithEmailAndPassword(signupAuth,email,password);createdNow=true}
+    catch(createError){
+      if(createError?.code!=="auth/email-already-in-use")throw createError;
+      cred=await signInWithEmailAndPassword(signupAuth,email,password);
+      if((await getDoc(doc(sd,"users",cred.user.uid))).exists())throw new Error("Esta conta já possui cadastro. Entre pelo formulário de login.");
+    }
+    await cred.user.getIdToken(true);
+    const profile={name,email,role:"member",accessRole:"member",memberRole:"Membros",clan:"",active:false,status:"pending",firstLogin:true,profileCompleted:false,createdAt:serverTimestamp(),updatedAt:serverTimestamp()};
+    await setDoc(doc(sd,"users",cred.user.uid),profile);
     await signOut(signupAuth);await deleteApp(secondary);secondary=null;e.target.reset();toast("Cadastro enviado.");
-  }catch(e2){if(cred?.user)try{await deleteUser(cred.user)}catch{};if(secondary)try{await deleteApp(secondary)}catch{};toast(errMsg(e2))}
+  }catch(e2){if(createdNow&&cred?.user)try{await deleteUser(cred.user)}catch{};if(secondary)try{await deleteApp(secondary)}catch{};toast(errMsg(e2))}
+  finally{if(submit){submit.disabled=false;submit.textContent=submit.dataset.originalText||"Enviar cadastro"}}
 };
 
-$("#sidebarLogout").onclick=()=>$("#logoutButton").click();
-$("#logoutButton").onclick=async()=>{await writeSessionHeartbeat(false);clearInterval(sessionHeartbeatTimer);clearSubs();await signOut(auth)};
+$("#sidebarLogout").onclick=()=>{if(!state.user)return showOnly("authScreen");$("#logoutButton").click()};
+$("#publicLoginButton").onclick=()=>showOnly("authScreen");
+$("#logoutButton").onclick=async()=>{if(!state.user)return showOnly("authScreen");await writeSessionHeartbeat(false);clearInterval(sessionHeartbeatTimer);clearSubs();await signOut(auth)};
 
 onAuthStateChanged(auth,async user=>{
   state.user=user;
-  if(!user){if(await ownerExists())showOnly("authScreen");return}
+  if(!user){showPublicHome();return}
   try{
     const profileRef=doc(db,"users",user.uid);
     let snap=await getDoc(profileRef);
@@ -394,6 +416,7 @@ onAuthStateChanged(auth,async user=>{
     }
     // Compatibilidade: contas antigas sem os campos de primeiro acesso continuam liberadas.
     state.onboardingRequired=state.profile.profileCompleted===false || state.profile.firstLogin===true;
+    document.body.dataset.publicView="false";byId("publicHomeBanner")?.classList.add("hidden");const logoutLabel=byId("sidebarLogout")?.querySelector(".menu-label");if(logoutLabel)logoutLabel.textContent="Sair";
     showOnly("app");applyPermissions();subscribeAll();startSessionHeartbeat();if(owner())setTimeout(runFirebaseDiagnostics,900);
     if(owner())setTimeout(recoverInterruptedRestoreJobs,1200);
     if(recoveredDevProfile){
@@ -788,7 +811,7 @@ async function createPresenceBackup({automatic=false}={}){
   const rtRecords=state.rtPresence.map(item=>({...item,originalId:item.id}));
   if(!records.length&&!rtRecords.length){toast("Não existem dados de presença para salvar.");return null}
   const now=new Date(),week=isoWeek(todayIso()),counts=presenceBackupCounts(records),id=`${week}__${now.toISOString().replace(/[^0-9]/g,"").slice(0,14)}`;
-  const payload={week,counts,total:records.length,rtTotal:rtRecords.length,automatic,backupSchema:2,status:"writing",createdBy:state.user.uid,createdByName:state.profile?.name||state.user.email,createdAt:serverTimestamp(),createdAtText:now.toISOString(),sourceVersion:"22.9.30"};
+  const payload={week,counts,total:records.length,rtTotal:rtRecords.length,automatic,backupSchema:2,status:"writing",createdBy:state.user.uid,createdByName:state.profile?.name||state.user.email,createdAt:serverTimestamp(),createdAtText:now.toISOString(),sourceVersion:"22.9.32"};
   const backupRef=doc(db,"presenceBackups",id);
   await setDoc(backupRef,payload);
   try{
@@ -857,7 +880,7 @@ async function resetPresenceWithBackup(){
     toast("Reset interrompido. O backup e o registro de recuperação foram preservados.");
   }
 }
-async function downloadPresenceBackup(id){const item=state.presenceBackups.find(row=>row.id===id);if(!item)return toast("Backup não encontrado.");const data=await loadPresenceBackupData(item);downloadJson(`presenca-${item.week||id}.json`,{version:"22.9.30",exportedAt:new Date().toISOString(),backup:{...item,...data}});}
+async function downloadPresenceBackup(id){const item=state.presenceBackups.find(row=>row.id===id);if(!item)return toast("Backup não encontrado.");const data=await loadPresenceBackupData(item);downloadJson(`presenca-${item.week||id}.json`,{version:"22.9.32",exportedAt:new Date().toISOString(),backup:{...item,...data}});}
 
 
 function backupCenterDateValue(item){return rtDateValue(item?.createdAt)||Date.parse(item?.createdAtText||0)||0}
@@ -1437,7 +1460,7 @@ function renderAdvancedCenter(){
   const logs=state.audit.slice().sort((a,b)=>(b.createdAt?.toMillis?.()||0)-(a.createdAt?.toMillis?.()||0));
   setHtml("advancedLogsRows",logs.map(a=>`<tr><td>${a.createdAt?.toDate?a.createdAt.toDate().toLocaleString("pt-BR"):"—"}</td><td>${escapeHtml(a.userName||"—")}</td><td>${escapeHtml(a.action||"—")}</td><td>${escapeHtml(a.details||"")}</td></tr>`).join("")||'<tr><td colspan="4">Nenhum log disponível.</td></tr>');
   setHtml("firebaseStatusCards",[diagnosticCard("Autenticação",advancedDiagnostics.auth),diagnosticCard("Cloud Firestore",advancedDiagnostics.firestore),diagnosticCard("Listeners em tempo real",advancedDiagnostics.listeners)].join(""));
-  setHtml("servicesStatusGrid",[diagnosticCard("Aplicação web",{ok:true,text:`V22.9.30 carregada · ${location.protocol==="https:"?"HTTPS":"ambiente local"}`}),diagnosticCard("Firebase Auth",advancedDiagnostics.auth),diagnosticCard("Cloud Firestore",advancedDiagnostics.firestore),diagnosticCard("PWA / Service Worker",advancedDiagnostics.pwa),diagnosticCard("GitHub",{ok:githubDiagnostics.ok,text:githubDiagnostics.text})].join(""));
+  setHtml("servicesStatusGrid",[diagnosticCard("Aplicação web",{ok:true,text:`V22.9.32 carregada · ${location.protocol==="https:"?"HTTPS":"ambiente local"}`}),diagnosticCard("Firebase Auth",advancedDiagnostics.auth),diagnosticCard("Cloud Firestore",advancedDiagnostics.firestore),diagnosticCard("PWA / Service Worker",advancedDiagnostics.pwa),diagnosticCard("GitHub",{ok:githubDiagnostics.ok,text:githubDiagnostics.text})].join(""));
   renderSessions();renderGithubStatus();
   setHtml("systemStatsGrid",[
     ["Usuários",state.users.filter(user=>resolveAccessRole(user)!=="dev").length],["Membros",visibleMembers().length],["Presenças",state.attendance.length],["Eventos",state.events.length],["Notificações",state.sentNotifications.length||state.notifications.length],["Logs",state.audit.length]
@@ -1463,7 +1486,7 @@ async function checkGithub(){
   setText("githubUpdateStatus","Consultando GitHub...");
   try{const [repoResponse,runsResponse,releaseResponse]=await Promise.all([fetch(`https://api.github.com/repos/${repository}`,{headers:{Accept:"application/vnd.github+json"}}),fetch(`https://api.github.com/repos/${repository}/actions/runs?per_page=1`,{headers:{Accept:"application/vnd.github+json"}}),fetch(`https://api.github.com/repos/${repository}/releases/latest`,{headers:{Accept:"application/vnd.github+json"}})]);if(!repoResponse.ok)throw new Error(`Repositório indisponível (${repoResponse.status})`);const repo=await repoResponse.json(),runs=runsResponse.ok?await runsResponse.json():null,release=releaseResponse.ok?await releaseResponse.json():null,lastRun=runs?.workflow_runs?.[0];githubDiagnostics={ok:true,configured:true,repository,text:`${repo.full_name} · branch ${repo.default_branch} · atualizado ${new Date(repo.updated_at).toLocaleString("pt-BR")}`,workflows:lastRun?`${lastRun.name}: ${lastRun.conclusion||lastRun.status}`:"Nenhuma execução pública",release:release?.tag_name||"Nenhuma release publicada",testedAt:new Date().toISOString()};setText("githubUpdateStatus","Consulta concluída com sucesso.");renderAdvancedCenter();return true}catch(error){githubDiagnostics={ok:false,configured:true,repository,text:error.message||"Falha ao consultar GitHub",workflows:"Indisponível",release:"Indisponível"};setText("githubUpdateStatus",githubDiagnostics.text);renderAdvancedCenter();return false}
 }
-on("checkUpdatesButton","click",async()=>{const button=byId("checkUpdatesButton");if(button)button.disabled=true;try{const response=await fetch(`manifest.json?check=${Date.now()}`,{cache:"no-store"});if(!response.ok)throw new Error("Manifesto indisponível");const manifest=await response.json(),repository=state.settings?.advanced?.githubRepository||"";let message=`Versão publicada: ${manifest.version_name||manifest.version||"não informada"}. Versão carregada: 22.9.30.`;if(repository){await checkGithub();if(githubDiagnostics.release!=="Nenhuma release publicada"&&githubDiagnostics.release!=="Indisponível")message+=` GitHub: ${githubDiagnostics.release}.`}setText("updateStatusText",message);toast("Verificação concluída.")}catch(error){setText("updateStatusText",`Falha na verificação: ${error.message}`)}finally{if(button)button.disabled=false}});
+on("checkUpdatesButton","click",async()=>{const button=byId("checkUpdatesButton");if(button)button.disabled=true;try{const response=await fetch(`manifest.json?check=${Date.now()}`,{cache:"no-store"});if(!response.ok)throw new Error("Manifesto indisponível");const manifest=await response.json(),repository=state.settings?.advanced?.githubRepository||"";let message=`Versão publicada: ${manifest.version_name||manifest.version||"não informada"}. Versão carregada: 22.9.32.`;if(repository){await checkGithub();if(githubDiagnostics.release!=="Nenhuma release publicada"&&githubDiagnostics.release!=="Indisponível")message+=` GitHub: ${githubDiagnostics.release}.`}setText("updateStatusText",message);toast("Verificação concluída.")}catch(error){setText("updateStatusText",`Falha na verificação: ${error.message}`)}finally{if(button)button.disabled=false}});
 on("createBackupButton","click",async()=>{if(!owner())return;try{downloadJson(`77-team-backup-${localIsoDate()}.json`,await completeBackupPayload());toast("Backup completo do Firestore e seguro gerado.")}catch(error){toast(error.message||errMsg(error))}});
 on("restoreBackupFile","change",async e=>{const file=e.target.files?.[0],button=byId("restoreAdvancedBackup");validatedAdvancedBackup=null;if(button)button.disabled=true;if(!file)return;if(file.size>200*1024*1024)return setText("restoreBackupInfo","Arquivo acima do limite seguro de 200 MB.");try{const data=JSON.parse(await file.text());validateBackupPayload(data);validatedAdvancedBackup=data;if(button)button.disabled=false;setText("restoreBackupInfo",`✓ Backup validado: V${data.version}, projeto ${data.projectId}, schema ${data.backupSchema}, gerado em ${new Date(data.generatedAt).toLocaleString("pt-BR")}.`)}catch(error){setText("restoreBackupInfo",`✕ Backup recusado: ${error.message||"arquivo inválido"}`)}});
 on("restoreAdvancedBackup","click",async()=>{if(!owner()||!validatedAdvancedBackup)return;if(!confirm("Restaurar este backup validado? Um restoreJob persistente fará rollback automático em caso de falha."))return;const button=byId("restoreAdvancedBackup");button.disabled=true;setText("restoreBackupInfo","Restauração controlada em andamento. Não feche esta página...");try{const jobId=await restoreBackupPayload(validatedAdvancedBackup);setText("restoreBackupInfo",`✓ Restauração concluída. restoreJob: ${jobId}`);validatedAdvancedBackup=null;toast("Backup restaurado com rollback protegido.")}catch(error){setText("restoreBackupInfo",`✕ Restauração revertida: ${error.message||error}`);button.disabled=false}});
@@ -1970,7 +1993,7 @@ function updateLiveClock(){
 }
 updateLiveClock();
 setInterval(updateLiveClock,1000);
-if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js?v=22.9.30").catch(error=>console.warn("Service Worker indisponível:",error)));
+if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js?v=22.9.32").catch(error=>console.warn("Service Worker indisponível:",error)));
 
 function animateNumber(id,target,suffix=""){
   const el=byId(id);
@@ -2264,7 +2287,7 @@ on("profileNicknameForm","submit",async event=>{
   }catch(error){
     console.error("Falha ao salvar o próprio perfil:",error);
     toast(error?.code==="permission-denied"
-      ? "Permissão negada ao salvar o perfil. Publique o firestore.rules da V22.9.30 no Firebase e confirme o projeto team-f78cd."
+      ? "Permissão negada ao salvar o perfil. Publique o firestore.rules da V22.9.32 no Firebase e confirme o projeto team-f78cd."
       : (error.message||"Não foi possível atualizar o perfil."));
   }
 });
@@ -3660,7 +3683,7 @@ function backupPayload(){
   return serializeBackupValue({
     format:"77-team-manager-backup",
     backupSchema:3,
-    version:"22.9.30",
+    version:"22.9.32",
     generatedAt:new Date().toISOString(),
     projectId:firebaseConfig.projectId,
     collections:{
@@ -3762,19 +3785,19 @@ function validateBackupPayload(payload){
   validateBackupValue(payload);
   if(!payload||payload.format!=="77-team-manager-backup")throw new Error("Formato de backup incompatível.");
   if(payload.projectId!==firebaseConfig.projectId)throw new Error("Este backup pertence a outro projeto Firebase.");
-  if(Number(payload.backupSchema||0)!==3)throw new Error("Schema de backup incompatível. Use um backup completo do Firestore V22.8.5 a V22.9.30 com schema 3.");
-  if(!["22.8.5","22.8.6","22.8.7","22.8.8","22.8.9","22.9.0","22.9.1","22.9.2","22.9.3","22.9.4","22.9.5","22.9.6","22.9.7","22.9.8","22.9.9","22.9.10","22.9.11","22.9.12","22.9.13","22.9.14","22.9.15","22.9.16","22.9.17","22.9.18","22.9.19","22.9.20","22.9.21","22.9.22","22.9.23","22.9.24","22.9.25","22.9.26","22.9.27","22.9.28","22.9.29","22.9.30"].includes(String(payload.version||"")))throw new Error("Versão de backup incompatível.");
+  if(Number(payload.backupSchema||0)!==3)throw new Error("Schema de backup incompatível. Use um backup completo do Firestore V22.8.5 a V22.9.32 com schema 3.");
+  if(!["22.8.5","22.8.6","22.8.7","22.8.8","22.8.9","22.9.0","22.9.1","22.9.2","22.9.3","22.9.4","22.9.5","22.9.6","22.9.7","22.9.8","22.9.9","22.9.10","22.9.11","22.9.12","22.9.13","22.9.14","22.9.15","22.9.16","22.9.17","22.9.18","22.9.19","22.9.20","22.9.21","22.9.22","22.9.23","22.9.24","22.9.25","22.9.26","22.9.27","22.9.28","22.9.29","22.9.30","22.9.31","22.9.32"].includes(String(payload.version||"")))throw new Error("Versão de backup incompatível.");
   if(!payload.collections||typeof payload.collections!=="object"||Array.isArray(payload.collections))throw new Error("Coleções do backup ausentes.");
   const allowed=["users","members","nicknameClaims","attendance","events","notifications","notificationReads","rtPresence","presenceBackups","resetJobs","xpLogs","payments","audit","supportMessages","chatMessages"];
   if(!Array.isArray(payload.collections.nicknameClaims))payload.collections.nicknameClaims=[];
-  if(!Array.isArray(payload.collections.payments)&&!["22.9.23","22.9.24","22.9.25","22.9.26","22.9.27","22.9.28","22.9.29","22.9.30"].includes(String(payload.version||"")))payload.collections.payments=[];
+  if(!Array.isArray(payload.collections.payments)&&!["22.9.23","22.9.24","22.9.25","22.9.26","22.9.27","22.9.28","22.9.29","22.9.30","22.9.31","22.9.32"].includes(String(payload.version||"")))payload.collections.payments=[];
   for(const name of allowed)if(!Array.isArray(payload.collections[name]))throw new Error(`Coleção obrigatória ausente: ${name}.`);
   for(const [name,rows] of Object.entries(payload.collections)){
     if(!allowed.includes(name))throw new Error(`Coleção não permitida: ${name}.`);
     if(!Array.isArray(rows)||rows.length>50000)throw new Error(`Coleção inválida ou excessiva: ${name}.`);
     rows.forEach(item=>{if(!item||!validBackupDocumentId(item.id))throw new Error(`Documento inválido em ${name}.`);validateBackupDocument(name,item)});
   }
-  if(["22.9.23","22.9.24","22.9.25","22.9.26","22.9.27","22.9.28","22.9.29","22.9.30"].includes(String(payload.version||""))&&payload.collections.payments.some(item=>!Number.isSafeInteger(item.quantity)||item.quantity<1||item.quantity>99000000))throw new Error("Pagamento sem quantidade válida no backup.");
+  if(["22.9.23","22.9.24","22.9.25","22.9.26","22.9.27","22.9.28","22.9.29","22.9.30","22.9.31","22.9.32"].includes(String(payload.version||""))&&payload.collections.payments.some(item=>!Number.isSafeInteger(item.quantity)||item.quantity<1||item.quantity>99000000))throw new Error("Pagamento sem quantidade válida no backup.");
   const backupUsers=new Map(payload.collections.users.map(item=>[item.id,item]));
   const backupMembers=new Map(payload.collections.members.map(item=>[item.id,item]));
   const claimedUids=new Set();
@@ -3783,13 +3806,13 @@ function validateBackupPayload(payload){
     if(!user||String(user.name||"").trim().toLowerCase()!==claim.id)throw new Error(`Reserva de nickname sem usuário correspondente: ${claim.id}.`);
     if(user.active!==true||String(user.status||"approved")!=="approved")throw new Error(`Reserva de nickname vinculada a usuário inativo: ${claim.id}.`);
     if(user.nicknameClaimKey!==undefined&&user.nicknameClaimKey!==claim.id)throw new Error(`Vínculo de nickname divergente no usuário ${claim.uid}.`);
-    if(["22.9.12","22.9.13","22.9.14","22.9.15","22.9.16","22.9.17","22.9.18","22.9.19","22.9.20","22.9.21","22.9.22","22.9.23","22.9.24","22.9.25","22.9.26","22.9.27","22.9.28","22.9.29","22.9.30"].includes(String(payload.version||""))&&String(user.memberDocumentId||"")!==String(claim.memberId||""))throw new Error(`Documento de membro divergente na reserva ${claim.id}.`);
-    if(["22.9.12","22.9.13","22.9.14","22.9.15","22.9.16","22.9.17","22.9.18","22.9.19","22.9.20","22.9.21","22.9.22","22.9.23","22.9.24","22.9.25","22.9.26","22.9.27","22.9.28","22.9.29","22.9.30"].includes(String(payload.version||""))&&normalizeAccessRole(user.accessRole||user.role)!=="dev"&&!claim.memberId)throw new Error(`Reserva sem membro vinculado: ${claim.id}.`);
+    if(["22.9.12","22.9.13","22.9.14","22.9.15","22.9.16","22.9.17","22.9.18","22.9.19","22.9.20","22.9.21","22.9.22","22.9.23","22.9.24","22.9.25","22.9.26","22.9.27","22.9.28","22.9.29","22.9.30","22.9.31","22.9.32"].includes(String(payload.version||""))&&String(user.memberDocumentId||"")!==String(claim.memberId||""))throw new Error(`Documento de membro divergente na reserva ${claim.id}.`);
+    if(["22.9.12","22.9.13","22.9.14","22.9.15","22.9.16","22.9.17","22.9.18","22.9.19","22.9.20","22.9.21","22.9.22","22.9.23","22.9.24","22.9.25","22.9.26","22.9.27","22.9.28","22.9.29","22.9.30","22.9.31","22.9.32"].includes(String(payload.version||""))&&normalizeAccessRole(user.accessRole||user.role)!=="dev"&&!claim.memberId)throw new Error(`Reserva sem membro vinculado: ${claim.id}.`);
     if(claim.memberId&&(!member||(member.userId!==claim.uid&&member.id!==claim.uid)||String(member.name||"").trim().toLowerCase()!==claim.id))throw new Error(`Reserva de nickname sem membro correspondente: ${claim.id}.`);
     if(claimedUids.has(claim.uid))throw new Error(`O usuário ${claim.uid} possui mais de uma reserva de nickname.`);
     claimedUids.add(claim.uid);
   }
-  if(["22.9.11","22.9.12","22.9.13","22.9.14","22.9.15","22.9.16","22.9.17","22.9.18","22.9.19","22.9.20","22.9.21","22.9.22","22.9.23","22.9.24","22.9.25","22.9.26","22.9.27","22.9.28","22.9.29","22.9.30"].includes(String(payload.version||"")))for(const user of payload.collections.users){
+  if(["22.9.11","22.9.12","22.9.13","22.9.14","22.9.15","22.9.16","22.9.17","22.9.18","22.9.19","22.9.20","22.9.21","22.9.22","22.9.23","22.9.24","22.9.25","22.9.26","22.9.27","22.9.28","22.9.29","22.9.30","22.9.31","22.9.32"].includes(String(payload.version||"")))for(const user of payload.collections.users){
     if(user.active===true&&String(user.status||"approved")==="approved"&&normalizeAccessRole(user.accessRole||user.role)!=="dev"&&!claimedUids.has(user.id))throw new Error(`Usuário ativo sem reserva de nickname: ${user.id}.`);
   }
   const ownerRow=payload.collections.users.find(item=>item.id===state.user?.uid);
@@ -3804,7 +3827,7 @@ function validateBackupPayload(payload){
     if(!validBackupDocumentId(backupId)||!Array.isArray(data?.attendance)||!Array.isArray(data?.rt))throw new Error("Subcoleção semanal inválida.");
     if(data.attendance.length>50000||data.rt.length>10000)throw new Error("Subcoleção semanal excede o limite seguro.");
     const parent=backupParents.get(backupId);
-    if(["22.9.17","22.9.18","22.9.19","22.9.20","22.9.21","22.9.22","22.9.23","22.9.24","22.9.25","22.9.26","22.9.27","22.9.28","22.9.29","22.9.30"].includes(String(payload.version))&&parent.status!=="completed")throw new Error(`Backup semanal incompleto: ${backupId}.`);
+    if(["22.9.17","22.9.18","22.9.19","22.9.20","22.9.21","22.9.22","22.9.23","22.9.24","22.9.25","22.9.26","22.9.27","22.9.28","22.9.29","22.9.30","22.9.31","22.9.32"].includes(String(payload.version))&&parent.status!=="completed")throw new Error(`Backup semanal incompleto: ${backupId}.`);
     if(Number(parent.total)!==data.attendance.length||Number(parent.rtTotal)!==data.rt.length)throw new Error(`Totais divergentes no backup semanal ${backupId}.`);
     for(const [name,rows] of Object.entries({attendance:data.attendance,rt:data.rt})){
       const ids=new Set();

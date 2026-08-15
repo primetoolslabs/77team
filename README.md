@@ -1,6 +1,6 @@
-# 77 TEAM Manager V22.9.30 🟠 Hotfix — correção de clã pelo STAFF
+# 77 TEAM Manager V22.9.32 🟠 Hotfix — HOME pública
 
-Esta versão preserva integralmente a V22.9.29 e corrige definitivamente a alteração de clã pelo STAFF. O membro é atualizado primeiro e a conta vinculada é sincronizada separadamente. Consulte `CHANGELOG-V22.9.30.md` e `PUBLICACAO-V22.9.30.md`.
+Esta versão preserva integralmente a V22.9.31 e abre a HOME em modo público somente para visualização. Qualquer cadastro, edição ou exclusão continua exigindo conta aprovada e login. Consulte `CHANGELOG-V22.9.32.md` e `PUBLICACAO-V22.9.32.md`.
 
 ## Sétima auditoria — 13 achados corrigidos
 
