@@ -10,7 +10,7 @@ const firebase=JSON.parse(read("firebase.json")),manifest=JSON.parse(read("manif
 
 execFileSync(process.execPath,["--check",new URL("js/main.js",root).pathname],{stdio:"pipe"});
 execFileSync(process.execPath,["--check",new URL("js/pdf-generator.js",root).pathname],{stdio:"pipe"});
-assert.equal(manifest.version,"22.9.29");
+assert.equal(manifest.version,"22.9.30");
 assert.equal(firebase.firestore.indexes,"firestore.indexes.json");
 assert.ok(firebase.emulators?.firestore?.port);
 assert.ok(indexes.indexes.some(index=>index.collectionGroup==="supportMessages"));
@@ -63,7 +63,9 @@ assert.ok(main.includes("function canDeleteMemberRecord"));
 assert.ok(rules.includes("staff() && isMemberRole(accessRoleOf(resource.data))"));
 assert.ok(main.includes('key:"members_clan_change",label:"Alterar clã dos membros",defaults:{dev:true,leadership:true,staff:true,member:false}'));
 assert.ok(main.includes('permissionEnabled("members_clan_change")'));
-assert.ok(rules.includes("staff() || permission('members_clan_change', true)"));
+assert.ok(main.includes("function canChangeMemberClan"));
+assert.ok(rules.includes("staff() && isMemberRole(accessRoleOf(resource.data))"));
+assert.ok(main.includes('await updateDoc(doc(db,"members",member.id),payload)'));
 assert.ok(html.includes('id="pagamentos"'));
 assert.ok(html.includes('id="paymentForm"'));
 assert.ok(ui.includes('["pagamentos","💰","Pagamentos"]'));
@@ -111,4 +113,4 @@ const pageTargets=[...html.matchAll(/data-page(?:-jump)?="([^"]+)"/g),...ui.matc
 assert.deepEqual([...new Set(pageTargets.filter(id=>!pageIds.has(id)))],[],"Menu contém destino sem página");
 assert.ok(!html.includes("</input>"));
 assert.ok(!html.includes("App Check"));
-console.log("Auditoria estática V22.9.29: OK");
+console.log("Auditoria estática V22.9.30: OK");

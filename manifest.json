@@ -1,6 +1,6 @@
 {
-  "name": "77 TEAM Manager V22.9.29 Hotfix",
-  "short_name": "77 TEAM V22.9.29",
+  "name": "77 TEAM Manager V22.9.30 Hotfix",
+  "short_name": "77 TEAM V22.9.30",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
@@ -18,7 +18,7 @@
       "type": "image/png"
     }
   ],
-  "description": "77 TEAM Manager V22.9.29 Hotfix — STAFF autorizado a alterar o clã dos membros.",
-  "version": "22.9.29",
-  "version_name": "22.9.29"
+  "description": "77 TEAM Manager V22.9.30 Hotfix — correção definitiva da alteração de clã pelo STAFF.",
+  "version": "22.9.30",
+  "version_name": "22.9.30"
 }

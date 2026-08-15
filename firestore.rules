@@ -167,7 +167,12 @@ service cloud.firestore {
           && request.resource.data.characterUpdatedBy == request.auth.uid
         )
         || (
-          editor() && (staff() || permission('members_clan_change', true))
+          staff() && isMemberRole(accessRoleOf(resource.data))
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['clan','clanUpdatedAt','clanUpdatedBy','updatedAt'])
+          && request.resource.data.clanUpdatedBy == request.auth.uid
+        )
+        || (
+          (dev() || leadership()) && permission('members_clan_change', true)
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['clan','clanUpdatedAt','clanUpdatedBy','updatedAt'])
           && request.resource.data.clanUpdatedBy == request.auth.uid
         )
@@ -221,7 +226,13 @@ service cloud.firestore {
           && claimMatchesAfter(request.auth.uid, nicknameKey(getAfter(userPath(request.auth.uid)).data))
         )
         || (
-          editor() && (staff() || permission('members_clan_change', true))
+          staff() && isMemberRole(accessRoleOf(resource.data))
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['clan','clanUpdatedAt','clanUpdatedBy','updatedAt'])
+          && request.resource.data.clan is string && request.resource.data.clan.size() <= 80
+          && request.resource.data.clanUpdatedBy == request.auth.uid
+        )
+        || (
+          (dev() || leadership()) && permission('members_clan_change', true)
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['clan','clanUpdatedAt','clanUpdatedBy','updatedAt'])
           && request.resource.data.clan is string && request.resource.data.clan.size() <= 80
           && request.resource.data.clanUpdatedBy == request.auth.uid

@@ -1,6 +1,6 @@
-# 77 TEAM Manager V22.9.29 🟠 Hotfix — alteração de clã pelo STAFF
+# 77 TEAM Manager V22.9.30 🟠 Hotfix — correção de clã pelo STAFF
 
-Esta versão preserva integralmente a V22.9.28 e permite que o cargo STAFF altere o clã dos membros, sincronizando o cadastro do jogador e a conta vinculada. Consulte `CHANGELOG-V22.9.29.md` e `PUBLICACAO-V22.9.29.md`.
+Esta versão preserva integralmente a V22.9.29 e corrige definitivamente a alteração de clã pelo STAFF. O membro é atualizado primeiro e a conta vinculada é sincronizada separadamente. Consulte `CHANGELOG-V22.9.30.md` e `PUBLICACAO-V22.9.30.md`.
 
 ## Sétima auditoria — 13 achados corrigidos
 
