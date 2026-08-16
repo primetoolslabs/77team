@@ -50,7 +50,7 @@ function configuredPresenceSlots(kind){
 }
 function configuredEventEnabled(kind){const cfg=state.settings?.events||{};return kind==="worldboss"?cfg.worldbossEnabled!==false:kind==="purgatorio"?cfg.purgatorioEnabled!==false:cfg.customEventsEnabled!==false}
 
-const state={user:null,profile:null,onboardingRequired:false,members:[],membersLoaded:false,attendance:[],rtPresence:[],users:[],usersLoaded:false,audit:[],events:[],notifications:[],sentNotifications:[],notificationReads:[],settings:{},xpLogs:[],payments:[],supportMessages:[],selectedSupportOwnerUid:"",selectedSupportTicketId:"",supportView:"active",chatMessages:[],selectedChatOwnerUid:"",selectedChatId:"",chatView:"active",chatSearch:"",editingCharacterUserId:"",presenceFilters:{},presenceBackups:[],sessions:[],unsubs:[]};
+const state={user:null,profile:null,onboardingRequired:false,members:[],membersLoaded:false,attendance:[],attendanceLoaded:false,rtPresence:[],users:[],usersLoaded:false,audit:[],events:[],eventsLoaded:false,notifications:[],sentNotifications:[],notificationReads:[],settings:{},xpLogs:[],payments:[],supportMessages:[],selectedSupportOwnerUid:"",selectedSupportTicketId:"",supportView:"active",chatMessages:[],selectedChatOwnerUid:"",selectedChatId:"",chatView:"active",chatSearch:"",editingCharacterUserId:"",presenceFilters:{},presenceBackups:[],sessions:[],unsubs:[]};
 
 function toast(msg){const el=$("#toast");el.textContent=msg;el.classList.add("show");clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.remove("show"),3000)}
 function errMsg(e){return ({'auth/invalid-credential':'E-mail ou senha incorretos.','auth/user-disabled':'Esta conta foi desativada.','auth/too-many-requests':'Muitas tentativas. Aguarde alguns minutos e tente novamente.','auth/network-request-failed':'Falha de conexão. Verifique sua internet.','auth/email-already-in-use':'Este e-mail já possui uma conta. Use a mesma senha para recuperar o cadastro pendente.','auth/operation-not-allowed':'Ative o provedor E-mail/Senha em Firebase Authentication.','auth/invalid-email':'Informe um endereço de e-mail válido.','auth/weak-password':'A senha precisa ter pelo menos 6 caracteres.','permission-denied':'Permissão negada. Publique o firestore.rules novo.'})[e?.code]||`${e?.code||'erro'}: ${e?.message||'Falha inesperada'}`}
@@ -507,17 +507,20 @@ function subscribePublic(){
       collection(db,"attendance"),
       snapshot=>{
         state.attendance=snapshot.docs.map(item=>({id:item.id,...item.data()}));
+        state.attendanceLoaded=true;
         render();
         if(editor())scheduleAttendanceUserMigration();
       },
       error=>{
         console.error("Falha ao carregar presenças:",error);
         state.attendance=[];
+        state.attendanceLoaded=true;
         render();
       }
     ));
   }else{
     state.attendance=[];
+    state.attendanceLoaded=false;
   }
 }
 function subscribeAll(){
@@ -530,7 +533,7 @@ function subscribeAll(){
   if(permissionEnabled("audit_view"))state.unsubs.push(onSnapshot(collection(db,"audit"),s=>{state.audit=s.docs.map(d=>({id:d.id,...d.data()}));render()}));
   if(editor())state.unsubs.push(onSnapshot(collection(db,"xpLogs"),s=>{state.xpLogs=s.docs.map(d=>({id:d.id,...d.data()}));render()}));
   if(permissionEnabled("payments_manage"))state.unsubs.push(onSnapshot(collection(db,"payments"),s=>{state.payments=s.docs.map(d=>({id:d.id,...d.data()}));renderPayments()},error=>console.error("Falha ao carregar pagamentos:",error)));
-  state.unsubs.push(onSnapshot(collection(db,"events"),s=>{state.events=s.docs.map(d=>({id:d.id,...d.data()}));render()}));
+  state.unsubs.push(onSnapshot(collection(db,"events"),s=>{state.events=s.docs.map(d=>({id:d.id,...d.data()}));state.eventsLoaded=true;render()},error=>{console.error("Falha ao carregar eventos:",error);state.eventsLoaded=true;render()}));
   if(state.user){
     state.unsubs.push(onSnapshot(
       query(collection(db,"notificationReads"),where("userId","==",state.user.uid)),
@@ -1368,7 +1371,7 @@ function render(){
     <td>${escapeHtml(a.date||"—")}</td>
     <td>${escapeHtml(a.slot||a.kind||"—")}</td>
     <td><span class="badge ${attendanceStatusClass(a.status)}">${attendanceStatusLabel(a.status)}</span></td>
-  </tr>`}).join("")||'<tr><td colspan="5">Nenhuma presença registrada.</td></tr>';
+  </tr>`}).join("")||`<tr><td colspan="5">${state.attendanceLoaded?"Nenhuma presença registrada ainda.":"Carregando presenças..."}</td></tr>`;
 
   $("#topFiveRows").innerHTML=pointsRank.slice(0,5).map((r,i)=>`<tr>
     <td><span class="rank-position rank-${i+1}">${i<3?["🥇","🥈","🥉"][i]:i+1}</span></td>
@@ -4861,7 +4864,45 @@ on("xpAdjustmentForm","submit",async event=>{
 
 
 /* V12.1 — Dashboard Enterprise isolado */
+/* HOME — resumo vivo com dados reais já carregados do Firebase */
+function homeTimestampValue(value){
+  const date=value?.toDate?.()||new Date(value||0);
+  return Number.isNaN(date.getTime())?0:date.getTime();
+}
+function renderHomeLiveStrip(){
+  const publicView=!state.user;
+  const userName=publicView?"Visitante":(state.profile?.name||state.profile?.displayName||state.profile?.email||"Usuário");
+  setText("homeLiveUser",userName);
+
+  const today=localIsoDate();
+  const upcoming=[...state.events]
+    .filter(event=>String(event.date||"")>=today)
+    .sort((a,b)=>`${a.date||""} ${a.time||""}`.localeCompare(`${b.date||""} ${b.time||""}`))[0];
+  setText("homeNextEvent",upcoming?`${upcoming.title||upcoming.type||"Evento"}${upcoming.date?` · ${formatHistoryDate(upcoming.date)}`:""}${upcoming.time?` ${upcoming.time}`:""}`:(state.eventsLoaded?"Nenhum agendado":"Carregando..."));
+
+  if(publicView){
+    setText("homeUnreadNotifications","Entre para ver");
+    setText("homeLastSync","Área pública");
+    setText("homeLiveSubtitle","Entre na sua conta para visualizar membros, presenças, ranking, eventos e atividades reais da equipe.");
+    return;
+  }
+
+  const readIds=new Set((state.notificationReads||[]).map(item=>item.notificationId||item.id));
+  const unread=(state.notifications||[]).filter(item=>!readIds.has(item.id)).length;
+  setText("homeUnreadNotifications",unread);
+
+  const times=[
+    ...state.attendance.map(item=>homeTimestampValue(item.updatedAt||item.createdAt)),
+    ...state.events.map(item=>homeTimestampValue(item.updatedAt||item.createdAt)),
+    ...state.members.map(item=>homeTimestampValue(item.updatedAt||item.createdAt))
+  ].filter(Boolean);
+  const latest=times.length?new Date(Math.max(...times)):new Date();
+  setText("homeLastSync",new Intl.DateTimeFormat("pt-BR",{hour:"2-digit",minute:"2-digit"}).format(latest));
+  setText("homeLiveSubtitle","Membros, presenças, eventos, ranking e atividades são preenchidos automaticamente com os registros reais do sistema.");
+}
+
 function renderEnterpriseDashboard(){
+  renderHomeLiveStrip();
   const today=dashboardDateOffset(0);
   const yesterday=dashboardDateOffset(-1);
   const currentMonth=today.slice(0,7);
