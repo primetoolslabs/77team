@@ -468,6 +468,14 @@ service cloud.firestore {
         || dev();
       allow delete: if dev();
     }
+    // HOME pública: contém somente um resumo sanitizado gerado pelo painel administrativo.
+    // Visitantes podem ler este documento sem acessar members/attendance/events diretamente.
+    match /public/{id} {
+      allow read: if id == 'home';
+      allow create, update: if id == 'home' && editor();
+      allow delete: if id == 'home' && dev();
+    }
+
     match /settings/{id} {
       allow read: if id == 'app' || (id == 'private' && dev());
       allow create: if dev() || (id == 'app' && permission('settings_edit', false)

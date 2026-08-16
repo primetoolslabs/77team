@@ -50,7 +50,7 @@ function configuredPresenceSlots(kind){
 }
 function configuredEventEnabled(kind){const cfg=state.settings?.events||{};return kind==="worldboss"?cfg.worldbossEnabled!==false:kind==="purgatorio"?cfg.purgatorioEnabled!==false:cfg.customEventsEnabled!==false}
 
-const state={user:null,profile:null,onboardingRequired:false,members:[],membersLoaded:false,attendance:[],attendanceLoaded:false,rtPresence:[],users:[],usersLoaded:false,audit:[],events:[],eventsLoaded:false,notifications:[],sentNotifications:[],notificationReads:[],settings:{},xpLogs:[],payments:[],supportMessages:[],selectedSupportOwnerUid:"",selectedSupportTicketId:"",supportView:"active",chatMessages:[],selectedChatOwnerUid:"",selectedChatId:"",chatView:"active",chatSearch:"",editingCharacterUserId:"",presenceFilters:{},presenceBackups:[],sessions:[],unsubs:[]};
+const state={user:null,profile:null,onboardingRequired:false,members:[],membersLoaded:false,attendance:[],attendanceLoaded:false,rtPresence:[],users:[],usersLoaded:false,audit:[],events:[],eventsLoaded:false,notifications:[],sentNotifications:[],notificationReads:[],settings:{},publicHome:null,xpLogs:[],payments:[],supportMessages:[],selectedSupportOwnerUid:"",selectedSupportTicketId:"",supportView:"active",chatMessages:[],selectedChatOwnerUid:"",selectedChatId:"",chatView:"active",chatSearch:"",editingCharacterUserId:"",presenceFilters:{},presenceBackups:[],sessions:[],unsubs:[]};
 
 function toast(msg){const el=$("#toast");el.textContent=msg;el.classList.add("show");clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.remove("show"),3000)}
 function errMsg(e){return ({'auth/invalid-credential':'E-mail ou senha incorretos.','auth/user-disabled':'Esta conta foi desativada.','auth/too-many-requests':'Muitas tentativas. Aguarde alguns minutos e tente novamente.','auth/network-request-failed':'Falha de conexão. Verifique sua internet.','auth/email-already-in-use':'Este e-mail já possui uma conta. Use a mesma senha para recuperar o cadastro pendente.','auth/operation-not-allowed':'Ative o provedor E-mail/Senha em Firebase Authentication.','auth/invalid-email':'Informe um endereço de e-mail válido.','auth/weak-password':'A senha precisa ter pelo menos 6 caracteres.','permission-denied':'Permissão negada. Publique o firestore.rules novo.'})[e?.code]||`${e?.code||'erro'}: ${e?.message||'Falha inesperada'}`}
@@ -328,12 +328,16 @@ async function decideInitialScreen(){
 }
 function showPublicHome(){
   clearSubs();state.user=null;state.onboardingRequired=false;
+  state.members=[];state.attendance=[];state.events=[];state.publicHome=null;
+  state.membersLoaded=false;state.attendanceLoaded=false;state.eventsLoaded=false;
   state.profile={name:"Visitante",displayName:"Visitante",role:"member",accessRole:"member",active:false,status:"public"};
   document.body.dataset.publicView="true";showOnly("app");applyPermissions();
   setText("welcomeName","Visitante");setText("topbarUserName","Visitante");setText("userBadge","Visualização");
   byId("publicHomeBanner")?.classList.remove("hidden");
   const logoutLabel=byId("sidebarLogout")?.querySelector(".menu-label");if(logoutLabel)logoutLabel.textContent="Entrar / Cadastrar";
   window.TeamManagerUI?.activatePage("dashboard");window.syncModuleNavigation?.("dashboard");
+  renderPublicHomeLoading();
+  subscribePublicHome();
 }
 decideInitialScreen();
 
@@ -4863,6 +4867,138 @@ on("xpAdjustmentForm","submit",async event=>{
 });
 
 
+
+
+/* HOME PÚBLICA — snapshot sanitizado para visitantes, sem expor coleções privadas */
+let publicHomePublishTimer=null;
+let lastPublicHomeSignature="";
+
+function publicHomeDateValue(value){
+  const date=value?.toDate?.()||new Date(value||0);
+  return Number.isNaN(date.getTime())?null:date;
+}
+
+function renderPublicHomeLoading(){
+  if(state.user)return;
+  setText("homeLiveUser","Visitante");
+  setText("homeNextEvent","Carregando...");
+  setText("homeUnreadNotifications","Somente membros");
+  setText("homeLastSync","Conectando...");
+  setText("homeLiveSubtitle","Carregando as informações públicas reais da 77 TEAM...");
+  setText("kMembers","—");setText("kPresence","—");setText("kMonthEvents","—");setText("kBest","—");setText("kBestPoints","— pontos");
+  setText("dashboardMemberTrend","—");setText("dashboardPresenceTrend","—");setText("dashboardEventTrend","—");
+  setHtml("recentPresenceRows",'<tr><td colspan="5">Carregando informações públicas...</td></tr>');
+  setHtml("topFiveRows",'<tr><td colspan="4">Carregando ranking...</td></tr>');
+  setHtml("dashboardTodayEvents",'<p class="empty-state">Carregando eventos...</p>');
+  setHtml("dashboardWeeklyChart",'<p class="empty-state">Carregando presenças...</p>');
+  setHtml("dashboardClanPoints",'<p class="empty-state">Carregando clãs...</p>');
+  setHtml("dashboardRecentActivity",'<p class="empty-state">Carregando atividades...</p>');
+  setHtml("dashboardMemberRows",'<tr><td colspan="9">Carregando membros...</td></tr>');
+}
+
+function subscribePublicHome(){
+  state.unsubs.push(onSnapshot(doc(db,"public","home"),snapshot=>{
+    if(state.user)return;
+    if(!snapshot.exists()){
+      state.publicHome=null;
+      setText("homeNextEvent","Nenhum dado publicado");
+      setText("homeLastSync","Aguardando publicação");
+      setText("homeLiveSubtitle","A HOME pública ainda não recebeu o primeiro resumo. Entre como administrador uma vez após esta atualização para publicar os dados atuais.");
+      setText("kMembers","0");setText("kPresence","0");setText("kMonthEvents","0");setText("kBest","—");setText("kBestPoints","0 pontos");
+      setHtml("recentPresenceRows",'<tr><td colspan="5">Nenhuma informação pública publicada ainda.</td></tr>');
+      setHtml("topFiveRows",'<tr><td colspan="4">Nenhum ranking publicado ainda.</td></tr>');
+      setHtml("dashboardTodayEvents",'<p class="empty-state">Nenhum evento público publicado ainda.</p>');
+      setHtml("dashboardWeeklyChart",'<p class="empty-state">Sem dados públicos de presença.</p>');
+      setHtml("dashboardClanPoints",'<p class="empty-state">Sem dados públicos de clãs.</p>');
+      setHtml("dashboardRecentActivity",'<p class="empty-state">Sem atividade pública publicada.</p>');
+      setHtml("dashboardMemberRows",'<tr><td colspan="9">Nenhum membro publicado ainda.</td></tr>');
+      return;
+    }
+    state.publicHome={id:snapshot.id,...snapshot.data()};
+    renderPublicHomeSnapshot(state.publicHome);
+  },error=>{
+    console.error("Falha ao carregar HOME pública:",error);
+    setText("homeLastSync","Indisponível");
+    setText("homeLiveSubtitle","Não foi possível carregar as informações públicas. Verifique a publicação das regras do Firestore.");
+  }));
+}
+
+function renderPublicHomeWeekly(days=[]){
+  const container=byId("dashboardWeeklyChart");if(!container)return;
+  if(!days.length){container.innerHTML='<p class="empty-state">Sem dados de presença nos últimos 7 dias.</p>';return;}
+  const max=Math.max(1,...days.map(day=>Number(day.value||0)));
+  const points=days.map((day,index)=>{const x=days.length===1?50:index/(days.length-1)*100;const y=92-(Number(day.value||0)/max*72);return `${x},${y}`}).join(" ");
+  container.innerHTML=`<div class="weekly-chart-scale"><span>${max}</span><span>${Math.round(max/2)}</span><span>0</span></div><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-label="Gráfico semanal"><polygon points="0,100 ${points} 100,100" fill="url(#weeklyArea)"></polygon><polyline points="${points}" fill="none" stroke="currentColor" stroke-width="1.6" vector-effect="non-scaling-stroke"></polyline>${days.map((day,index)=>{const x=days.length===1?50:index/(days.length-1)*100;const y=92-(Number(day.value||0)/max*72);return `<circle cx="${x}" cy="${y}" r="1.7" fill="currentColor"></circle>`}).join("")}</svg><div class="weekly-chart-labels">${days.map(day=>`<span><b>${Number(day.value||0)}</b>${escapeHtml(day.label||"")}</span>`).join("")}</div>`;
+}
+
+function renderPublicHomeSnapshot(data){
+  if(state.user||!data)return;
+  setText("homeLiveUser","Visitante");
+  setText("homeNextEvent",data.nextEvent?.label||"Nenhum agendado");
+  setText("homeUnreadNotifications","Somente membros");
+  const syncDate=publicHomeDateValue(data.generatedAt);
+  setText("homeLastSync",syncDate?new Intl.DateTimeFormat("pt-BR",{dateStyle:"short",timeStyle:"short"}).format(syncDate):"Atualizado");
+  setText("homeLiveSubtitle","Dados públicos reais da 77 TEAM. Este painel é atualizado automaticamente quando a equipe registra novas informações.");
+
+  setText("kMembers",Number(data.membersCount||0));
+  setText("kPresence",Number(data.todayPresence||0));
+  setText("kMonthEvents",Number(data.monthEvents||0));
+  setText("dashboardMemberTrend",data.memberTrend||"0%");
+  setText("dashboardPresenceTrend",data.presenceTrend||"0%");
+  setText("dashboardEventTrend",data.eventTrend||"0%");
+  const top=(data.top5||[])[0];
+  setText("kBest",top?.name||"—");setText("kBestPoints",`${Number(top?.points||0).toLocaleString("pt-BR")} pontos`);
+
+  setHtml("recentPresenceRows",(data.recentPresence||[]).map(item=>`<tr><td><span class="member-avatar">${escapeHtml((item.name||"?").slice(0,1).toUpperCase())}</span>${escapeHtml(item.name||"—")}</td><td>${roleBadge(item.role||"Membros")}</td><td>${escapeHtml(item.date||"—")}</td><td>${escapeHtml(item.event||"—")}</td><td><span class="badge ${attendanceStatusClass(Number(item.status))}">${attendanceStatusLabel(Number(item.status))}</span></td></tr>`).join("")||'<tr><td colspan="5">Nenhuma presença recente.</td></tr>');
+  setHtml("topFiveRows",(data.top5||[]).map((item,index)=>`<tr><td><span class="rank-position rank-${index+1}">${index<3?["🥇","🥈","🥉"][index]:index+1}</span></td><td><span class="member-avatar">${escapeHtml((item.name||"?").slice(0,1).toUpperCase())}</span>${escapeHtml(item.name||"—")}</td><td>${roleBadge(item.role||"Membros")}</td><td><strong class="ranking-points">${Number(item.points||0).toLocaleString("pt-BR")}</strong></td></tr>`).join("")||'<tr><td colspan="4">Sem dados de ranking.</td></tr>');
+  setHtml("dashboardTodayEvents",(data.todayEvents||[]).map(item=>`<article class="today-event-item"><div class="today-event-icon">${item.kind==="worldboss"?"⚔":item.kind==="purgatorio"?"♨":"▣"}</div><div><strong>${escapeHtml(item.title||"Evento")}</strong><small>${escapeHtml(item.time||"—")}</small></div><span class="${item.status==="Em andamento"?"running":"scheduled"}">${escapeHtml(item.status||"Agendado")}</span></article>`).join("")||'<p class="empty-state">Nenhum evento programado para hoje.</p>');
+  renderPublicHomeWeekly(data.weekly||[]);
+  const clans=data.clans||[],clanMax=Math.max(1,...clans.map(item=>Number(item.points||0)));
+  setHtml("dashboardClanPoints",clans.map((item,index)=>`<div class="clan-points-row"><span>${index+1}</span><strong>${escapeHtml(item.name||"Sem clã")}</strong><div><i style="width:${Math.round(Number(item.points||0)/clanMax*100)}%"></i></div><b>${Number(item.points||0)}</b></div>`).join("")||'<p class="empty-state">Nenhum clã com pontos.</p>');
+  const rate=Math.max(0,Math.min(100,Number(data.generalRate||0))),gauge=byId("dashboardRateGauge");if(gauge)gauge.style.setProperty("--rate",rate);
+  setText("dashboardGeneralRate",`${rate}%`);setText("dashboardRateLabel",rate>=90?"Excelente!":rate>=70?"Muito bom":rate>=50?"Regular":rate?"Atenção":"Sem dados");setText("dashboardActiveSummary",`${Number(data.membersCount||0)} membros ativos`);
+  setHtml("dashboardRecentActivity",(data.activities||[]).map(item=>`<article class="recent-activity-item"><span>${escapeHtml(item.icon||"•")}</span><div><strong>${escapeHtml(item.title||"")}</strong><small>${escapeHtml(item.time||"")}</small></div></article>`).join("")||'<p class="empty-state">Nenhuma atividade recente.</p>');
+  setHtml("dashboardMemberRows",(data.members||[]).map(item=>`<tr><td><span class="member-avatar">${escapeHtml((item.name||"?").slice(0,1).toUpperCase())}</span><strong>${escapeHtml(item.name||"—")}</strong></td><td>${roleBadge(item.role||"Membros")}</td><td>${escapeHtml(item.clan||"—")}</td><td>Lv. ${Number(item.level||1)}</td><td>${Number(item.points||0).toLocaleString("pt-BR")}</td><td>${Number(item.present||0)}</td><td><strong class="ranking-points">${Number(item.rate||0)}%</strong></td><td><span class="online-status"><i></i>Ativo</span></td><td><span class="badge">Público</span></td></tr>`).join("")||'<tr><td colspan="9">Nenhum membro ativo publicado.</td></tr>');
+}
+
+function buildPublicHomePayload(){
+  const today=dashboardDateOffset(0),yesterday=dashboardDateOffset(-1),month=today.slice(0,7);
+  const previousMonthDate=new Date();previousMonthDate.setMonth(previousMonthDate.getMonth()-1);const previousMonth=`${previousMonthDate.getFullYear()}-${String(previousMonthDate.getMonth()+1).padStart(2,"0")}`;
+  const members=visibleMembers(),attendance=homeAttendanceRecords();
+  const todayPresence=attendance.filter(item=>(item.status===1||item.status===2)&&item.date===today).length;
+  const yesterdayPresence=attendance.filter(item=>(item.status===1||item.status===2)&&item.date===yesterday).length;
+  const monthEvents=monthlyEventKeys(month).size,previousMonthEvents=monthlyEventKeys(previousMonth).size;
+  const joinedThisMonth=members.filter(member=>memberCreatedMonth(member)===month).length,joinedPreviousMonth=members.filter(member=>memberCreatedMonth(member)===previousMonth).length;
+  const pointsRank=members.slice().sort((a,b)=>progressionFor(b).totalXp-progressionFor(a).totalXp||String(a.name).localeCompare(String(b.name),"pt-BR"));
+  const top5=pointsRank.slice(0,5).map(member=>({name:String(member.name||"Membro").slice(0,80),role:String(member.role||member.memberRole||"Membros").slice(0,40),points:progressionFor(member).totalXp}));
+  const recentPresence=attendance.filter(item=>memberForAttendance(item)&&(item.status===1||item.status===2)).sort((a,b)=>attendanceTime(b)-attendanceTime(a)).slice(0,5).map(item=>{const member=memberForAttendance(item);return{name:String(member?.name||"Membro").slice(0,80),role:String(member?.role||member?.memberRole||"Membros").slice(0,40),date:String(item.date||""),event:String(item.slot||item.kind||"Evento").slice(0,80),status:Number(item.status||0)}});
+  const scheduled=state.events.filter(event=>event.date===today).map(event=>({title:String(event.title||event.type||"Evento").slice(0,100),time:String(event.time||"Horário não informado").slice(0,40),status:"Agendado",kind:normalizedEventKind(event.type)}));
+  const attendanceEvents=[...new Map(attendance.filter(item=>item.date===today&&(item.status===1||item.status===2)).map(item=>[`${item.kind}|${item.slot}`,{title:item.kind==="worldboss"?"WorldBoss":item.kind==="purgatorio"?"Purgatório":String(item.slot||"Evento").slice(0,100),time:String(item.slot||"—").slice(0,40),status:"Em andamento",kind:item.kind}])).values()];
+  const todayEvents=[...scheduled,...attendanceEvents].filter((item,index,array)=>array.findIndex(other=>other.title===item.title&&other.time===item.time)===index).slice(0,5);
+  const labels=["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"],weekly=[];for(let offset=-6;offset<=0;offset++){const date=new Date();date.setDate(date.getDate()+offset);const iso=localIsoDate(date);weekly.push({label:labels[date.getDay()],value:attendance.filter(item=>(item.status===1||item.status===2)&&item.date===iso).length})}
+  const clanMap={};members.forEach(member=>{const clan=String(member.clan||"Sem clã").slice(0,60);clanMap[clan]=(clanMap[clan]||0)+stats(member).present});const clans=Object.entries(clanMap).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([name,points])=>({name,points}));
+  const present=attendance.filter(item=>item.status===1||item.status===2).length,marked=attendance.filter(item=>item.status===1||item.status===2||item.status===-1).length,generalRate=marked?Math.round(present/marked*100):0;
+  const presenceActivities=attendance.filter(item=>memberForAttendance(item)).sort((a,b)=>attendanceTime(b)-attendanceTime(a)).slice(0,4).map(item=>{const member=memberForAttendance(item);return{icon:String(member?.name||"?").slice(0,1).toUpperCase(),title:`${String(member?.name||"Membro").slice(0,70)} ${{"1":"registrou presença","2":"chegou atrasado","3":"justificou a ausência","-1":"teve ausência","0":"está pendente"}[String(item.status)]||"teve o registro atualizado"} em ${String(item.slot||item.kind||"evento").slice(0,60)}`,time:formatHistoryDate(item.date)}});
+  const memberActivities=members.slice().sort((a,b)=>memberCreatedTime(b)-memberCreatedTime(a)).slice(0,2).map(item=>({icon:String(item.name||"?").slice(0,1).toUpperCase(),title:`${String(item.name||"Membro").slice(0,70)} entrou para a equipe`,time:memberCreatedTime(item)?new Date(memberCreatedTime(item)).toLocaleDateString("pt-BR"):"Cadastro recente"}));
+  const publicMembers=pointsRank.slice(0,100).map(member=>{const memberStats=stats(member),progression=progressionFor(member);return{name:String(member.name||"Membro").slice(0,80),role:String(member.role||member.memberRole||"Membros").slice(0,40),clan:String(member.clan||"").slice(0,60),level:progression.level,points:progression.totalXp,present:memberStats.present,rate:memberStats.rate}});
+  const upcoming=[...state.events].filter(event=>String(event.date||"")>=today).sort((a,b)=>`${a.date||""} ${a.time||""}`.localeCompare(`${b.date||""} ${b.time||""}`))[0];
+  return{version:1,membersCount:members.length,todayPresence,monthEvents,memberTrend:dashboardPercentChange(joinedThisMonth,joinedPreviousMonth),presenceTrend:dashboardPercentChange(todayPresence,yesterdayPresence),eventTrend:dashboardPercentChange(monthEvents,previousMonthEvents),top5,recentPresence,todayEvents,weekly,clans,generalRate,activities:[...presenceActivities,...memberActivities].slice(0,6),members:publicMembers,nextEvent:upcoming?{label:`${String(upcoming.title||upcoming.type||"Evento").slice(0,100)}${upcoming.date?` · ${formatHistoryDate(upcoming.date)}`:""}${upcoming.time?` ${String(upcoming.time).slice(0,20)}`:""}`}:{label:"Nenhum agendado"}};
+}
+
+function schedulePublicHomePublish(){
+  if(!state.user||!editor()||!state.membersLoaded||!state.attendanceLoaded||!state.eventsLoaded)return;
+  clearTimeout(publicHomePublishTimer);
+  publicHomePublishTimer=setTimeout(async()=>{
+    try{
+      const payload=buildPublicHomePayload();
+      const signature=JSON.stringify(payload);if(signature===lastPublicHomeSignature)return;
+      await setDoc(doc(db,"public","home"),{...payload,generatedAt:serverTimestamp(),updatedBy:state.user.uid},{merge:false});
+      lastPublicHomeSignature=signature;
+    }catch(error){console.error("Falha ao publicar resumo da HOME pública:",error)}
+  },700);
+}
+
+
 /* V12.1 — Dashboard Enterprise isolado */
 /* HOME — resumo vivo com dados reais já carregados do Firebase */
 function homeTimestampValue(value){
@@ -4930,6 +5066,7 @@ function renderEnterpriseDashboard(){
   renderDashboardPresenceRate();
   renderDashboardRecentActivity();
   renderDashboardServerStatus();
+  schedulePublicHomePublish();
 }
 
 function dashboardDateOffset(days){
