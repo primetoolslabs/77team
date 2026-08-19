@@ -1,6 +1,6 @@
 {
-  "name": "77 TEAM Manager V22.9.33 Hotfix",
-  "short_name": "77 TEAM V22.9.33",
+  "name": "77 TEAM Manager V22.9.34 Hotfix",
+  "short_name": "77 TEAM V22.9.34",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
@@ -18,7 +18,7 @@
       "type": "image/png"
     }
   ],
-  "description": "77 TEAM Manager V22.9.33 Hotfix — HOME pública somente para visualização antes do login.",
-  "version": "22.9.33",
-  "version_name": "22.9.33"
+  "description": "77 TEAM Manager V22.9.34 Hotfix — HOME pública somente para visualização antes do login.",
+  "version": "22.9.34",
+  "version_name": "22.9.34"
 }

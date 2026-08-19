@@ -7,11 +7,16 @@ service cloud.firestore {
     // Compatibilidade com contas novas e perfis legados. accessRole é a
     // fonte preferencial; os demais campos só são usados como fallback.
     function accessRoleOf(data){
-      return data.get('accessRole',
+      // Compatibilidade com cadastros antigos: algumas contas STAFF foram
+      // gravadas como accessRole='member' e memberRole='Staff'. O campo
+      // memberRole não pode ser alterado pela autoedição do usuário, então
+      // este fallback mantém a hierarquia segura e reconhece o STAFF legado.
+      let explicit = data.get('accessRole',
         data.get('systemRole',
           data.get('permissionRole',
             data.get('userRole',
               data.get('cargo', data.get('role','member'))))));
+      return isStaffRole(data.get('memberRole','')) ? 'staff' : explicit;
     }
     function isDevRole(role){return role in ['dev','owner','DEV','Owner','developer'];}
     function isLeadershipRole(role){return role in ['leadership','lideranca','Liderança','Lideranca','lider','leader','administrador','admin'];}

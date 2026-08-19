@@ -10,7 +10,7 @@ const firebase=JSON.parse(read("firebase.json")),manifest=JSON.parse(read("manif
 
 execFileSync(process.execPath,["--check",decodeURIComponent(new URL("js/main.js",root).pathname)],{stdio:"pipe"});
 execFileSync(process.execPath,["--check",decodeURIComponent(new URL("js/pdf-generator.js",root).pathname)],{stdio:"pipe"});
-assert.equal(manifest.version,"22.9.33");
+assert.equal(manifest.version,"22.9.34");
 assert.equal(firebase.firestore.indexes,"firestore.indexes.json");
 assert.ok(firebase.emulators?.firestore?.port);
 assert.ok(indexes.indexes.some(index=>index.collectionGroup==="supportMessages"));
@@ -122,4 +122,4 @@ const pageTargets=[...html.matchAll(/data-page(?:-jump)?="([^"]+)"/g),...ui.matc
 assert.deepEqual([...new Set(pageTargets.filter(id=>!pageIds.has(id)))],[],"Menu contém destino sem página");
 assert.ok(!html.includes("</input>"));
 assert.ok(!html.includes("App Check"));
-console.log("Auditoria estática V22.9.33: OK");
+console.log("Auditoria estática V22.9.34: OK");
