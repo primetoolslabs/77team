@@ -51,6 +51,7 @@ function configuredPresenceSlots(kind){
 function configuredEventEnabled(kind){const cfg=state.settings?.events||{};return kind==="worldboss"?cfg.worldbossEnabled!==false:kind==="purgatorio"?cfg.purgatorioEnabled!==false:cfg.customEventsEnabled!==false}
 
 const state={user:null,profile:null,onboardingRequired:false,members:[],membersLoaded:false,attendance:[],attendanceLoaded:false,rtPresence:[],users:[],usersLoaded:false,audit:[],events:[],eventsLoaded:false,notifications:[],sentNotifications:[],notificationReads:[],settings:{},publicHome:null,xpLogs:[],payments:[],supportMessages:[],selectedSupportOwnerUid:"",selectedSupportTicketId:"",supportView:"active",chatMessages:[],selectedChatOwnerUid:"",selectedChatId:"",chatView:"active",chatSearch:"",editingCharacterUserId:"",presenceFilters:{},presenceBackups:[],sessions:[],unsubs:[]};
+let rolePermissionsDirty=false;
 
 function toast(msg){const el=$("#toast");el.textContent=msg;el.classList.add("show");clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.remove("show"),3000)}
 function errMsg(e){return ({'auth/invalid-credential':'E-mail ou senha incorretos.','auth/user-disabled':'Esta conta foi desativada.','auth/too-many-requests':'Muitas tentativas. Aguarde alguns minutos e tente novamente.','auth/network-request-failed':'Falha de conexão. Verifique sua internet.','auth/email-already-in-use':'Este e-mail já possui uma conta. Use a mesma senha para recuperar o cadastro pendente.','auth/operation-not-allowed':'Ative o provedor E-mail/Senha em Firebase Authentication.','auth/invalid-email':'Informe um endereço de e-mail válido.','auth/weak-password':'A senha precisa ter pelo menos 6 caracteres.','permission-denied':'Permissão negada. Publique o firestore.rules novo.'})[e?.code]||`${e?.code||'erro'}: ${e?.message||'Falha inesperada'}`}
@@ -2455,7 +2456,6 @@ function updateRolePermissionSummary(){
   const roles=["dev","leadership","staff","member"];
   host.innerHTML=roles.map(role=>{const inputs=[...document.querySelectorAll(`[data-permission-role="${role}"]`)],enabled=role==="dev"?ROLE_PERMISSION_DEFINITIONS.length:inputs.filter(input=>input.checked&&!input.disabled).length,available=role==="dev"?ROLE_PERMISSION_DEFINITIONS.length:inputs.filter(input=>!input.disabled).length;return `<article><strong>${escapeHtml(accessRoleLabel(role))}</strong><span>${enabled} de ${available} permissões ativas</span></article>`}).join("");
 }
-let rolePermissionsDirty=false;
 function updateRolePermissionControls(){const button=byId("saveRolePermissions");if(button)button.disabled=!rolePermissionsDirty}
 function markRolePermissionsDirty(){rolePermissionsDirty=true;const status=byId("rolePermissionStatus");if(status){status.textContent="Alterações pendentes. Clique em Salvar permissões.";status.classList.add("permission-status-dirty");status.classList.remove("permission-status-saved")}updateRolePermissionSummary();updateRolePermissionControls()}
 function collectRolePermissions(){

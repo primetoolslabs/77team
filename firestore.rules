@@ -22,6 +22,13 @@ service cloud.firestore {
     function dev(){return active() && isDevRole(currentAccessRole());}
     function leadership(){return active() && isLeadershipRole(currentAccessRole());}
     function staff(){return active() && isStaffRole(currentAccessRole());}
+    function staffApprover(){
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('active',false) == true
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('status','approved') == 'approved'
+        && isStaffRole(accessRoleOf(get(/databases/$(database)/documents/users/$(request.auth.uid)).data));
+    }
     function editor(){return dev() || leadership() || staff();}
     function roleKey(){ return dev() ? 'dev' : leadership() ? 'leadership' : staff() ? 'staff' : active() ? 'member' : 'guest'; }
     function permission(key, fallback){
@@ -44,15 +51,15 @@ service cloud.firestore {
     // Fluxo explícito e isolado para aprovação de Membro por Staff.
     // Usa o estado antes/depois do mesmo batch para permitir somente a
     // transição pending/inactive -> approved/active de uma conta de Membro.
-    function staffApprovingPendingMember(uid){
-      return staff()
+    // Confirma apenas o estado ANTERIOR da conta que o Staff está aprovando.
+    // Isso evita dependência de getAfter() entre writes do mesmo batch, que era
+    // a origem do permission-denied no fluxo users + members + nicknameClaims.
+    function staffCanApprovePendingMember(uid){
+      return staffApprover()
         && exists(userPath(uid))
         && get(userPath(uid)).data.get('status','pending') == 'pending'
         && get(userPath(uid)).data.get('active',false) == false
-        && getAfter(userPath(uid)).data.get('status','pending') == 'approved'
-        && getAfter(userPath(uid)).data.get('active',false) == true
-        && isMemberRole(accessRoleOf(getAfter(userPath(uid)).data))
-        && getAfter(userPath(uid)).data.get('roleUpdatedBy','') == request.auth.uid;
+        && isMemberRole(accessRoleOf(get(userPath(uid)).data));
     }
     function validNickname(name,key){return name is string && name.size() >= 2 && name.size() <= 30 && !name.matches('.*[/].*') && name.trim().lower() == key;}
     function validOptionalHttps(value){return value is string && value.size() <= 2048 && (value == '' || value.matches('https://[A-Za-z0-9.-]+(:[0-9]+)?([/?#].*)?'));}
@@ -157,12 +164,10 @@ service cloud.firestore {
           && request.resource.data.roleUpdatedBy == request.auth.uid
         )
         || (
-          staff() && pendingMember() && approvalFields()
+          staffApprover() && pendingMember() && approvalFields()
           && isMemberRole(accessRoleOf(request.resource.data))
           && request.resource.data.active == true && request.resource.data.status == 'approved'
           && request.resource.data.roleUpdatedBy == request.auth.uid
-          // A aprovação pode, no mesmo batch, vincular o documento de membro
-          // e a reserva de nickname sem exigir qualquer permissão adicional.
           && request.resource.data.get('memberDocumentId',uid) == uid
         )
         || (
@@ -223,19 +228,20 @@ service cloud.firestore {
 
     match /members/{id} {
       allow read: if active();
-      allow create: if dev() || (
+      allow create: if (
+        staffCanApprovePendingMember(id)
+        && request.resource.data.keys().hasOnly(['name','role','clan','userId','accessRole','memberRole','active','createdAt','updatedAt'])
+        && request.resource.data.get('userId','') == id
+        && request.resource.data.get('name','') == get(userPath(id)).data.get('name','')
+        && request.resource.data.get('active',true) == true
+        && isMemberRole(accessRoleOf(request.resource.data))
+      ) || dev() || (
         editor() && permission('members_edit', true)
         && request.resource.data.keys().hasOnly(['name','role','clan','userId','accessRole','memberRole','active','createdAt','updatedAt'])
         && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 120
         && request.resource.data.get('clan','') is string
         && request.resource.data.get('clan','').size() <= 80
         && (isMemberRole(accessRoleOf(request.resource.data)) || isStaffRole(accessRoleOf(request.resource.data)))
-      ) || (
-        staffApprovingPendingMember(id)
-        && request.resource.data.keys().hasOnly(['name','role','clan','userId','accessRole','memberRole','active','createdAt','updatedAt'])
-        && request.resource.data.get('userId','') == id
-        && request.resource.data.get('name','') == getAfter(userPath(id)).data.get('name','')
-        && isMemberRole(accessRoleOf(request.resource.data))
       );
       allow update: if dev()
         || (
@@ -282,7 +288,15 @@ service cloud.firestore {
     }
     match /nicknameClaims/{key} {
       allow read: if active();
-      allow create: if dev() || (active()
+      allow create: if (
+        staffCanApprovePendingMember(request.resource.data.uid)
+        && request.resource.data.keys().hasOnly(['uid','memberId','name','normalizedKey','active','updatedAt'])
+        && request.resource.data.memberId == request.resource.data.uid
+        && request.resource.data.normalizedKey == key
+        && request.resource.data.active == true
+        && validNickname(request.resource.data.name,key)
+        && get(userPath(request.resource.data.uid)).data.get('name','') == request.resource.data.name
+      ) || dev() || (active()
         && request.resource.data.keys().hasOnly(['uid','memberId','name','normalizedKey','active','updatedAt'])
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.name is string
@@ -291,18 +305,7 @@ service cloud.firestore {
         && validNickname(request.resource.data.name,key)
         && getAfter(userPath(request.auth.uid)).data.name == request.resource.data.name
         && getAfter(userPath(request.auth.uid)).data.nicknameClaimKey == key
-        && linkedMemberMatchesAfter(request.auth.uid,request.resource.data.memberId)) || (
-        // Reserva do nickname criada pelo Staff no mesmo batch da aprovação.
-        // Esta condição não depende de members_edit nem da matriz configurável.
-        staffApprovingPendingMember(request.resource.data.uid)
-        && request.resource.data.keys().hasOnly(['uid','memberId','name','normalizedKey','active','updatedAt'])
-        && request.resource.data.memberId == request.resource.data.uid
-        && request.resource.data.normalizedKey == key
-        && request.resource.data.active == true
-        && validNickname(request.resource.data.name,key)
-        && getAfter(userPath(request.resource.data.uid)).data.get('nicknameClaimKey','') == key
-        && getAfter(userPath(request.resource.data.uid)).data.get('name','') == request.resource.data.name
-      ) || (editor()
+        && linkedMemberMatchesAfter(request.auth.uid,request.resource.data.memberId)) || (editor()
         && request.resource.data.keys().hasOnly(['uid','memberId','name','normalizedKey','active','updatedAt'])
         && request.resource.data.normalizedKey == key
         && request.resource.data.active == true
