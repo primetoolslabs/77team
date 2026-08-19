@@ -1,124 +1,55 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function signedIn() { return request.auth != null; }
-    function userPath(uid) { return /databases/$(database)/documents/users/$(uid); }
-    function hasProfile() { return signedIn() && exists(userPath(request.auth.uid)); }
-    function me() { return get(userPath(request.auth.uid)).data; }
-    function myRole() { return hasProfile() ? me().get('accessRole', me().get('role', 'member')) : 'guest'; }
-    function active() { return hasProfile() && me().get('active', false) == true && me().get('status', '') == 'approved'; }
-    function dev() { return active() && myRole() in ['dev','owner']; }
-    function leadership() { return active() && myRole() in ['leadership','lideranca','Liderança','admin']; }
-    function staff() { return active() && myRole() in ['staff','Staff']; }
-    function editor() { return dev() || leadership() || staff(); }
-    function targetRole(data) { return data.get('accessRole', data.get('role','member')); }
-    function isDevTarget(data) { return targetRole(data) in ['dev','owner']; }
-    function isLeadershipTarget(data) { return targetRole(data) in ['leadership','lideranca','Liderança','admin']; }
-    function isStaffTarget(data) { return targetRole(data) in ['staff','Staff']; }
-    function isMemberTarget(data) { return targetRole(data) in ['member','membro','Membro','Membros','PT TIME','PT BOOST','PT CORE']; }
-    function pendingMember(data) { return data.get('status','') == 'pending' && data.get('active',false) == false && isMemberTarget(data); }
-    function staffApprovalFieldsOnly() {
+    function signedIn(){ return request.auth != null; }
+    function me(){ return get(/databases/$(database)/documents/users/$(request.auth.uid)); }
+    function myData(){ return me().data; }
+    function approved(){ return signedIn() && myData().status == 'approved' && myData().active == true; }
+    function role(){ return approved() ? myData().accessRole : 'member'; }
+    function isDev(){ return role() == 'dev'; }
+    function isLeadership(){ return role() == 'leadership'; }
+    function isStaff(){ return role() == 'staff'; }
+    function approver(){ return isDev() || isLeadership() || isStaff(); }
+    function validSelfRegistration(){
+      return request.resource.data.accessRole == 'member'
+        && request.resource.data.memberRole == 'Membros'
+        && request.resource.data.status == 'pending'
+        && request.resource.data.active == false
+        && request.resource.data.email == request.auth.token.email;
+    }
+    function staffCanApproveTarget(){
+      return isStaff() && resource.data.status == 'pending' && resource.data.requestedAccessRole == 'member';
+    }
+    function leadershipCanApproveTarget(){
+      return isLeadership() && resource.data.status == 'pending' && resource.data.requestedAccessRole in ['member','staff'];
+    }
+    function devCanApproveTarget(){ return isDev() && resource.data.status == 'pending'; }
+    function approvalUpdate(){
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-        'role','accessRole','memberRole','clan','active','status','nicknameClaimKey','memberDocumentId',
-        'approvedAt','roleUpdatedAt','roleUpdatedBy','updatedAt','rejectedAt','rejectedBy'
+        'status','active','accessRole','memberRole','approvedAt','approvedBy','updatedAt',
+        'rejectedAt','rejectedBy'
       ]);
-    }
-    function staffCanUpdateUser() {
-      return staff() && pendingMember(resource.data) && staffApprovalFieldsOnly()
-        && (isMemberTarget(request.resource.data) || request.resource.data.get('status','') == 'rejected');
-    }
-    function leadershipCanUpdateUser() {
-      return leadership() && !isDevTarget(resource.data) && !isDevTarget(request.resource.data)
-        && !isLeadershipTarget(request.resource.data);
     }
 
     match /users/{uid} {
-      allow get: if signedIn() && (request.auth.uid == uid || editor());
-      allow list: if editor();
-      allow create: if signedIn() && request.auth.uid == uid
-        && request.resource.data.get('email','') == request.auth.token.email
-        && request.resource.data.get('active',false) == false
-        && request.resource.data.get('status','') == 'pending'
-        && isMemberTarget(request.resource.data);
-      allow update: if (
-        signedIn() && request.auth.uid == uid
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'name','displayName','nickname','discord','whatsapp','birthDate','bio','email','avatarDataUrl','updatedAt',
-          'character','characterUpdatedAt','characterUpdatedBy','characterDeletedAt','characterDeletedBy',
-          'firstLogin','profileCompleted','profileCompletedAt','nicknameClaimKey','memberDocumentId'
-        ])
-        && request.resource.data.get('accessRole', resource.data.get('accessRole','member')) == resource.data.get('accessRole','member')
-        && request.resource.data.get('active', resource.data.get('active',false)) == resource.data.get('active',false)
-        && request.resource.data.get('status', resource.data.get('status','pending')) == resource.data.get('status','pending')
-      ) || dev() || leadershipCanUpdateUser() || staffCanUpdateUser();
-      allow delete: if dev();
+      allow create: if signedIn() && request.auth.uid == uid && validSelfRegistration();
+      allow read: if signedIn() && (request.auth.uid == uid || approver());
+      allow update: if signedIn() && approver() && approvalUpdate()
+        && (devCanApproveTarget() || leadershipCanApproveTarget() || staffCanApproveTarget());
+      allow delete: if isDev();
     }
 
-    match /members/{id} {
-      allow read: if active();
-      allow create: if editor();
-      allow update: if editor() || (
-        active() && resource.data.get('userId','') == request.auth.uid
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name','updatedAt'])
-      );
-      allow delete: if dev() || leadership() || (staff() && isMemberTarget(resource.data));
-    }
-
-    match /nicknameClaims/{key} {
-      allow read: if active();
-      allow create, update: if editor() || (active() && request.resource.data.get('uid','') == request.auth.uid);
-      allow delete: if editor() || (active() && resource.data.get('uid','') == request.auth.uid);
-    }
-
-    match /public/{docId} {
+    match /members/{uid} {
       allow read: if true;
-      allow write: if editor();
+      allow create, update: if signedIn() && approver()
+        && request.resource.data.userId == uid
+        && (
+          isDev() ||
+          (isLeadership() && request.resource.data.accessRole in ['member','staff']) ||
+          (isStaff() && request.resource.data.accessRole == 'member')
+        );
+      allow delete: if isDev() || isLeadership();
     }
-
-    match /settings/{docId} {
-      allow get: if docId == 'app' || active();
-      allow list: if active();
-      allow create, update: if dev() || leadership();
-      allow delete: if dev();
-    }
-
-    match /attendance/{id} { allow read: if active(); allow write: if editor(); }
-    match /rtPresence/{id} { allow read: if active(); allow write: if editor(); }
-    match /events/{id} { allow read: if active(); allow write: if editor(); }
-    match /payments/{id} { allow read, write: if editor(); }
-    match /xpLogs/{id} { allow read: if active(); allow write: if editor(); }
-    match /notifications/{id} { allow read: if active(); allow write: if editor(); }
-    match /notificationReads/{id} {
-      allow read: if active() && (resource.data.get('userId','') == request.auth.uid || editor());
-      allow create: if active() && (request.resource.data.get('userId','') == request.auth.uid || editor());
-      allow update: if active() && (resource.data.get('userId','') == request.auth.uid || editor());
-      allow delete: if active() && (resource.data.get('userId','') == request.auth.uid || editor());
-    }
-    match /audit/{id} { allow read: if dev() || leadership(); allow create: if editor(); allow update, delete: if false; }
-    match /presenceBackups/{id} { allow read: if editor(); allow write: if dev() || leadership(); }
-    match /resetJobs/{id} { allow read: if editor(); allow write: if dev() || leadership(); }
-    match /restoreJobs/{id} { allow read, write: if dev(); }
-
-    match /supportMessages/{id} {
-      allow read: if active() && (editor() || resource.data.get('ownerUid','') == request.auth.uid);
-      allow create: if active() && (editor() || request.resource.data.get('ownerUid','') == request.auth.uid);
-      allow update: if active() && editor();
-      allow delete: if dev() || leadership();
-    }
-    match /chatMessages/{id} {
-      allow read: if active() && (editor() || resource.data.get('ownerUid','') == request.auth.uid);
-      allow create: if active() && (editor() || request.resource.data.get('ownerUid','') == request.auth.uid);
-      allow update: if active() && editor();
-      allow delete: if dev() || leadership();
-    }
-    match /sessions/{uid} {
-      allow read: if dev() || (signedIn() && request.auth.uid == uid);
-      allow create, update, delete: if signedIn() && request.auth.uid == uid || dev();
-    }
-
-    // Bootstrap manual do primeiro DEV: crie users/{UID_DO_DEV} pelo Console do Firebase.
-    // Depois disso, o DEV gerencia o restante pelo aplicativo.
-    match /system/{docId} { allow read, write: if dev(); }
 
     match /{document=**} { allow read, write: if false; }
   }
