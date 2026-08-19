@@ -35,11 +35,11 @@
 </form>
 <div class="login-v222-quick"><span>OU ACESSE RAPIDAMENTE</span></div>
 <div class="login-v222-actions">
-<button class="login-v222-secondary" id="toggleSignup" type="button">＋ Criar conta de membro</button>
+<button class="login-v222-secondary" id="toggleSignup" type="button">＋ Criar conta de membro</button><button class="login-v222-secondary" id="forgotPasswordButton" type="button">🔑 Esqueci minha senha</button>
 </div>
 <div class="subbox hidden login-v222-signup" id="signupBox">
 <h3>Cadastro de membro</h3><p>O clã e o cargo serão definidos pela Staff.</p>
-<form class="stack" id="signupForm"><label>Nickname<input id="signupName" required=""/></label><label>E-mail<input id="signupEmail" required="" type="email"/></label><label>Senha<input autocomplete="new-password" id="signupPassword" minlength="6" required="" type="password"/></label><button class="btn primary" type="submit">Enviar cadastro</button></form>
+<form class="stack" id="signupForm"><label>Nickname<input id="signupName" required=""/></label><label>E-mail<input id="signupEmail" required="" type="email"/></label><label>Senha<input autocomplete="new-password" id="signupPassword" minlength="8" required="" type="password"/></label><button class="btn primary" type="submit">Enviar cadastro</button></form>
 </div>
 <div class="login-v222-safe"><strong>🛡 SEUS DADOS PROTEGIDOS</strong><span>Autenticação segura e base original preservada.</span></div>
 </main>
@@ -641,8 +641,8 @@
 <form class="stack" id="profilePasswordForm">
 <label>E-mail da conta<input id="profileEmailInput" type="email" required=""/></label>
 <label>Senha atual<input autocomplete="current-password" id="profileCurrentPassword" minlength="6" placeholder="Obrigatória para alterar e-mail ou senha" type="password"/></label>
-<label>Nova senha<input autocomplete="new-password" id="profileNewPassword" minlength="6" placeholder="Deixe em branco para não alterar" type="password"/></label>
-<label>Confirmar nova senha<input autocomplete="new-password" id="profileConfirmPassword" minlength="6" placeholder="Confirme a nova senha" type="password"/></label>
+<label>Nova senha<input autocomplete="new-password" id="profileNewPassword" minlength="8" placeholder="Deixe em branco para não alterar" type="password"/></label>
+<label>Confirmar nova senha<input autocomplete="new-password" id="profileConfirmPassword" minlength="8" placeholder="Confirme a nova senha" type="password"/></label>
 <button class="btn primary" type="submit">Salvar segurança</button>
 </form>
 </section></div></article></section><section class="profile-tab-panel" data-profile-panel="history"><div class="profile-tab-heading"><h3>Histórico</h3><p>Consulte suas atividades mais recentes.</p></div><article class="panel profile-history-panel">
@@ -1341,6 +1341,6 @@
 <div class="global-search-results hidden" id="globalSearchResults"></div>
 <div class="toast" id="toast"></div>
 <script src="js/ui.js?v=22.9.32"></script>
-<script src="js/main.js?v=22.9.32-stafffix3" type="module"></script>
+<script src="js/main.js?v=22.9.32-authfix1" type="module"></script>
 </body>
 </html>

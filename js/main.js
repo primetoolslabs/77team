@@ -18,7 +18,7 @@ import {firebaseConfig,FIREBASE_VERSION} from "./firebase-config.js";
 import {asciiPdfText,createTextPdf} from "./pdf-generator.js";
 const SDK=`https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}`;
 const {initializeApp,deleteApp}=await import(`${SDK}/firebase-app.js`);
-const {getAuth,onAuthStateChanged,signInWithEmailAndPassword,createUserWithEmailAndPassword,signOut,updatePassword,updateEmail,reauthenticateWithCredential,EmailAuthProvider,setPersistence,browserLocalPersistence,browserSessionPersistence,deleteUser}=await import(`${SDK}/firebase-auth.js`);
+const {getAuth,onAuthStateChanged,signInWithEmailAndPassword,createUserWithEmailAndPassword,signOut,updatePassword,updateEmail,reauthenticateWithCredential,EmailAuthProvider,setPersistence,browserLocalPersistence,browserSessionPersistence,deleteUser,sendPasswordResetEmail,sendEmailVerification}=await import(`${SDK}/firebase-auth.js`);
 const {getFirestore,initializeFirestore,persistentLocalCache,persistentMultipleTabManager,collection,doc,getDoc,getDocs,setDoc,addDoc,updateDoc,deleteDoc,deleteField,onSnapshot,serverTimestamp,writeBatch,runTransaction,query,where,Timestamp}=await import(`${SDK}/firebase-firestore.js`);
 const {getStorage,ref:storageRef,uploadBytes,getDownloadURL,deleteObject}=await import(`${SDK}/firebase-storage.js`);
 
@@ -54,7 +54,7 @@ const state={user:null,profile:null,onboardingRequired:false,members:[],membersL
 let rolePermissionsDirty=false;
 
 function toast(msg){const el=$("#toast");el.textContent=msg;el.classList.add("show");clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.remove("show"),3000)}
-function errMsg(e){return ({'auth/invalid-credential':'E-mail ou senha incorretos.','auth/user-disabled':'Esta conta foi desativada.','auth/too-many-requests':'Muitas tentativas. Aguarde alguns minutos e tente novamente.','auth/network-request-failed':'Falha de conexão. Verifique sua internet.','auth/email-already-in-use':'Este e-mail já possui uma conta. Use a mesma senha para recuperar o cadastro pendente.','auth/operation-not-allowed':'Ative o provedor E-mail/Senha em Firebase Authentication.','auth/invalid-email':'Informe um endereço de e-mail válido.','auth/weak-password':'A senha precisa ter pelo menos 6 caracteres.','permission-denied':'Permissão negada. Publique o firestore.rules novo.'})[e?.code]||`${e?.code||'erro'}: ${e?.message||'Falha inesperada'}`}
+function errMsg(e){return ({'auth/invalid-credential':'E-mail ou senha incorretos.','auth/user-disabled':'Esta conta foi desativada.','auth/too-many-requests':'Muitas tentativas. Aguarde alguns minutos e tente novamente.','auth/network-request-failed':'Falha de conexão. Verifique sua internet.','auth/email-already-in-use':'Este e-mail já possui uma conta. Use a mesma senha para recuperar o cadastro pendente.','auth/operation-not-allowed':'Ative o provedor E-mail/Senha em Firebase Authentication.','auth/invalid-email':'Informe um endereço de e-mail válido.','auth/weak-password':'A senha precisa ter pelo menos 8 caracteres.','permission-denied':'Permissão negada. Publique o firestore.rules novo.'})[e?.code]||`${e?.code||'erro'}: ${e?.message||'Falha inesperada'}`}
 function showOnly(id){document.body.dataset.screen=id;["loading","authScreen","app"].forEach(x=>$("#"+x).classList.toggle("hidden",x!==id))}
 
 function accessRoleFromMemberRole(memberRole, explicitAccessRole=""){
@@ -364,6 +364,21 @@ $("#loginForm").onsubmit=async e=>{
     if(submit){submit.disabled=false;submit.textContent=submit.dataset.originalText||"ENTRAR NO SISTEMA"}
   }
 };
+on("forgotPasswordButton","click",async()=>{
+  const email=String(byId("loginEmail")?.value||"").trim().toLowerCase();
+  if(!email||!email.includes("@"))return toast("Informe seu e-mail no campo de login para recuperar a senha.");
+  const button=byId("forgotPasswordButton");
+  try{
+    if(button){button.disabled=true;button.dataset.originalText=button.textContent;button.textContent="ENVIANDO..."}
+    await sendPasswordResetEmail(auth,email);
+    toast("Se o e-mail estiver cadastrado, enviaremos um link para redefinir a senha.");
+  }catch(error){
+    console.error("Falha ao solicitar redefinição de senha:",error);
+    // Mantém resposta neutra para não revelar se um e-mail existe no sistema.
+    if(error?.code==="auth/invalid-email")toast("Informe um endereço de e-mail válido.");
+    else toast("Não foi possível enviar agora. Verifique sua conexão e tente novamente.");
+  }finally{if(button){button.disabled=false;button.textContent=button.dataset.originalText||"Esqueci minha senha"}}
+});
 $("#toggleSignup").onclick=()=>$("#signupBox").classList.toggle("hidden");
 
 $("#signupForm").onsubmit=async e=>{
@@ -376,16 +391,33 @@ $("#signupForm").onsubmit=async e=>{
     signupAuth=getAuth(secondary);const sd=getFirestore(secondary);
     const name=$("#signupName").value.trim(),email=$("#signupEmail").value.trim().toLowerCase(),password=$("#signupPassword").value;
     const nicknameError=nicknameValidationError(name);if(nicknameError)throw new Error(nicknameError);
+    if(password.length<8)throw new Error("A senha precisa ter pelo menos 8 caracteres.");
+    let existingProfile=null;
     try{cred=await createUserWithEmailAndPassword(signupAuth,email,password);createdNow=true}
     catch(createError){
       if(createError?.code!=="auth/email-already-in-use")throw createError;
       cred=await signInWithEmailAndPassword(signupAuth,email,password);
-      if((await getDoc(doc(sd,"users",cred.user.uid))).exists())throw new Error("Esta conta já possui cadastro. Entre pelo formulário de login.");
+      const existingSnap=await getDoc(doc(sd,"users",cred.user.uid));
+      if(existingSnap.exists())existingProfile={id:cred.user.uid,...existingSnap.data()};
     }
     await cred.user.getIdToken(true);
-    const profile={name,email,role:"member",accessRole:"member",memberRole:"Membros",clan:"",active:false,status:"pending",firstLogin:true,profileCompleted:false,createdAt:serverTimestamp(),updatedAt:serverTimestamp()};
-    await setDoc(doc(sd,"users",cred.user.uid),profile);
-    await signOut(signupAuth);await deleteApp(secondary);secondary=null;e.target.reset();toast("Cadastro enviado.");
+    const profileRef=doc(sd,"users",cred.user.uid);
+    if(existingProfile){
+      const currentStatus=String(existingProfile.status||"").toLowerCase();
+      if(currentStatus==="rejected"){
+        await updateDoc(profileRef,{status:"pending",active:false,rejectedAt:deleteField(),rejectedBy:deleteField(),rejectionReason:deleteField(),requestedAt:serverTimestamp(),updatedAt:serverTimestamp()});
+        try{if(!cred.user.emailVerified)await sendEmailVerification(cred.user)}catch(error){console.warn("Verificação de e-mail não enviada:",error)}
+        await signOut(signupAuth);await deleteApp(secondary);secondary=null;e.target.reset();return toast("Solicitação reenviada para análise.");
+      }
+      if(currentStatus==="pending"||existingProfile.active===false){
+        await signOut(signupAuth);await deleteApp(secondary);secondary=null;return toast("Sua solicitação já está aguardando aprovação.");
+      }
+      await signOut(signupAuth);await deleteApp(secondary);secondary=null;return toast("Esta conta já está ativa. Entre pelo formulário de login.");
+    }
+    const profile={name,email,role:"member",accessRole:"member",memberRole:"Membros",clan:"",active:false,status:"pending",firstLogin:true,profileCompleted:false,requestedAt:serverTimestamp(),createdAt:serverTimestamp(),updatedAt:serverTimestamp()};
+    await setDoc(profileRef,profile);
+    try{if(!cred.user.emailVerified)await sendEmailVerification(cred.user)}catch(error){console.warn("Verificação de e-mail não enviada:",error)}
+    await signOut(signupAuth);await deleteApp(secondary);secondary=null;e.target.reset();toast("Cadastro enviado para aprovação. Confira seu e-mail para a mensagem de verificação.");
   }catch(e2){if(createdNow&&cred?.user)try{await deleteUser(cred.user)}catch{};if(secondary)try{await deleteApp(secondary)}catch{};toast(errMsg(e2))}
   finally{if(submit){submit.disabled=false;submit.textContent=submit.dataset.originalText||"Enviar cadastro"}}
 };
@@ -414,10 +446,12 @@ onAuthStateChanged(auth,async user=>{
     if(!snap.exists()){await signOut(auth);return toast("Perfil não encontrado. Solicite ao DEV a recuperação da conta.");}
     state.profile={id:user.uid,...snap.data()};
     state.profile.resolvedAccessRole=resolveAccessRole(state.profile);
-    const profileStatus=String(state.profile.status||"approved").toLowerCase();
-    if(state.profile.active===false||profileStatus==="pending"||profileStatus==="rejected"){
+    const profileStatus=String(state.profile.status||"").toLowerCase();
+    if(state.profile.active!==true||profileStatus!=="approved"){
       await signOut(auth);
-      return toast(profileStatus==="pending"?"Conta ainda não aprovada.":"Conta desativada ou rejeitada.");
+      if(profileStatus==="pending")return toast("Conta ainda não aprovada.");
+      if(profileStatus==="rejected")return toast("Conta rejeitada. Você pode reenviar a solicitação em Criar conta de membro.");
+      return toast("Conta não está ativa e aprovada. Solicite ao DEV ou Staff a regularização do cadastro.");
     }
     // Compatibilidade: contas antigas sem os campos de primeiro acesso continuam liberadas.
     state.onboardingRequired=state.profile.profileCompleted===false || state.profile.firstLogin===true;
@@ -2352,7 +2386,7 @@ on("profilePasswordForm","submit",async event=>{
   const previousEmail=String(auth.currentUser.email||"").toLowerCase();
   if(!emailChanged&&!password)return toast("Nenhuma alteração informada.");
   if((emailChanged||password)&&currentPassword.length<6)return toast("Informe sua senha atual.");
-  if(password&&password.length<6)return toast("A nova senha precisa ter pelo menos 6 caracteres.");
+  if(password&&password.length<8)return toast("A nova senha precisa ter pelo menos 8 caracteres.");
   if(password!==confirm)return toast("As senhas não conferem.");
   let emailCommitted=false;
   try{

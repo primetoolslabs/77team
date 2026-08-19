@@ -67,7 +67,7 @@ assert.ok(rules.includes("allow create: if dev() || (editor() && permission('xp_
 assert.ok(rules.includes("!request.resource.data.diff(resource.data).affectedKeys().hasAny(['rolePermissions','security','maintenance','advanced','loginCustomization'])"));
 assert.ok(rules.includes("allow update, delete: if dev();"));
 assert.ok(main.includes('key:"members_delete",label:"Excluir membros",defaults:{dev:true,leadership:true,staff:true,member:false}'));
-assert.ok(main.includes('["members_delete","members_clan_change"].includes(key)&&role==="staff"'));
+assert.ok(main.includes('role==="staff"&&["requests_approve","members_delete","members_clan_change"].includes(key)'));
 assert.ok(main.includes("function canDeleteMemberRecord"));
 assert.ok(rules.includes("staff() && isMemberRole(accessRoleOf(resource.data))"));
 assert.ok(main.includes('key:"members_clan_change",label:"Alterar clã dos membros",defaults:{dev:true,leadership:true,staff:true,member:false}'));
@@ -123,3 +123,13 @@ assert.deepEqual([...new Set(pageTargets.filter(id=>!pageIds.has(id)))],[],"Menu
 assert.ok(!html.includes("</input>"));
 assert.ok(!html.includes("App Check"));
 console.log("Auditoria estática V22.9.32: OK");
+
+// Auth regression checks — cadastro/login/recuperação.
+assert.ok(main.includes('sendPasswordResetEmail'));
+assert.ok(main.includes('sendEmailVerification'));
+assert.ok(main.includes('state.profile.active!==true||profileStatus!=="approved"'));
+assert.ok(main.includes('currentStatus==="rejected"'));
+assert.ok(main.includes('status:"pending",active:false,rejectedAt:deleteField()'));
+assert.ok(html.includes('id="forgotPasswordButton"'));
+assert.ok(html.includes('id="signupPassword" minlength="8"'));
+assert.ok(rules.includes("resource.data.status == 'rejected' && resource.data.active == false"));
