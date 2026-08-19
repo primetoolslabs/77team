@@ -1,1 +1,24 @@
-{"name":"77 TEAM Manager","short_name":"77 TEAM","start_url":"./","display":"standalone","background_color":"#080612","theme_color":"#6d3cff","icons":[{"src":"icons/icon-192.png","sizes":"192x192","type":"image/png"},{"src":"icons/icon-512.png","sizes":"512x512","type":"image/png"}]}
+{
+  "name": "77 TEAM Manager V22.9.32 Hotfix",
+  "short_name": "77 TEAM V22.9.32",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#05050a",
+  "theme_color": "#09070f",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "description": "77 TEAM Manager V22.9.32 Hotfix — HOME pública somente para visualização antes do login.",
+  "version": "22.9.32",
+  "version_name": "22.9.32"
+}

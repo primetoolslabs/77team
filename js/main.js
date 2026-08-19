@@ -214,15 +214,7 @@ const PERMISSION_ALLOWED_ROLES=Object.freeze({
   xp_manage:["dev","leadership","staff"],goals_manage:["dev","leadership","staff"]
 });
 function permissionRoleAllowed(key,role){return role==="dev"||(PERMISSION_ALLOWED_ROLES[key]||["leadership","staff","member"]).includes(role)}
-function permissionRequired(key,role){
-  // Permissões essenciais do fluxo operacional não podem ser desativadas por
-  // configurações antigas. Em especial, STAFF precisa sempre conseguir abrir
-  // a área e aprovar/rejeitar solicitações de novos membros.
-  if(role==="dev")return true;
-  if(key==="access_home")return true;
-  if(role==="staff"&&["access_staff","requests_approve","requests_reject","members_delete","members_clan_change"].includes(key))return true;
-  return false;
-}
+function permissionRequired(key,role){return role==="dev"||key==="access_home"||(role==="staff"&&["requests_approve","members_delete","members_clan_change"].includes(key))}
 function permissionEnabled(key,role=currentAccessRole()){
   if(role==="dev")return true;
   if(!permissionRoleAllowed(key,role))return false;
@@ -1475,7 +1467,7 @@ function renderAdvancedCenter(){
   const logs=state.audit.slice().sort((a,b)=>(b.createdAt?.toMillis?.()||0)-(a.createdAt?.toMillis?.()||0));
   setHtml("advancedLogsRows",logs.map(a=>`<tr><td>${a.createdAt?.toDate?a.createdAt.toDate().toLocaleString("pt-BR"):"—"}</td><td>${escapeHtml(a.userName||"—")}</td><td>${escapeHtml(a.action||"—")}</td><td>${escapeHtml(a.details||"")}</td></tr>`).join("")||'<tr><td colspan="4">Nenhum log disponível.</td></tr>');
   setHtml("firebaseStatusCards",[diagnosticCard("Autenticação",advancedDiagnostics.auth),diagnosticCard("Cloud Firestore",advancedDiagnostics.firestore),diagnosticCard("Listeners em tempo real",advancedDiagnostics.listeners)].join(""));
-  setHtml("servicesStatusGrid",[diagnosticCard("Aplicação web",{ok:true,text:`V23.0.0 carregada · ${location.protocol==="https:"?"HTTPS":"ambiente local"}`}),diagnosticCard("Firebase Auth",advancedDiagnostics.auth),diagnosticCard("Cloud Firestore",advancedDiagnostics.firestore),diagnosticCard("PWA / Service Worker",advancedDiagnostics.pwa),diagnosticCard("GitHub",{ok:githubDiagnostics.ok,text:githubDiagnostics.text})].join(""));
+  setHtml("servicesStatusGrid",[diagnosticCard("Aplicação web",{ok:true,text:`V22.9.32 carregada · ${location.protocol==="https:"?"HTTPS":"ambiente local"}`}),diagnosticCard("Firebase Auth",advancedDiagnostics.auth),diagnosticCard("Cloud Firestore",advancedDiagnostics.firestore),diagnosticCard("PWA / Service Worker",advancedDiagnostics.pwa),diagnosticCard("GitHub",{ok:githubDiagnostics.ok,text:githubDiagnostics.text})].join(""));
   renderSessions();renderGithubStatus();
   setHtml("systemStatsGrid",[
     ["Usuários",state.users.filter(user=>resolveAccessRole(user)!=="dev").length],["Membros",visibleMembers().length],["Presenças",state.attendance.length],["Eventos",state.events.length],["Notificações",state.sentNotifications.length||state.notifications.length],["Logs",state.audit.length]
@@ -1501,7 +1493,7 @@ async function checkGithub(){
   setText("githubUpdateStatus","Consultando GitHub...");
   try{const [repoResponse,runsResponse,releaseResponse]=await Promise.all([fetch(`https://api.github.com/repos/${repository}`,{headers:{Accept:"application/vnd.github+json"}}),fetch(`https://api.github.com/repos/${repository}/actions/runs?per_page=1`,{headers:{Accept:"application/vnd.github+json"}}),fetch(`https://api.github.com/repos/${repository}/releases/latest`,{headers:{Accept:"application/vnd.github+json"}})]);if(!repoResponse.ok)throw new Error(`Repositório indisponível (${repoResponse.status})`);const repo=await repoResponse.json(),runs=runsResponse.ok?await runsResponse.json():null,release=releaseResponse.ok?await releaseResponse.json():null,lastRun=runs?.workflow_runs?.[0];githubDiagnostics={ok:true,configured:true,repository,text:`${repo.full_name} · branch ${repo.default_branch} · atualizado ${new Date(repo.updated_at).toLocaleString("pt-BR")}`,workflows:lastRun?`${lastRun.name}: ${lastRun.conclusion||lastRun.status}`:"Nenhuma execução pública",release:release?.tag_name||"Nenhuma release publicada",testedAt:new Date().toISOString()};setText("githubUpdateStatus","Consulta concluída com sucesso.");renderAdvancedCenter();return true}catch(error){githubDiagnostics={ok:false,configured:true,repository,text:error.message||"Falha ao consultar GitHub",workflows:"Indisponível",release:"Indisponível"};setText("githubUpdateStatus",githubDiagnostics.text);renderAdvancedCenter();return false}
 }
-on("checkUpdatesButton","click",async()=>{const button=byId("checkUpdatesButton");if(button)button.disabled=true;try{const response=await fetch(`manifest.json?check=${Date.now()}`,{cache:"no-store"});if(!response.ok)throw new Error("Manifesto indisponível");const manifest=await response.json(),repository=state.settings?.advanced?.githubRepository||"";let message=`Versão publicada: ${manifest.version_name||manifest.version||"não informada"}. Versão carregada: 23.0.0.`;if(repository){await checkGithub();if(githubDiagnostics.release!=="Nenhuma release publicada"&&githubDiagnostics.release!=="Indisponível")message+=` GitHub: ${githubDiagnostics.release}.`}setText("updateStatusText",message);toast("Verificação concluída.")}catch(error){setText("updateStatusText",`Falha na verificação: ${error.message}`)}finally{if(button)button.disabled=false}});
+on("checkUpdatesButton","click",async()=>{const button=byId("checkUpdatesButton");if(button)button.disabled=true;try{const response=await fetch(`manifest.json?check=${Date.now()}`,{cache:"no-store"});if(!response.ok)throw new Error("Manifesto indisponível");const manifest=await response.json(),repository=state.settings?.advanced?.githubRepository||"";let message=`Versão publicada: ${manifest.version_name||manifest.version||"não informada"}. Versão carregada: 22.9.32.`;if(repository){await checkGithub();if(githubDiagnostics.release!=="Nenhuma release publicada"&&githubDiagnostics.release!=="Indisponível")message+=` GitHub: ${githubDiagnostics.release}.`}setText("updateStatusText",message);toast("Verificação concluída.")}catch(error){setText("updateStatusText",`Falha na verificação: ${error.message}`)}finally{if(button)button.disabled=false}});
 on("createBackupButton","click",async()=>{if(!owner())return;try{downloadJson(`77-team-backup-${localIsoDate()}.json`,await completeBackupPayload());toast("Backup completo do Firestore e seguro gerado.")}catch(error){toast(error.message||errMsg(error))}});
 on("restoreBackupFile","change",async e=>{const file=e.target.files?.[0],button=byId("restoreAdvancedBackup");validatedAdvancedBackup=null;if(button)button.disabled=true;if(!file)return;if(file.size>200*1024*1024)return setText("restoreBackupInfo","Arquivo acima do limite seguro de 200 MB.");try{const data=JSON.parse(await file.text());validateBackupPayload(data);validatedAdvancedBackup=data;if(button)button.disabled=false;setText("restoreBackupInfo",`✓ Backup validado: V${data.version}, projeto ${data.projectId}, schema ${data.backupSchema}, gerado em ${new Date(data.generatedAt).toLocaleString("pt-BR")}.`)}catch(error){setText("restoreBackupInfo",`✕ Backup recusado: ${error.message||"arquivo inválido"}`)}});
 on("restoreAdvancedBackup","click",async()=>{if(!owner()||!validatedAdvancedBackup)return;if(!confirm("Restaurar este backup validado? Um restoreJob persistente fará rollback automático em caso de falha."))return;const button=byId("restoreAdvancedBackup");button.disabled=true;setText("restoreBackupInfo","Restauração controlada em andamento. Não feche esta página...");try{const jobId=await restoreBackupPayload(validatedAdvancedBackup);setText("restoreBackupInfo",`✓ Restauração concluída. restoreJob: ${jobId}`);validatedAdvancedBackup=null;toast("Backup restaurado com rollback protegido.")}catch(error){setText("restoreBackupInfo",`✕ Restauração revertida: ${error.message||error}`);button.disabled=false}});
@@ -1696,32 +1688,25 @@ Um registro será salvo em Gestão → RT Presença.`))return;
     if(!confirm(`Aprovar ${u.name} com o cargo ${roleLabel}?`))return;
 
     try{
-      // V23.0.0: aprovação simples e atômica. A permissão é decidida somente
-      // pelo cargo do aprovador e pelo destino permitido; não depende de
-      // nicknameClaims, settings/rolePermissions ou dados legados.
-      const key=nicknameClaimKey(u.name);
-      const batch=writeBatch(db);
-      batch.update(doc(db,"users",u.id),{
-        role:accessRole,accessRole,active:true,status:"approved",clan,memberRole,
-        nicknameClaimKey:key,memberDocumentId:u.id,approvedAt:serverTimestamp(),
-        roleUpdatedAt:serverTimestamp(),roleUpdatedBy:state.user.uid,updatedAt:serverTimestamp()
+      const key=nicknameClaimKey(u.name),claimRef=doc(db,"nicknameClaims",key);
+      await runTransaction(db,async transaction=>{
+        const claim=await transaction.get(claimRef);
+        if(claim.exists()&&claim.data()?.active!==false&&claim.data()?.uid!==u.id)throw new Error("Este nickname já está reservado por outra conta.");
+        transaction.update(doc(db,"users",u.id),{
+          role:accessRole,accessRole,active:true,status:"approved",clan,memberRole,nicknameClaimKey:key,memberDocumentId:u.id,
+          approvedAt:serverTimestamp(),roleUpdatedAt:serverTimestamp(),
+          roleUpdatedBy:state.user.uid,updatedAt:serverTimestamp()
+        });
+        transaction.set(doc(db,"members",u.id),{
+          name:u.name,role:memberRole,clan,userId:u.id,accessRole,
+          createdAt:serverTimestamp(),updatedAt:serverTimestamp()
+        },{merge:true});
+        const claimAlreadyCurrent=claim.exists()&&claim.data()?.active!==false&&claim.data()?.uid===u.id&&nicknameClaimKey(claim.data()?.name)===key;
+        if(!claimAlreadyCurrent)transaction.set(claimRef,{uid:u.id,memberId:u.id,name:u.name,normalizedKey:key,active:true,updatedAt:serverTimestamp()});
       });
-      batch.set(doc(db,"members",u.id),{
-        name:u.name,role:memberRole,clan,userId:u.id,accessRole,
-        createdAt:u.createdAt||serverTimestamp(),updatedAt:serverTimestamp()
-      },{merge:true});
-      batch.set(doc(db,"nicknameClaims",key),{
-        uid:u.id,memberId:u.id,name:u.name,normalizedKey:key,active:true,updatedAt:serverTimestamp()
-      },{merge:true});
-      await batch.commit();
       await audit("solicitação aprovada",`${u.email} · ${roleLabel}`);
       toast(`${u.name} foi aprovado como ${roleLabel}.`);
-    }catch(error){
-      console.error("Falha ao aprovar solicitação V23:",error);
-      toast(error?.code==="permission-denied"
-        ? "Firebase V23 negou a aprovação. Confirme se este site está conectado ao NOVO projeto Firebase e publique o firestore.rules da V23.0.0."
-        : errMsg(error));
-    }
+    }catch(error){toast(errMsg(error));}
     return;
   }
 
@@ -2015,7 +2000,7 @@ function updateLiveClock(){
 }
 updateLiveClock();
 setInterval(updateLiveClock,1000);
-if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js?v=23.0.0").catch(error=>console.warn("Service Worker indisponível:",error)));
+if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js?v=22.9.32").catch(error=>console.warn("Service Worker indisponível:",error)));
 
 function animateNumber(id,target,suffix=""){
   const el=byId(id);
@@ -2309,7 +2294,7 @@ on("profileNicknameForm","submit",async event=>{
   }catch(error){
     console.error("Falha ao salvar o próprio perfil:",error);
     toast(error?.code==="permission-denied"
-      ? "Permissão negada ao salvar o perfil. Publique o firestore.rules da V23.0.0 no novo projeto Firebase."
+      ? "Permissão negada ao salvar o perfil. Publique o firestore.rules da V22.9.32 no Firebase e confirme o projeto team-f78cd."
       : (error.message||"Não foi possível atualizar o perfil."));
   }
 });
@@ -2634,7 +2619,7 @@ on("characterForm","submit",async event=>{
   }catch(error){
     console.error("Falha ao salvar o próprio personagem:",error);
     toast(error?.code==="permission-denied"
-      ? "Permissão negada ao salvar o personagem. Publique o firestore.rules da V23.0.0 no novo projeto Firebase."
+      ? "Permissão negada ao salvar o personagem. Publique o firestore.rules da V22.7.2 no Firebase e confirme o projeto team-f78cd."
       : (error.message||"Não foi possível salvar o personagem."));
   }
 });
