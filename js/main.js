@@ -214,7 +214,14 @@ const PERMISSION_ALLOWED_ROLES=Object.freeze({
   xp_manage:["dev","leadership","staff"],goals_manage:["dev","leadership","staff"]
 });
 function permissionRoleAllowed(key,role){return role==="dev"||(PERMISSION_ALLOWED_ROLES[key]||["leadership","staff","member"]).includes(role)}
-function permissionRequired(key,role){return role==="dev"||key==="access_home"||(["members_delete","members_clan_change"].includes(key)&&role==="staff")}
+function permissionRequired(key,role){
+  // Permissões estruturais do cargo. Solicitações precisam continuar
+  // operacionais para Staff mesmo quando uma configuração antiga do Firebase
+  // tenha salvo false em rolePermissions.
+  return role==="dev"
+    || key==="access_home"
+    || (role==="staff" && ["requests_approve","requests_reject","members_delete","members_clan_change"].includes(key));
+}
 function permissionEnabled(key,role=currentAccessRole()){
   if(role==="dev")return true;
   if(!permissionRoleAllowed(key,role))return false;
@@ -414,9 +421,12 @@ onAuthStateChanged(auth,async user=>{
     state.profile={id:user.uid,...snap.data()};
     state.profile.resolvedAccessRole=resolveAccessRole(state.profile);
     const profileStatus=String(state.profile.status||"approved").toLowerCase();
-    if(state.profile.active===false||profileStatus==="pending"||profileStatus==="rejected"){
+    if(profileStatus!=="approved"||state.profile.active!==true){
       await signOut(auth);
-      return toast(profileStatus==="pending"?"Conta ainda não aprovada.":"Conta desativada ou rejeitada.");
+      if(profileStatus==="pending")return toast("Conta ainda não aprovada. Aguarde a confirmação da equipe.");
+      if(profileStatus==="rejected")return toast("Solicitação rejeitada. Fale com a administração.");
+      if(profileStatus==="approved"&&state.profile.active!==true)return toast("Sua conta foi aprovada, mas ainda está inativa. Peça à administração para aprovar novamente nesta versão.");
+      return toast("Conta sem liberação de acesso. Fale com a administração.");
     }
     // Compatibilidade: contas antigas sem os campos de primeiro acesso continuam liberadas.
     state.onboardingRequired=state.profile.profileCompleted===false || state.profile.firstLogin===true;
@@ -1698,7 +1708,7 @@ Um registro será salvo em Gestão → RT Presença.`))return;
           roleUpdatedBy:state.user.uid,updatedAt:serverTimestamp()
         });
         transaction.set(doc(db,"members",u.id),{
-          name:u.name,role:memberRole,clan,userId:u.id,accessRole,
+          name:u.name,role:memberRole,memberRole,clan,userId:u.id,accessRole,active:true,
           createdAt:serverTimestamp(),updatedAt:serverTimestamp()
         },{merge:true});
         const claimAlreadyCurrent=claim.exists()&&claim.data()?.active!==false&&claim.data()?.uid===u.id&&nicknameClaimKey(claim.data()?.name)===key;

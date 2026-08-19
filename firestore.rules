@@ -144,13 +144,13 @@ service cloud.firestore {
           && request.resource.data.roleUpdatedBy == request.auth.uid
         )
         || (
-          staff() && permission('requests_approve', true) && pendingMember() && approvalFields()
+          staff() && pendingMember() && approvalFields()
           && isMemberRole(accessRoleOf(request.resource.data))
           && request.resource.data.active == true && request.resource.data.status == 'approved'
           && request.resource.data.roleUpdatedBy == request.auth.uid
         )
         || (
-          editor() && permission('requests_reject', true) && pendingMember() && rejectionFields()
+          editor() && pendingMember() && rejectionFields()
           && isMemberRole(accessRoleOf(request.resource.data))
           && request.resource.data.active == false && request.resource.data.status == 'rejected'
           && request.resource.data.rejectedBy == request.auth.uid
