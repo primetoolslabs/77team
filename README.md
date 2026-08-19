@@ -1,3 +1,7 @@
+# 77 TEAM Manager V23.0.0 — Fresh Firebase
+
+Base reconstruída para um **novo projeto Firebase**, sem dependência das permissões legadas da V22. Consulte `NOVO-FIREBASE-V23.md` antes de publicar.
+
 # 77 TEAM Manager V22.9.32 🟠 Hotfix — HOME pública
 
 Esta versão preserva integralmente a V22.9.31 e abre a HOME em modo público somente para visualização. Qualquer cadastro, edição ou exclusão continua exigindo conta aprovada e login. Consulte `CHANGELOG-V22.9.32.md` e `PUBLICACAO-V22.9.32.md`.
@@ -250,7 +254,7 @@ Publique **todos os arquivos do projeto** e substitua também as regras do Fires
 
 # 77 TEAM Oficial 2.0
 
-Versão nova e limpa conectada ao Firebase `team-f78cd`.
+Versão nova e limpa conectada ao Firebase `NOVO_PROJETO_FIREBASE`.
 
 ## Antes de publicar
 
@@ -1127,7 +1131,7 @@ Acesse **AVANÇADO > Cargos e permissões** para configurar permissões individu
 - O próprio usuário pode atualizar somente campos pessoais e do personagem.
 - Cargos, status, ativação, UID e permissões administrativas permanecem protegidos.
 - Regras administrativas de DEV, Liderança e Staff foram preservadas.
-- A publicação do novo `firestore.rules` no projeto Firebase `team-f78cd` é obrigatória.
+- A publicação do novo `firestore.rules` no projeto Firebase `NOVO_PROJETO_FIREBASE` é obrigatória.
 
 
 ## V22.7.1 Stable
