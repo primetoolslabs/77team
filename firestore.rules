@@ -150,7 +150,7 @@ service cloud.firestore {
           && request.resource.data.roleUpdatedBy == request.auth.uid
         )
         || (
-          editor() && pendingMember() && rejectionFields()
+          editor() && (staff() || permission('requests_reject', true)) && pendingMember() && rejectionFields()
           && isMemberRole(accessRoleOf(request.resource.data))
           && request.resource.data.active == false && request.resource.data.status == 'rejected'
           && request.resource.data.rejectedBy == request.auth.uid
@@ -208,7 +208,18 @@ service cloud.firestore {
     match /members/{id} {
       allow read: if active();
       allow create: if dev() || (
-        editor() && permission('members_edit', true)
+        editor()
+        && (
+          permission('members_edit', true)
+          || (
+            staff()
+            && request.resource.data.userId == id
+            && isMemberRole(accessRoleOf(request.resource.data))
+            && getAfter(userPath(id)).data.status == 'approved'
+            && getAfter(userPath(id)).data.active == true
+            && getAfter(userPath(id)).data.roleUpdatedBy == request.auth.uid
+          )
+        )
         && request.resource.data.keys().hasOnly(['name','role','clan','userId','accessRole','memberRole','active','createdAt','updatedAt'])
         && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 120
         && request.resource.data.get('clan','') is string
@@ -216,6 +227,15 @@ service cloud.firestore {
         && (isMemberRole(accessRoleOf(request.resource.data)) || isStaffRole(accessRoleOf(request.resource.data)))
       );
       allow update: if dev()
+        || (
+          staff()
+          && id == request.resource.data.get('userId', id)
+          && isMemberRole(accessRoleOf(request.resource.data))
+          && getAfter(userPath(id)).data.status == 'approved'
+          && getAfter(userPath(id)).data.active == true
+          && getAfter(userPath(id)).data.roleUpdatedBy == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name','role','clan','userId','accessRole','memberRole','active','createdAt','updatedAt'])
+        )
         || (
           active() && (
             resource.data.get('userId','') == request.auth.uid
