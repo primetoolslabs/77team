@@ -5,29 +5,40 @@ service firebase.storage {
     function profile(){ return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data; }
     function accessRole(){ return profile().get('accessRole', profile().get('role','member')); }
     function active(){ return signedIn() && profile().active == true && profile().status == 'approved'; }
-    function editor(){ return active() && accessRole() in ['dev','owner','leadership','lideranca','staff']; }
     function dev(){ return active() && accessRole() in ['dev','owner']; }
+    function leadership(){ return active() && accessRole() in ['leadership','lideranca','Liderança','Lideranca','lider','leader','administrador','admin']; }
+    function staff(){ return active() && accessRole() in ['staff','Staff','moderador','moderator']; }
+    function roleKey(){ return dev() ? 'dev' : leadership() ? 'leadership' : staff() ? 'staff' : active() ? 'member' : 'guest'; }
+    function permission(key, fallback){
+      let cfg = firestore.exists(/databases/(default)/documents/settings/app)
+        ? firestore.get(/databases/(default)/documents/settings/app).data.get('rolePermissions', {})
+        : {};
+      return dev() || cfg.get(key, {}).get(roleKey(), fallback);
+    }
+    function staffAccess(){ return (dev() || leadership() || staff()) && permission('access_staff', true); }
+    function supportManager(){ return staffAccess() && permission('support_manage', true); }
+    function loginCustomizer(){ return dev() && permission('login_customize', true); }
     function validImage(){ return request.resource.size < 5 * 1024 * 1024 && request.resource.contentType.matches('image/(png|jpeg|webp)'); }
 
     match /login-customization/{fileName} {
       allow read: if true;
-      allow create, update: if signedIn() && profile().active == true && profile().status == 'approved' && dev() && validImage();
-      allow delete: if dev();
+      allow create, update: if loginCustomizer() && validImage();
+      allow delete: if loginCustomizer();
     }
     match /support/{ownerUid}/{ticketId}/{fileName} {
-      allow read: if active() && (request.auth.uid == ownerUid || editor());
-      allow create, update: if active() && (request.auth.uid == ownerUid || editor()) && validImage();
-      allow delete: if editor();
+      allow read: if active() && (request.auth.uid == ownerUid || supportManager());
+      allow create, update: if active() && (request.auth.uid == ownerUid || supportManager()) && validImage();
+      allow delete: if supportManager();
     }
     match /chat/{ownerUid}/{fileName} {
-      allow read: if active() && (request.auth.uid == ownerUid || editor());
-      allow create, update: if active() && (request.auth.uid == ownerUid || editor()) && validImage();
-      allow delete: if editor();
+      allow read: if active() && (request.auth.uid == ownerUid || supportManager());
+      allow create, update: if active() && (request.auth.uid == ownerUid || supportManager()) && validImage();
+      allow delete: if supportManager();
     }
     match /chat/{ownerUid}/{chatId}/{fileName} {
-      allow read: if active() && (request.auth.uid == ownerUid || editor());
-      allow create, update: if active() && (request.auth.uid == ownerUid || editor()) && validImage();
-      allow delete: if editor();
+      allow read: if active() && (request.auth.uid == ownerUid || supportManager());
+      allow create, update: if active() && (request.auth.uid == ownerUid || supportManager()) && validImage();
+      allow delete: if supportManager();
     }
   }
 }

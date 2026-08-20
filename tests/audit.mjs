@@ -63,18 +63,19 @@ assert.ok(rules.includes("validOptionalHttps"));
 assert.ok(rules.includes("request.resource.data.senderRole == roleKey()"));
 assert.ok(rules.includes("request.resource.data.chatStatus in ['active','finalized']"));
 assert.ok(rules.includes("allow create: if dev() || (editor() && request.resource.data.keys().hasOnly(['title','date','time','type','description','createdBy','createdAt'])"));
-assert.ok(rules.includes("allow create: if dev() || (permission('presence_reset', false)"));
-assert.ok(rules.includes("allow create: if dev() || (editor() && permission('xp_manage', true)"));
+assert.ok(rules.includes("allow create: if dev() || (staffAccess() && permission('presence_reset', false)"));
+assert.ok(rules.includes("allow create: if dev() || (staffAccess() && permission('xp_manage', true)"));
 assert.ok(rules.includes("!request.resource.data.diff(resource.data).affectedKeys().hasAny(['rolePermissions','security','maintenance','advanced','loginCustomization'])"));
 assert.ok(rules.includes("allow update, delete: if dev();"));
 assert.ok(main.includes('key:"members_delete",label:"Excluir membros",defaults:{dev:true,leadership:true,staff:true,member:false}'));
-assert.ok(main.includes('role==="staff"&&["requests_approve","members_delete","members_clan_change"].includes(key)'));
+assert.ok(main.includes('function permissionRequired(key,role){return role==="dev"||key==="access_home"}'));
+assert.ok(!main.includes('role==="staff"&&["requests_approve","members_delete","members_clan_change"].includes(key)'));
 assert.ok(main.includes("function canDeleteMemberRecord"));
-assert.ok(rules.includes("staff() && isMemberRole(accessRoleOf(resource.data))"));
+assert.ok(rules.includes("staff() && permission('members_delete', true) && isMemberRole(accessRoleOf(resource.data))"));
 assert.ok(main.includes('key:"members_clan_change",label:"Alterar clã dos membros",defaults:{dev:true,leadership:true,staff:true,member:false}'));
 assert.ok(main.includes('permissionEnabled("members_clan_change")'));
 assert.ok(main.includes("function canChangeMemberClan"));
-assert.ok(rules.includes("staff() && isMemberRole(accessRoleOf(resource.data))"));
+assert.ok(rules.includes("staff() && permission('members_clan_change', true) && isMemberRole(accessRoleOf(resource.data))"));
 assert.ok(main.includes('await updateDoc(doc(db,"members",member.id),payload)'));
 assert.ok(html.includes('id="pagamentos"'));
 assert.ok(html.includes('id="paymentForm"'));
@@ -134,9 +135,60 @@ assert.ok(html.includes('id="signupPassword" minlength="8"'));
 assert.ok(rules.includes("resource.data.status == 'rejected' && resource.data.active == false"));
 assert.ok(rules.includes("function leadershipCanApprovePendingMember"));
 assert.ok(rules.includes("request.resource.data.keys().hasOnly(["));
-assert.ok(main.includes('serviceWorker.register("./service-worker.js?v=22.9.32-auditfix1")'));
-assert.ok(html.includes('js/main.js?v=22.9.32-auditfix1'));
+assert.ok(main.includes('serviceWorker.register("./service-worker.js?v=22.9.32-characterrole1")'));
+assert.ok(html.includes('js/main.js?v=22.9.32-characterrole1'));
 
+
+// Permissões dinâmicas: Firebase e interface devem compartilhar a mesma matriz em tempo real.
+assert.ok(main.includes('function permissionRuntimeSignature()'));
+assert.ok(main.includes('schedulePermissionRuntimeRefresh'));
+assert.ok(main.includes('onSnapshot(doc(db,"users",state.user.uid)'));
+assert.ok(main.includes('Matriz salva no Firebase e aplicada em tempo real para todos os cargos.'));
+assert.ok(rules.includes("permission('requests_approve', true)"));
+assert.ok(rules.includes("permission('members_delete', true)"));
+assert.ok(rules.includes("permission('members_clan_change', true)"));
+assert.ok(rules.includes("function staffAccess(){return editor() && permission('access_staff', true);}"));
+assert.ok(rules.includes("function adminAccess(){return (dev() || leadership()) && permission('access_admin', true);}"));
+assert.ok(html.includes('salvas no Firebase e entram em vigor em tempo real'));
 
 // A mensagem de sucesso fica no fim para não mascarar falhas nas verificações de Auth.
 console.log("Auditoria estática V22.9.32: OK");
+
+// Auditoria ampliada das abas/módulos — toda navegação deve apontar para uma página real.
+const pageSectionIds=new Set([...html.matchAll(/<section\b[^>]*\bclass="[^"]*\bpage\b[^"]*"[^>]*\bid="([^"]+)"|<section\b[^>]*\bid="([^"]+)"[^>]*\bclass="[^"]*\bpage\b[^"]*"/g)].map(m=>m[1]||m[2]));
+const unifiedNavIds=new Set([...ui.matchAll(/\["([a-z0-9-]+)","[^"\n]+","[^"\n]+"\]/g)].map(m=>m[1]));
+for(const target of unifiedNavIds)assert.ok(pageSectionIds.has(target),`Aba do menu sem página: ${target}`);
+assert.ok(unifiedNavIds.has("rt-presenca"),"RT Presença precisa estar acessível pelo menu STAFF");
+assert.ok(main.includes('"rt-presenca"'),"RT Presença precisa participar do controle de acesso");
+assert.ok(main.includes('filter(rt=>rt.status==="finalized")'),"RT Presença deve listar somente RTs finalizados");
+
+// Todas as abas internas de Configurações e Meu Perfil precisam ter painel correspondente.
+const settingsTabs=new Set([...html.matchAll(/data-settings-tab="([^"]+)"/g)].map(m=>m[1]));
+const settingsPanels=new Set([...html.matchAll(/data-settings-panel="([^"]+)"/g)].map(m=>m[1]));
+assert.deepEqual([...settingsTabs].sort(),[...settingsPanels].sort(),"Configurações possui aba sem painel ou painel órfão");
+const profileTabs=new Set([...html.matchAll(/data-profile-tab="([^"]+)"/g)].map(m=>m[1]));
+const profilePanels=new Set([...html.matchAll(/data-profile-panel="([^"]+)"/g)].map(m=>m[1]));
+assert.deepEqual([...profileTabs].sort(),[...profilePanels].sort(),"Meu Perfil possui aba sem painel ou painel órfão");
+
+// IDs usados pelos helpers de eventos devem existir no HTML.
+const eventIds=new Set([...main.matchAll(/\bon\(["']([^"']+)["']/g)].map(m=>m[1]));
+const htmlIds=new Set([...html.matchAll(/\bid=["']([^"']+)["']/g)].map(m=>m[1]));
+assert.deepEqual([...eventIds].filter(id=>!htmlIds.has(id)),[],"Handler registrado para elemento inexistente");
+
+// Toda coleção raiz utilizada pelo cliente precisa ter bloco de regras correspondente.
+const clientCollections=new Set([...main.matchAll(/collection\(db,["']([^"']+)["']/g)].map(m=>m[1]));
+for(const name of clientCollections)assert.ok(rules.includes(`match /${name}/{`),`Coleção sem regra explícita: ${name}`);
+
+// Storage precisa obedecer à mesma matriz dinâmica usada no projeto.
+const storageRules=read("storage.rules");
+assert.ok(storageRules.includes("function permission(key, fallback)"));
+assert.ok(storageRules.includes("permission('support_manage', true)"));
+assert.ok(storageRules.includes("permission('login_customize', true)"));
+assert.ok(storageRules.includes("function staffAccess()"));
+
+// Cache/versionamento deve apontar para a mesma revisão das abas.
+assert.ok(main.includes('service-worker.js?v=22.9.32-characterrole1'));
+assert.ok(html.includes('js/main.js?v=22.9.32-characterrole1'));
+const serviceWorker=read("service-worker.js");
+assert.ok(serviceWorker.includes('77-team-manager-v22.9.32-characterrole1'));
+assert.ok(serviceWorker.includes('js/main.js?v=22.9.32-characterrole1'));

@@ -52,6 +52,8 @@ function configuredEventEnabled(kind){const cfg=state.settings?.events||{};retur
 
 const state={user:null,profile:null,onboardingRequired:false,members:[],membersLoaded:false,attendance:[],attendanceLoaded:false,rtPresence:[],users:[],usersLoaded:false,audit:[],events:[],eventsLoaded:false,notifications:[],sentNotifications:[],notificationReads:[],settings:{},publicHome:null,xpLogs:[],payments:[],supportMessages:[],selectedSupportOwnerUid:"",selectedSupportTicketId:"",supportView:"active",chatMessages:[],selectedChatOwnerUid:"",selectedChatId:"",chatView:"active",chatSearch:"",editingCharacterUserId:"",presenceFilters:{},presenceBackups:[],sessions:[],unsubs:[]};
 let rolePermissionsDirty=false;
+let subscribedPermissionSignature="";
+let permissionResubscribeTimer=null;
 
 function toast(msg){const el=$("#toast");el.textContent=msg;el.classList.add("show");clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.remove("show"),3000)}
 function errMsg(e){return ({'auth/invalid-credential':'E-mail ou senha incorretos.','auth/user-disabled':'Esta conta foi desativada.','auth/too-many-requests':'Muitas tentativas. Aguarde alguns minutos e tente novamente.','auth/network-request-failed':'Falha de conexão. Verifique sua internet.','auth/email-already-in-use':'Este e-mail já possui uma conta. Use a mesma senha para recuperar o cadastro pendente.','auth/operation-not-allowed':'Ative o provedor E-mail/Senha em Firebase Authentication.','auth/invalid-email':'Informe um endereço de e-mail válido.','auth/weak-password':'A senha precisa ter pelo menos 8 caracteres.','permission-denied':'Permissão negada. Publique o firestore.rules novo.'})[e?.code]||`${e?.code||'erro'}: ${e?.message||'Falha inesperada'}`}
@@ -161,8 +163,27 @@ function selectedCargoValue(member,user){
   return role==="member"?`member:${member?.role||user?.memberRole||"Membros"}`:role;
 }
 
+function characterEditorCargoOptions(item){
+  if(!item||!state.user)return [];
+  const user=state.users.find(row=>row.id===item.id);
+  const member=state.members.find(row=>row.userId===item.id||row.id===item.id||row.name===item.nickname)||{};
+  // Na edição de Personagem o DEV pode alterar qualquer cargo, inclusive o próprio.
+  if(currentAccessRole()==="dev")return [
+    {value:"dev",label:"DEV"},{value:"leadership",label:"Liderança"},{value:"staff",label:"Staff"},
+    ...MEMBER_ROLES.map(value=>({value:`member:${value}`,label:value}))
+  ];
+  if(!permissionEnabled("roles_change")||!user)return [];
+  return allowedCargoOptions(member,user);
+}
+function characterEditorSelectedCargo(item){
+  const user=state.users.find(row=>row.id===item?.id)||{};
+  const member=state.members.find(row=>row.userId===item?.id||row.id===item?.id||row.name===item?.nickname)||{};
+  const access=resolveAccessRole(user);
+  return access==="member"?`member:${member.role||user.memberRole||"Membros"}`:access;
+}
+
 const HOME_PAGES=new Set(["dashboard","meu-perfil","membros","historico","ranking","calendario","estatisticas","sobre"]);
-const STAFF_PAGES=new Set(["staff-hub","presencas","registros","pagamentos","worldboss","purgatorio","eventos","personagens","metas","solicitacoes","notificacoes","atendimento","chat"]);
+const STAFF_PAGES=new Set(["staff-hub","presencas","rt-presenca","registros","pagamentos","worldboss","purgatorio","eventos","personagens","metas","solicitacoes","notificacoes","atendimento","chat"]);
 const ADMIN_PAGES=new Set(["staff","configuracoes","backup-central","auditoria"]);
 const ADVANCED_PAGES=new Set(["atualizacoes","backup","logs-sistema","status-firebase","status-github","sessoes","manutencao","status-servicos","limpeza-cache","estatisticas-sistema","personalizar-login","permissoes-cargos"]);
 
@@ -215,7 +236,7 @@ const PERMISSION_ALLOWED_ROLES=Object.freeze({
   xp_manage:["dev","leadership","staff"],goals_manage:["dev","leadership","staff"]
 });
 function permissionRoleAllowed(key,role){return role==="dev"||(PERMISSION_ALLOWED_ROLES[key]||["leadership","staff","member"]).includes(role)}
-function permissionRequired(key,role){return role==="dev"||key==="access_home"||(role==="staff"&&["requests_approve","members_delete","members_clan_change"].includes(key))}
+function permissionRequired(key,role){return role==="dev"||key==="access_home"}
 function permissionEnabled(key,role=currentAccessRole()){
   if(role==="dev")return true;
   if(!permissionRoleAllowed(key,role))return false;
@@ -223,6 +244,19 @@ function permissionEnabled(key,role=currentAccessRole()){
   const item=ROLE_PERMISSION_DEFINITIONS.find(entry=>entry.key===key);
   const configured=configuredRolePermissions()?.[key];
   return configured?.[role] ?? item?.defaults?.[role] ?? false;
+}
+function permissionRuntimeSignature(){
+  return JSON.stringify({role:currentAccessRole(),permissions:configuredRolePermissions()});
+}
+function schedulePermissionRuntimeRefresh(){
+  clearTimeout(permissionResubscribeTimer);
+  permissionResubscribeTimer=setTimeout(()=>{
+    if(!state.user)return;
+    const signature=permissionRuntimeSignature();
+    applyPermissions();
+    render();
+    if(signature!==subscribedPermissionSignature)subscribeAll();
+  },80);
 }
 function canDeleteMemberRecord(member){
   if(!member||!permissionEnabled("members_delete"))return false;
@@ -266,7 +300,7 @@ function canOpenPage(page){
 }
 function permissionMessage(page){
   if(!state.user)return "Para acessar esta área, crie uma conta e faça login.";
-  if(["personagens","solicitacoes","notificacoes","atendimento","chat","pagamentos","metas"].includes(page))return "Seu cargo não possui a permissão necessária para este módulo.";
+  if(["personagens","solicitacoes","notificacoes","atendimento","chat","pagamentos","metas","rt-presenca"].includes(page))return "Seu cargo não possui a permissão necessária para este módulo.";
   const area=pageArea(page);
   if(area==="advanced")return "Esta área é exclusiva do DEV.";
   if(area==="admin")return "Esta área é exclusiva do DEV e da Liderança.";
@@ -477,6 +511,8 @@ function applyPermissions(){
   $$(".owner-only").forEach(el=>el.classList.toggle("hidden",!owner()));
   $$(".admin-only").forEach(el=>el.classList.toggle("hidden",!permissionEnabled("access_admin")));
   $$(".editor-only").forEach(el=>el.classList.toggle("hidden",!editor()));
+  document.querySelectorAll('[data-category="staff"]').forEach(el=>el.classList.toggle("hidden",!permissionEnabled("access_staff")));
+  byId("memberForm")?.classList.toggle("hidden",!permissionEnabled("members_edit"));
   document.body.dataset.accessRole=currentAccessRole();
   document.body.dataset.rawAccessRole=String(state.profile?.accessRole||state.profile?.role||"");
   document.querySelectorAll("[data-save-settings]").forEach(button=>button.classList.toggle("hidden",!permissionEnabled("settings_edit")));
@@ -485,7 +521,7 @@ function applyPermissions(){
   byId("auditoria")?.classList.toggle("hidden",!(permissionEnabled("access_admin")&&permissionEnabled("audit_view")));
   document.querySelectorAll('[data-page="configuracoes"]').forEach(button=>button.classList.toggle("hidden",!permissionEnabled("settings_view")));
   document.querySelectorAll('[data-page="auditoria"]').forEach(button=>button.classList.toggle("hidden",!(permissionEnabled("access_admin")&&permissionEnabled("audit_view"))));
-  ["personagens","solicitacoes","notificacoes","atendimento","chat","metas"].forEach(page=>{
+  ["personagens","solicitacoes","notificacoes","atendimento","chat","metas","rt-presenca"].forEach(page=>{
     const allowed=canOpenPage(page);byId(page)?.classList.toggle("hidden",!allowed);document.querySelectorAll(`[data-page="${page}"],[data-page-jump="${page}"]`).forEach(button=>button.classList.toggle("hidden",!allowed));
   });
   byId("profileNicknameForm")?.classList.toggle("policy-disabled",state.settings?.team?.allowNickname===false);
@@ -548,7 +584,7 @@ function subscribePublic(){
         state.attendance=snapshot.docs.map(item=>({id:item.id,...item.data()}));
         state.attendanceLoaded=true;
         render();
-        if(editor())scheduleAttendanceUserMigration();
+        if(permissionEnabled("members_edit"))scheduleAttendanceUserMigration();
       },
       error=>{
         console.error("Falha ao carregar presenças:",error);
@@ -564,14 +600,30 @@ function subscribePublic(){
 }
 function subscribeAll(){
   subscribePublic();
-  if(editor()){
+  subscribedPermissionSignature=permissionRuntimeSignature();
+  if(state.user){
+    state.unsubs.push(onSnapshot(doc(db,"users",state.user.uid),snapshot=>{
+      if(!snapshot.exists())return;
+      const nextProfile={id:snapshot.id,...snapshot.data()};
+      const status=String(nextProfile.status||"").toLowerCase();
+      if(nextProfile.active!==true||status!=="approved"){
+        signOut(auth).catch(()=>{});
+        return;
+      }
+      nextProfile.resolvedAccessRole=resolveAccessRole(nextProfile);
+      state.profile=nextProfile;
+      state.onboardingRequired=state.profile.profileCompleted===false||state.profile.firstLogin===true;
+      schedulePermissionRuntimeRefresh();
+    },error=>console.error("Falha ao sincronizar cargo/perfil atual:",error)));
+  }
+  if(permissionEnabled("access_staff")){
     state.unsubs.push(onSnapshot(collection(db,"rtPresence"),snapshot=>{state.rtPresence=snapshot.docs.map(d=>({id:d.id,...d.data()}));renderRtPresence();},error=>console.error("Falha ao carregar RT Presença:",error)));
     state.unsubs.push(onSnapshot(collection(db,"presenceBackups"),snapshot=>{state.presenceBackups=snapshot.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>rtDateValue(b.createdAt)-rtDateValue(a.createdAt));renderPresenceBackups();renderBackupCenter();},error=>console.error("Falha ao carregar backups de presença:",error)));
-  }else state.rtPresence=[];
-  if(editor())state.unsubs.push(onSnapshot(collection(db,"users"),s=>{state.users=s.docs.map(d=>{const user={id:d.id,...d.data()};return {...user,resolvedAccessRole:resolveAccessRole(user)}});state.usersLoaded=true;render();scheduleAttendanceUserMigration();scheduleAccountRoleSync();scheduleNicknameClaimMigration()}));
-  if(permissionEnabled("audit_view"))state.unsubs.push(onSnapshot(collection(db,"audit"),s=>{state.audit=s.docs.map(d=>({id:d.id,...d.data()}));render()}));
-  if(editor())state.unsubs.push(onSnapshot(collection(db,"xpLogs"),s=>{state.xpLogs=s.docs.map(d=>({id:d.id,...d.data()}));render()}));
-  if(permissionEnabled("payments_manage"))state.unsubs.push(onSnapshot(collection(db,"payments"),s=>{state.payments=s.docs.map(d=>({id:d.id,...d.data()}));renderPayments()},error=>console.error("Falha ao carregar pagamentos:",error)));
+  }else{state.rtPresence=[];state.presenceBackups=[];}
+  if(permissionEnabled("access_staff")||permissionEnabled("access_admin"))state.unsubs.push(onSnapshot(collection(db,"users"),s=>{state.users=s.docs.map(d=>{const user={id:d.id,...d.data()};return {...user,resolvedAccessRole:resolveAccessRole(user)}});state.usersLoaded=true;render();if(permissionEnabled("members_edit"))scheduleAttendanceUserMigration();scheduleAccountRoleSync();scheduleNicknameClaimMigration()},error=>console.error("Falha ao carregar usuários:",error)));else{state.users=[];state.usersLoaded=false;}
+  if(permissionEnabled("access_admin")&&permissionEnabled("audit_view"))state.unsubs.push(onSnapshot(collection(db,"audit"),s=>{state.audit=s.docs.map(d=>({id:d.id,...d.data()}));render()},error=>console.error("Falha ao carregar auditoria:",error)));else state.audit=[];
+  if(permissionEnabled("access_staff")&&permissionEnabled("xp_manage"))state.unsubs.push(onSnapshot(collection(db,"xpLogs"),s=>{state.xpLogs=s.docs.map(d=>({id:d.id,...d.data()}));render()},error=>console.error("Falha ao carregar XP:",error)));else state.xpLogs=[];
+  if(permissionEnabled("access_staff")&&permissionEnabled("payments_manage"))state.unsubs.push(onSnapshot(collection(db,"payments"),s=>{state.payments=s.docs.map(d=>({id:d.id,...d.data()}));renderPayments()},error=>console.error("Falha ao carregar pagamentos:",error)));else state.payments=[];
   state.unsubs.push(onSnapshot(collection(db,"events"),s=>{state.events=s.docs.map(d=>({id:d.id,...d.data()}));state.eventsLoaded=true;render()},error=>{console.error("Falha ao carregar eventos:",error);state.eventsLoaded=true;render()}));
   if(state.user){
     state.unsubs.push(onSnapshot(
@@ -583,7 +635,7 @@ function subscribeAll(){
       error=>console.error("Falha ao carregar leituras de notificações:",error)
     ));
 
-    if(editor()){
+    if(permissionEnabled("access_staff")&&permissionEnabled("notifications_send")){
       state.unsubs.push(onSnapshot(
         collection(db,"notifications"),
         snapshot=>{
@@ -616,12 +668,18 @@ function subscribeAll(){
     }
   }
   if(state.user){
-    const supportQuery=permissionEnabled("support_manage")?collection(db,"supportMessages"):query(collection(db,"supportMessages"),where("ownerUid","==",state.user.uid),where("status","!=","resolved"));
+    const supportAdmin=permissionEnabled("access_staff")&&permissionEnabled("support_manage");
+    const supportQuery=supportAdmin?collection(db,"supportMessages"):query(collection(db,"supportMessages"),where("ownerUid","==",state.user.uid),where("status","!=","resolved"));
     state.unsubs.push(onSnapshot(supportQuery,s=>{state.supportMessages=s.docs.map(d=>({id:d.id,...d.data()}));renderSupport();},error=>console.error("Falha ao carregar atendimentos:",error)));
-    const chatQuery=permissionEnabled("support_manage")?collection(db,"chatMessages"):query(collection(db,"chatMessages"),where("ownerUid","==",state.user.uid));
+    const chatQuery=supportAdmin?collection(db,"chatMessages"):query(collection(db,"chatMessages"),where("ownerUid","==",state.user.uid));
     state.unsubs.push(onSnapshot(chatQuery,s=>{state.chatMessages=s.docs.map(d=>({id:d.id,...d.data()}));renderPrivateChat();},error=>console.error("Falha ao carregar chat privado:",error)));
   }
-  state.unsubs.push(onSnapshot(doc(db,"settings","app"),s=>{state.settings=s.exists()?s.data():{};loadSettingsForm();applyLoginCustomization();loadLoginCustomizationForm();renderGoals();render()}));
+  state.unsubs.push(onSnapshot(doc(db,"settings","app"),s=>{
+    state.settings=s.exists()?s.data():{};
+    loadSettingsForm();applyLoginCustomization();loadLoginCustomizationForm();renderGoals();
+    applyPermissions();render();
+    if(permissionRuntimeSignature()!==subscribedPermissionSignature)schedulePermissionRuntimeRefresh();
+  }));
   if(owner())state.unsubs.push(onSnapshot(collection(db,"sessions"),snapshot=>{state.sessions=snapshot.docs.map(item=>({id:item.id,...item.data()}));renderAdvancedCenter()},error=>console.error("Falha ao carregar sessões:",error)));
   if(owner()) state.unsubs.push(onSnapshot(doc(db,"settings","private"),s=>{
     const privateSettings=s.exists()?s.data():{};
@@ -1359,7 +1417,7 @@ function rtDateValue(value){try{return value?.toDate?value.toDate():new Date(val
 function renderRtPresence(){
   const list=$("#rtPresenceList");if(!list)return;
   const search=String($("#rtSearch")?.value||"").toLowerCase(),kind=$("#rtKindFilter")?.value||"",date=$("#rtDateFilter")?.value||"";
-  const rows=[...state.rtPresence].filter(rt=>(!kind||rt.kind===kind)&&(!date||rt.date===date)&&(!search||`${escapeHtml(rt.id)} ${rt.typeLabel} ${rt.slotLabel} ${rt.finalizedByName}`.toLowerCase().includes(search))).sort((a,b)=>rtDateValue(b.finalizedAt)-rtDateValue(a.finalizedAt));
+  const rows=[...state.rtPresence].filter(rt=>rt.status==="finalized").filter(rt=>(!kind||rt.kind===kind)&&(!date||rt.date===date)&&(!search||`${rt.id||""} ${rt.typeLabel||""} ${rt.slotLabel||""} ${rt.finalizedByName||""}`.toLowerCase().includes(search))).sort((a,b)=>rtDateValue(b.finalizedAt)-rtDateValue(a.finalizedAt));
   setText("rtPresenceCount",`${rows.length} registro${rows.length===1?"":"s"}`);
   list.innerHTML=rows.map(rt=>`<article class="rt-card" data-rt-card="${escapeHtml(rt.id)}"><div class="rt-card-head"><div><small>RT ${escapeHtml(rt.id.slice(0,8).toUpperCase())}</small><h3>${escapeHtml(rt.typeLabel||rt.kind)} · ${escapeHtml(rt.slotLabel||rt.slot||"Todos")}</h3><p>${escapeHtml(rt.date||"—")} · ${escapeHtml(rt.week||"—")} · Finalizada por ${escapeHtml(rt.finalizedByName||"Equipe")}</p></div><span class="badge success">Finalizada</span></div><div class="rt-summary"><span>✓ ${rt.counts?.present||0} presentes</span><span>◷ ${rt.counts?.late||0} atrasados</span><span>! ${rt.counts?.justified||0} justificados</span><span>× ${rt.counts?.absent||0} ausentes</span><span>— ${rt.counts?.pending||0} pendentes</span></div><div class="rt-actions"><button class="btn mini" data-rt-toggle="${escapeHtml(rt.id)}">👁 Visualizar</button><button class="btn mini" data-rt-csv="${escapeHtml(rt.id)}">📊 Exportar CSV</button><button class="btn mini" data-rt-print="${escapeHtml(rt.id)}">🖨 Imprimir</button>${owner()?`<button class="btn danger mini" data-rt-delete="${escapeHtml(rt.id)}">🗑 Excluir</button>`:""}</div><div class="rt-details hidden" id="rt-details-${escapeHtml(rt.id)}">${rtRecordsTable(rt)}</div></article>`).join("")||'<div class="empty-state"><strong>Nenhum RT encontrado.</strong><p>Finalize uma presença para criar o primeiro registro.</p></div>';
 }
@@ -2035,7 +2093,7 @@ function updateLiveClock(){
 }
 updateLiveClock();
 setInterval(updateLiveClock,1000);
-if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js?v=22.9.32-auditfix1").catch(error=>console.warn("Service Worker indisponível:",error)));
+if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js?v=22.9.32-characterrole1").catch(error=>console.warn("Service Worker indisponível:",error)));
 
 function animateNumber(id,target,suffix=""){
   const el=byId(id);
@@ -2449,18 +2507,17 @@ window.TeamManagerCanOpenPage=canOpenPage;
 
 
 function applyRestrictedVisibility(){
-  const allowed=permissionEnabled("access_staff");
-
-  ["staff-hub","presencas","registros","pagamentos"].forEach(page=>{
+  STAFF_PAGES.forEach(page=>{
+    const allowed=canOpenPage(page);
     const section=byId(page);
     if(section)section.classList.toggle("hidden",!allowed);
+    document.querySelectorAll(`[data-page="${page}"],[data-page-jump="${page}"]`)
+      .forEach(button=>button.classList.toggle("hidden",!allowed));
   });
-
-  document.querySelectorAll('[data-page="staff-hub"],[data-page="presencas"],[data-page="registros"],[data-page="pagamentos"]')
-    .forEach(button=>button.classList.toggle("hidden",!allowed));
-
+  const staffAreaAllowed=permissionEnabled("access_staff");
+  document.querySelectorAll('[data-category="staff"]').forEach(button=>button.classList.toggle("hidden",!staffAreaAllowed));
   document.querySelectorAll(".attendance-private")
-    .forEach(element=>element.classList.toggle("hidden",!allowed));
+    .forEach(element=>element.classList.toggle("hidden",!staffAreaAllowed));
 }
 
 
@@ -2507,11 +2564,12 @@ async function saveConfigurableRolePermissions(){
     const rolePermissions=collectRolePermissions();
     await setDoc(doc(db,"settings","app"),{rolePermissions,updatedAt:serverTimestamp(),updatedBy:state.user.uid},{merge:true});
     state.settings={...state.settings,rolePermissions};
-    setText("rolePermissionStatus","Permissões salvas com sucesso.");
+    setText("rolePermissionStatus","Salvo no Firebase · aplicado em tempo real.");
     byId("rolePermissionStatus")?.classList.remove("permission-status-dirty");byId("rolePermissionStatus")?.classList.add("permission-status-saved");
     rolePermissionsDirty=false;
     await audit("permissões de cargos atualizadas",`${Object.values(rolePermissions).reduce((sum,roles)=>sum+Object.values(roles).filter(Boolean).length,0)} permissões ativas`);
-    applyPermissions(); render(); toast("Matriz de permissões atualizada para todos os cargos.");
+    applyPermissions();render();schedulePermissionRuntimeRefresh();
+    toast("Matriz salva no Firebase e aplicada em tempo real para todos os cargos.");
   }catch(error){toast(errMsg(error));setText("rolePermissionStatus","Não foi possível salvar.");}
   finally{updateRolePermissionControls();}
 }
@@ -2972,6 +3030,27 @@ function openResponsibleCharacterEditor(item){
   state.editingCharacterUserId=item.id;
   const c=item.character||{};
   setText("responsibleCharacterName",item.nickname||"Personagem");
+  const roleSelect=byId("responsibleCharacterRole");
+  const roleOptions=characterEditorCargoOptions(item);
+  if(roleSelect){
+    const currentCargo=characterEditorSelectedCargo(item);
+    roleSelect.innerHTML=(roleOptions.length?roleOptions:[{value:currentCargo,label:item.role||accessRoleLabel(resolveAccessRole(state.users.find(row=>row.id===item.id)||{}))}])
+      .map(option=>`<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`).join("");
+    roleSelect.value=currentCargo;
+    roleSelect.disabled=!roleOptions.length;
+    roleSelect.title=roleOptions.length?"Alterar cargo":"Seu cargo não possui permissão para alterar cargos";
+  }
+  const clanSelect=byId("responsibleCharacterClan");
+  if(clanSelect){
+    const currentClan=item.clan==="Sem clã"?"":item.clan||"";
+    clanSelect.innerHTML=`<option value="">Sem clã</option>${CLANS.map(clan=>`<option value="${escapeHtml(clan)}">${escapeHtml(clan)}</option>`).join("")}`;
+    clanSelect.value=currentClan;
+    const targetUser=state.users.find(row=>row.id===item.id);
+    const targetMember=state.members.find(row=>row.userId===item.id||row.id===item.id||row.name===item.nickname)||{accessRole:targetUser?.accessRole,role:targetUser?.memberRole,userId:item.id};
+    const canClan=currentAccessRole()==="dev"||canChangeMemberClan(targetMember);
+    clanSelect.disabled=!canClan;
+    clanSelect.title=canClan?"Alterar clã":"Seu cargo não possui permissão para alterar o clã deste personagem";
+  }
   setValue("responsibleCharacterClass",c.className||"");
   setValue("responsibleCharacterPower",c.power??0);
   setValue("responsibleCharacterLevel",c.level??0);
@@ -3012,19 +3091,59 @@ on("responsibleCharacterForm","submit",async event=>{
   };
   const characterError=validateConfiguredCharacter(character);if(characterError)return toast(characterError);
   if(!character.className){toast("Informe a classe do personagem.");return;}
+  const user=state.users.find(item=>item.id===target.id);
+  if(!user)return toast("Conta vinculada ao personagem não encontrada.");
+  const member=state.members.find(item=>item.userId===target.id||item.id===target.id||item.name===target.nickname);
+  const roleSelect=byId("responsibleCharacterRole");
+  const clanSelect=byId("responsibleCharacterClan");
+  const currentAccess=resolveAccessRole(user);
+  const currentMemberRole=member?.role||user.memberRole||"Membros";
+  const selectedRole=roleSelect?.disabled?characterEditorSelectedCargo(target):String(roleSelect?.value||characterEditorSelectedCargo(target));
+  const nextAccess=selectedRole.startsWith("member:")?"member":selectedRole;
+  const nextMemberRole=selectedRole.startsWith("member:")?selectedRole.slice(7):memberRoleFromAccessRole(nextAccess,currentMemberRole);
+  const nextClan=clanSelect?.disabled?(member?.clan||user.clan||""):String(clanSelect?.value||"");
+  if(nextClan&&!CLANS.includes(nextClan))return toast("Clã inválido.");
+  const roleChanged=currentAccess!==nextAccess||(nextAccess==="member"&&currentMemberRole!==nextMemberRole);
+  const clanChanged=(member?.clan||user.clan||"")!==nextClan;
+  if(roleChanged&&!characterEditorCargoOptions(target).some(option=>option.value===selectedRole))return toast("Cargo inválido para o seu nível de acesso.");
   if(!confirm(`Salvar as alterações do personagem de ${target.nickname}?`))return;
   try{
+    // Salva personagem e clã antes do cargo. Isso mantém o fluxo seguro inclusive
+    // quando o DEV altera o próprio cargo e deixa de ser DEV ao final da operação.
     await updateDoc(doc(db,"users",target.id),{
       character,
       characterUpdatedAt:serverTimestamp(),
       characterUpdatedBy:state.user.uid
     });
-    const user=state.users.find(item=>item.id===target.id);
-    if(user)user.character=character;
-    if(target.id===state.user?.uid){state.profile.character=character;renderCharacterProfile()}
+    user.character=character;
+    if(clanChanged){
+      const clanPayload={clan:nextClan,clanUpdatedAt:serverTimestamp(),clanUpdatedBy:state.user.uid,updatedAt:serverTimestamp()};
+      await updateDoc(doc(db,"users",target.id),clanPayload);
+      user.clan=nextClan;
+      if(member){await updateDoc(doc(db,"members",member.id),clanPayload);member.clan=nextClan;}
+    }
+    if(roleChanged){
+      const rolePayload={role:nextAccess,accessRole:nextAccess,memberRole:nextMemberRole,roleUpdatedAt:serverTimestamp(),roleUpdatedBy:state.user.uid,updatedAt:serverTimestamp()};
+      const batch=writeBatch(db);
+      batch.update(doc(db,"users",target.id),rolePayload);
+      if(member)batch.set(doc(db,"members",member.id),{role:nextMemberRole,accessRole:nextAccess,memberRole:nextMemberRole,userId:target.id,updatedAt:serverTimestamp()},{merge:true});
+      await batch.commit();
+      Object.assign(user,rolePayload,{resolvedAccessRole:nextAccess});
+      if(member)Object.assign(member,{role:nextMemberRole,accessRole:nextAccess,memberRole:nextMemberRole,userId:target.id});
+    }
+    if(target.id===state.user?.uid){
+      Object.assign(state.profile,user);
+      state.profile.character=character;
+      state.profile.clan=nextClan;
+      state.profile.resolvedAccessRole=nextAccess;
+      applyPermissions();
+      renderCharacterProfile();
+    }
     renderCharacterCenter();
     renderCharactersTable();
-    await audit("Personagem editado por responsável",`${target.nickname} · informações atualizadas`);
+    render();
+    const changes=["personagem",roleChanged?`cargo → ${nextAccess==="member"?nextMemberRole:accessRoleLabel(nextAccess)}`:"",clanChanged?`clã → ${nextClan||"Sem clã"}`:""].filter(Boolean).join(" · ");
+    await audit("Personagem editado por responsável",`${target.nickname} · ${changes}`);
     byId("characterEditDrawer")?.classList.add("hidden");
     state.editingCharacterUserId="";
     toast("Informações do personagem atualizadas.");

@@ -265,6 +265,7 @@
 <div class="staff-hub-brand"><span>👥</span><div><strong>STAFF</strong><small>Central da equipe</small></div></div>
 <nav class="staff-hub-nav">
 <button class="active" data-page-jump="presencas" type="button">📅 <span>Presenças</span></button>
+<button data-page-jump="rt-presenca" type="button">📋 <span>RT Presença</span></button>
 <button data-page-jump="personagens" type="button">⚔️ <span>Personagens</span></button>
 <button data-page-jump="solicitacoes" type="button">📥 <span>Solicitações</span><b id="staffHubRequestsBadge">0</b></button>
 <button data-page-jump="notificacoes" type="button">🔔 <span>Notificações</span></button>
@@ -284,6 +285,7 @@
 </div>
 <div class="settings-grid staff-hub-grid">
 <article class="settings-card staff-module-card" data-page-jump="presencas"><div class="staff-module-icon">📅</div><div><h3>Presenças</h3><p>Registrar, editar e finalizar as presenças da equipe.</p></div><span>Abrir módulo →</span></article>
+<article class="settings-card staff-module-card" data-page-jump="rt-presenca"><div class="staff-module-icon">📋</div><div><h3>RT Presença</h3><p>Consultar, visualizar, imprimir e exportar presenças finalizadas.</p></div><span>Abrir módulo →</span></article>
 <article class="settings-card staff-module-card" data-page-jump="personagens"><div class="staff-module-icon">⚔️</div><div><h3>Personagens</h3><p>Consultar e atualizar os dados dos personagens.</p></div><span>Abrir módulo →</span></article>
 <article class="settings-card staff-module-card" data-page-jump="solicitacoes"><div class="staff-module-icon">📥</div><div><h3>Solicitações</h3><p>Aprovar ou rejeitar solicitações de novos membros.</p></div><span>Abrir módulo →</span></article>
 <article class="settings-card staff-module-card" data-page-jump="notificacoes"><div class="staff-module-icon">🔔</div><div><h3>Notificações</h3><p>Enviar comunicados gerais ou individuais.</p></div><span>Abrir módulo →</span></article>
@@ -1191,7 +1193,7 @@
 <section class="page page-animate owner-only advanced-page" id="permissoes-cargos">
 <div class="page-head"><div><h2>🔐 Matriz configurável de permissões</h2><p>O DEV pode ativar ou desativar permissões individualmente para cada cargo.</p></div></div>
 <div class="panel permission-config-panel">
-<div class="panel-head"><div><h3>Cargos e permissões</h3><p>As alterações entram em vigor para a interface e para as regras publicadas assim que forem salvas.</p></div><div class="button-row"><button class="btn" id="resetRolePermissions" type="button">↺ Restaurar padrão</button><button class="btn primary" disabled id="saveRolePermissions" type="button">💾 Salvar permissões</button></div></div>
+<div class="panel-head"><div><h3>Cargos e permissões</h3><p>As alterações são salvas no Firebase e entram em vigor em tempo real na interface e nas regras de acesso.</p></div><div class="button-row"><button class="btn" id="resetRolePermissions" type="button">↺ Restaurar padrão</button><button class="btn primary" disabled id="saveRolePermissions" type="button">💾 Salvar permissões</button></div></div>
 <div class="panel-body">
 <div class="role-color-legend"><span class="role-badge role-dev">DEV</span><span class="role-badge role-leadership">Liderança</span><span class="role-badge role-staff">Staff</span><span class="role-badge role-member">Membro</span></div>
 <div class="permission-bulk-actions"><strong>Ações rápidas</strong><button class="btn mini" data-permission-role-all="leadership" type="button">Marcar Liderança</button><button class="btn mini" data-permission-role-all="staff" type="button">Marcar Staff</button><button class="btn mini" data-permission-role-all="member" type="button">Marcar Membro</button><button class="btn mini" data-permission-role-none="leadership" type="button">Limpar Liderança</button><button class="btn mini" data-permission-role-none="staff" type="button">Limpar Staff</button><button class="btn mini" data-permission-role-none="member" type="button">Limpar Membro</button></div>
@@ -1268,6 +1270,10 @@
 </div>
 <div class="drawer-body">
 <form class="responsible-character-form" id="responsibleCharacterForm">
+<div class="responsible-character-grid">
+<label>Cargo<select id="responsibleCharacterRole"></select></label>
+<label>Clã<select id="responsibleCharacterClan"></select></label>
+</div>
 <label>Classe<input id="responsibleCharacterClass" required="" type="text"/></label>
 <div class="responsible-character-grid">
 <label>Power<input id="responsibleCharacterPower" min="0" type="number"/></label>
@@ -1341,6 +1347,6 @@
 <div class="global-search-results hidden" id="globalSearchResults"></div>
 <div class="toast" id="toast"></div>
 <script src="js/ui.js?v=22.9.32"></script>
-<script src="js/main.js?v=22.9.32-auditfix1" type="module"></script>
+<script src="js/main.js?v=22.9.32-characterrole1" type="module"></script>
 </body>
 </html>
