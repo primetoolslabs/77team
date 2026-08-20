@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {execFileSync} from "node:child_process";
+import {fileURLToPath} from "node:url";
 
 const root=new URL("../",import.meta.url);
 const read=file=>readFileSync(new URL(file,root),"utf8");
@@ -8,8 +9,8 @@ const main=read("js/main.js"),ui=read("js/ui.js"),rules=read("firestore.rules"),
 const pdfGenerator=read("js/pdf-generator.js");
 const firebase=JSON.parse(read("firebase.json")),manifest=JSON.parse(read("manifest.json")),indexes=JSON.parse(read("firestore.indexes.json"));
 
-execFileSync(process.execPath,["--check",new URL("js/main.js",root).pathname],{stdio:"pipe"});
-execFileSync(process.execPath,["--check",new URL("js/pdf-generator.js",root).pathname],{stdio:"pipe"});
+execFileSync(process.execPath,["--check",fileURLToPath(new URL("js/main.js",root))],{stdio:"pipe"});
+execFileSync(process.execPath,["--check",fileURLToPath(new URL("js/pdf-generator.js",root))],{stdio:"pipe"});
 assert.equal(manifest.version,"22.9.32");
 assert.equal(firebase.firestore.indexes,"firestore.indexes.json");
 assert.ok(firebase.emulators?.firestore?.port);
@@ -122,8 +123,6 @@ const pageTargets=[...html.matchAll(/data-page(?:-jump)?="([^"]+)"/g),...ui.matc
 assert.deepEqual([...new Set(pageTargets.filter(id=>!pageIds.has(id)))],[],"Menu contém destino sem página");
 assert.ok(!html.includes("</input>"));
 assert.ok(!html.includes("App Check"));
-console.log("Auditoria estática V22.9.32: OK");
-
 // Auth regression checks — cadastro/login/recuperação.
 assert.ok(main.includes('sendPasswordResetEmail'));
 assert.ok(main.includes('sendEmailVerification'));
@@ -133,3 +132,11 @@ assert.ok(main.includes('status:"pending",active:false,rejectedAt:deleteField()'
 assert.ok(html.includes('id="forgotPasswordButton"'));
 assert.ok(html.includes('id="signupPassword" minlength="8"'));
 assert.ok(rules.includes("resource.data.status == 'rejected' && resource.data.active == false"));
+assert.ok(rules.includes("function leadershipCanApprovePendingMember"));
+assert.ok(rules.includes("request.resource.data.keys().hasOnly(["));
+assert.ok(main.includes('serviceWorker.register("./service-worker.js?v=22.9.32-auditfix1")'));
+assert.ok(html.includes('js/main.js?v=22.9.32-auditfix1'));
+
+
+// A mensagem de sucesso fica no fim para não mascarar falhas nas verificações de Auth.
+console.log("Auditoria estática V22.9.32: OK");

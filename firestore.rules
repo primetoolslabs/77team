@@ -61,6 +61,14 @@ service cloud.firestore {
         && get(userPath(uid)).data.get('active',false) == false
         && isMemberRole(accessRoleOf(get(userPath(uid)).data));
     }
+    function leadershipCanApprovePendingMember(uid){
+      return leadership()
+        && permission('requests_approve', true)
+        && exists(userPath(uid))
+        && get(userPath(uid)).data.get('status','pending') == 'pending'
+        && get(userPath(uid)).data.get('active',false) == false
+        && isMemberRole(accessRoleOf(get(userPath(uid)).data));
+    }
     function validNickname(name,key){return name is string && name.size() >= 2 && name.size() <= 30 && !name.matches('.*[/].*') && name.trim().lower() == key;}
     function validOptionalHttps(value){return value is string && value.size() <= 2048 && (value == '' || value.matches('https://[A-Za-z0-9.-]+(:[0-9]+)?([/?#].*)?'));}
     function linkedMemberMatchesAfter(uid,memberId){
@@ -113,8 +121,17 @@ service cloud.firestore {
           && request.resource.data.active == true && request.resource.data.status == 'approved')
         ||
         (request.auth.uid == uid
+          && request.resource.data.keys().hasOnly([
+            'name','email','role','accessRole','memberRole','clan','active','status',
+            'firstLogin','profileCompleted','requestedAt','createdAt','updatedAt'
+          ])
           && request.resource.data.email == request.auth.token.email
-          && isMemberRole(accessRoleOf(request.resource.data))
+          && request.resource.data.name is string
+          && request.resource.data.name.size() >= 2 && request.resource.data.name.size() <= 30
+          && request.resource.data.role == 'member'
+          && request.resource.data.accessRole == 'member'
+          && request.resource.data.memberRole == 'Membros'
+          && request.resource.data.clan == ''
           && request.resource.data.active == false && request.resource.data.status == 'pending')
         ||
         (dev() && (isDevRole(accessRoleOf(request.resource.data)) || isLeadershipRole(accessRoleOf(request.resource.data)) || isStaffRole(accessRoleOf(request.resource.data))) && request.resource.data.active == true && request.resource.data.status == 'approved')
@@ -246,6 +263,13 @@ service cloud.firestore {
         && request.resource.data.get('name','') == get(userPath(id)).data.get('name','')
         && request.resource.data.get('active',true) == true
         && isMemberRole(accessRoleOf(request.resource.data))
+      ) || (
+        leadershipCanApprovePendingMember(id)
+        && request.resource.data.keys().hasOnly(['name','role','clan','userId','accessRole','memberRole','active','createdAt','updatedAt'])
+        && request.resource.data.get('userId','') == id
+        && request.resource.data.get('name','') == get(userPath(id)).data.get('name','')
+        && request.resource.data.get('active',true) == true
+        && (isMemberRole(accessRoleOf(request.resource.data)) || isStaffRole(accessRoleOf(request.resource.data)))
       ) || dev() || (
         editor() && permission('members_edit', true)
         && request.resource.data.keys().hasOnly(['name','role','clan','userId','accessRole','memberRole','active','createdAt','updatedAt'])
@@ -301,6 +325,14 @@ service cloud.firestore {
       allow read: if active();
       allow create: if (
         staffCanApprovePendingMember(request.resource.data.uid)
+        && request.resource.data.keys().hasOnly(['uid','memberId','name','normalizedKey','active','updatedAt'])
+        && request.resource.data.memberId == request.resource.data.uid
+        && request.resource.data.normalizedKey == key
+        && request.resource.data.active == true
+        && validNickname(request.resource.data.name,key)
+        && get(userPath(request.resource.data.uid)).data.get('name','') == request.resource.data.name
+      ) || (
+        leadershipCanApprovePendingMember(request.resource.data.uid)
         && request.resource.data.keys().hasOnly(['uid','memberId','name','normalizedKey','active','updatedAt'])
         && request.resource.data.memberId == request.resource.data.uid
         && request.resource.data.normalizedKey == key

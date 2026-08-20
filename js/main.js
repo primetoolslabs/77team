@@ -1631,7 +1631,7 @@ Um registro será salvo em Gestão → RT Presença.`))return;
       render();
       await audit("clã de membro alterado",`${member.name} → ${nextClan||"Sem clã"}${accountSynced?" · conta sincronizada por UID":user?" · sincronização da conta pendente":" · membro sem conta vinculada"}`);
       toast(accountSynced?"Clã atualizado no membro e na conta.":user?"Clã atualizado no membro. A sincronização da conta ficou pendente.":"Clã atualizado no membro.");
-    }catch(error){toast(error?.code==="permission-denied"?"Permissão negada. Publique o firestore.rules da V22.9.30.":errMsg(error))}
+    }catch(error){toast(error?.code==="permission-denied"?"Permissão negada. Publique o firestore.rules da V22.9.32.":errMsg(error))}
     return;
   }
 
@@ -2035,7 +2035,7 @@ function updateLiveClock(){
 }
 updateLiveClock();
 setInterval(updateLiveClock,1000);
-if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js?v=22.9.32").catch(error=>console.warn("Service Worker indisponível:",error)));
+if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js?v=22.9.32-auditfix1").catch(error=>console.warn("Service Worker indisponível:",error)));
 
 function animateNumber(id,target,suffix=""){
   const el=byId(id);
