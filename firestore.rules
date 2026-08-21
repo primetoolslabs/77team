@@ -633,25 +633,11 @@ service cloud.firestore {
       allow update, delete: if dev();
     }
     match /payments/{id} {
-      // A aba é controlada no cliente por page_pagamentos.
-      // O backend autoriza a operação exclusivamente pela permissão funcional
-      // salva em settings/app.rolePermissions.
+      // Fonte única de autorização: a matriz Cargos e Permissões.
+      // Validações de conteúdo são feitas no cliente; o Firestore decide apenas
+      // se o cargo atual possui payments_manage.
       allow read: if active() && permission('payments_manage');
-      allow create: if active() && permission('payments_manage')
-        && request.resource.data.keys().hasOnly(['nickname','paymentType','quantity','responsibleUid','responsibleNick','createdAt'])
-        && request.resource.data.nickname is string
-        && request.resource.data.nickname.size() >= 2
-        && request.resource.data.nickname.size() <= 120
-        && request.resource.data.paymentType is string
-        && request.resource.data.paymentType.size() >= 2
-        && request.resource.data.paymentType.size() <= 80
-        && request.resource.data.quantity is int
-        && request.resource.data.quantity >= 1
-        && request.resource.data.quantity <= 99000000
-        && request.resource.data.responsibleUid == request.auth.uid
-        && request.resource.data.responsibleNick is string
-        && request.resource.data.responsibleNick.size() > 0
-        && request.resource.data.responsibleNick.size() <= 120;
+      allow create: if active() && permission('payments_manage');
       allow update, delete: if dev();
     }
     match /audit/{id} {
