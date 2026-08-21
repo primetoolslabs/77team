@@ -633,21 +633,25 @@ service cloud.firestore {
       allow update, delete: if dev();
     }
     match /payments/{id} {
-      allow read: if staffAccess() && permission('payments_manage');
-      allow create: if dev() || (staffAccess() && permission('payments_manage')
+      // A aba é controlada no cliente por page_pagamentos.
+      // O backend autoriza a operação exclusivamente pela permissão funcional
+      // salva em settings/app.rolePermissions.
+      allow read: if active() && permission('payments_manage');
+      allow create: if active() && permission('payments_manage')
         && request.resource.data.keys().hasOnly(['nickname','paymentType','quantity','responsibleUid','responsibleNick','createdAt'])
         && request.resource.data.nickname is string
         && request.resource.data.nickname.size() >= 2
         && request.resource.data.nickname.size() <= 120
-        && request.resource.data.paymentType in ['Pedra Mística','Pedra Obscura','Aço Negro','Payout','Criação de Item','Adiantamento']
+        && request.resource.data.paymentType is string
+        && request.resource.data.paymentType.size() >= 2
+        && request.resource.data.paymentType.size() <= 80
         && request.resource.data.quantity is int
         && request.resource.data.quantity >= 1
         && request.resource.data.quantity <= 99000000
         && request.resource.data.responsibleUid == request.auth.uid
         && request.resource.data.responsibleNick is string
         && request.resource.data.responsibleNick.size() > 0
-        && request.resource.data.responsibleNick.size() <= 120
-        && request.resource.data.createdAt == request.time);
+        && request.resource.data.responsibleNick.size() <= 120;
       allow update, delete: if dev();
     }
     match /audit/{id} {
