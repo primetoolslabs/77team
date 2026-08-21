@@ -79,27 +79,21 @@ service cloud.firestore {
       let cfg = exists(/databases/$(database)/documents/settings/app)
         ? get(/databases/$(database)/documents/settings/app).data.get('rolePermissions', {})
         : {};
-      let entry = cfg.get(key, {});
-      return dev()
-        || (leadership() && entry.get('leadership', defaultPermission(key)) == true)
-        || (staff() && entry.get('staff', defaultPermission(key)) == true)
-        || (active() && !dev() && !leadership() && !staff() && entry.get('member', defaultPermission(key)) == true);
+      return dev() || cfg.get(key, {}).get(roleKey(), defaultPermission(key));
     }
     function paymentsMatrixPermission(){
-      let settings = exists(/databases/$(database)/documents/settings/app)
-        ? get(/databases/$(database)/documents/settings/app).data
-        : {};
-      let paymentRoles = settings.get('rolePermissions', {}).get('payments_manage', {});
-      let role = currentAccessRole();
-      return signedIn() && profileExists()
-        && profile().get('active',false) == true
-        && profile().get('status','approved') == 'approved'
-        && (
-          isDevRole(role)
-          || (isLeadershipRole(role) && paymentRoles.get('leadership', true) == true)
-          || (isStaffRole(role) && paymentRoles.get('staff', true) == true)
-          || (isMemberRole(role) && paymentRoles.get('member', false) == true)
-        );
+      return active() && (
+        dev()
+        || (
+          exists(/databases/$(database)/documents/settings/app)
+          && (
+            (leadership() && get(/databases/$(database)/documents/settings/app).data.rolePermissions.payments_manage.leadership == true)
+            || (staff() && get(/databases/$(database)/documents/settings/app).data.rolePermissions.payments_manage.staff == true)
+            || (!dev() && !leadership() && !staff()
+                && get(/databases/$(database)/documents/settings/app).data.rolePermissions.payments_manage.member == true)
+          )
+        )
+      );
     }
     function staffAccess(){return active() && permission('access_staff');}
     function adminAccess(){return active() && permission('access_admin');}
