@@ -761,9 +761,9 @@ function renderPayments(){
   if(byId("paymentExportMonth")&&!byId("paymentExportMonth").value)byId("paymentExportMonth").value=todayIso().slice(0,7);
   const options=byId("paymentNicknameOptions");if(options)options.innerHTML=visibleMembers().slice().sort((a,b)=>String(a.name||"").localeCompare(String(b.name||""))).map(member=>`<option value="${escapeHtml(member.name||"")}"></option>`).join("");
   const search=String(byId("paymentSearch")?.value||"").trim().toLowerCase();
-  const rows=state.payments.slice().sort((a,b)=>sessionTime(b.createdAt)-sessionTime(a.createdAt)).filter(item=>!search||`${item.nickname||""} ${item.paymentType||""} ${item.quantity||""} ${item.responsibleNick||""}`.toLowerCase().includes(search));
+  const rows=state.payments.slice().sort((a,b)=>sessionTime(b.createdAt)-sessionTime(a.createdAt)).filter(item=>!search||`${item.nickname||""} ${item.paymentType||""} ${item.quantity||""} ${item.responsibleNick||""} ${item.observation||""}`.toLowerCase().includes(search));
   setText("paymentsCount",`${rows.length} pagamento${rows.length===1?"":"s"}`);
-  rowsHost.innerHTML=rows.map(item=>`<tr><td>${escapeHtml(paymentDate(item.createdAt))}</td><td><strong>${escapeHtml(item.nickname||"—")}</strong></td><td>${escapeHtml(item.paymentType||"—")}</td><td>${escapeHtml(formatPaymentQuantity(item.quantity))}</td><td>${escapeHtml(item.responsibleNick||"—")}</td><td>${owner()?`<button class="btn danger mini" data-delete-payment="${escapeHtml(item.id)}" type="button">Excluir</button>`:"—"}</td></tr>`).join("")||'<tr><td colspan="6">Nenhum pagamento registrado.</td></tr>';
+  rowsHost.innerHTML=rows.map(item=>`<tr><td>${escapeHtml(paymentDate(item.createdAt))}</td><td><strong>${escapeHtml(item.nickname||"—")}</strong></td><td>${escapeHtml(item.paymentType||"—")}</td><td>${escapeHtml(formatPaymentQuantity(item.quantity))}</td><td>${escapeHtml(item.responsibleNick||"—")}</td><td class="payment-observation">${escapeHtml(item.observation||"—")}</td><td>${owner()?`<button class="btn danger mini" data-delete-payment="${escapeHtml(item.id)}" type="button">Excluir</button>`:"—"}</td></tr>`).join("")||'<tr><td colspan="7">Nenhum pagamento registrado.</td></tr>';
 }
 function paymentLocalDate(item){const date=item?.createdAt?.toDate?.()||new Date(item?.createdAt||0);return Number.isNaN(date.getTime())?null:date}
 function paymentPdfText(value){
@@ -775,10 +775,10 @@ function paymentPdfCell(value,width){
 }
 function createPaymentPdf(rows,periodLabel){
   const ordered=rows.slice().sort((a,b)=>sessionTime(a.createdAt)-sessionTime(b.createdAt));
-  const header=[paymentPdfCell("Data/Hora",19),paymentPdfCell("Nickname",18),paymentPdfCell("Pagamento",19),paymentPdfCell("Quantidade",14),paymentPdfCell("Responsavel",20)].join(" | ");
+  const header=[paymentPdfCell("Data/Hora",16),paymentPdfCell("Nickname",15),paymentPdfCell("Pagamento",16),paymentPdfCell("Quantidade",13),paymentPdfCell("Responsavel",16),paymentPdfCell("Observacao",28)].join(" | ");
   const separator="-".repeat(header.length);
   const records=ordered.map(item=>[
-    paymentPdfCell(paymentDate(item.createdAt),19),paymentPdfCell(item.nickname||"-",18),paymentPdfCell(item.paymentType||"-",19),paymentPdfCell(formatPaymentQuantity(item.quantity),14),paymentPdfCell(item.responsibleNick||"-",20)
+    paymentPdfCell(paymentDate(item.createdAt),16),paymentPdfCell(item.nickname||"-",15),paymentPdfCell(item.paymentType||"-",16),paymentPdfCell(formatPaymentQuantity(item.quantity),13),paymentPdfCell(item.responsibleNick||"-",16),paymentPdfCell(item.observation||"-",28)
   ].join(" | "));
   const chunks=[];for(let index=0;index<records.length;index+=38)chunks.push(records.slice(index,index+38));
   const pages=chunks.map((chunk,pageIndex)=>["77 TEAM MANAGER",`Historico de pagamentos - ${periodLabel}`,`Gerado em ${new Date().toLocaleString("pt-BR")} - ${ordered.length} pagamento(s) - Pagina ${pageIndex+1}/${chunks.length}`,"",header,separator,...chunk]);
@@ -801,15 +801,16 @@ on("paymentQuantity","input",event=>{
 });
 on("paymentForm","submit",async event=>{
   event.preventDefault();if(!canOpenPage("pagamentos")||!permissionEnabled("payments_manage"))return toast("Seu cargo não possui permissão para registrar pagamentos.");
-  const nickname=String(byId("paymentNickname")?.value||"").trim(),paymentType=String(byId("paymentType")?.value||""),quantity=parsePaymentQuantity(byId("paymentQuantity")?.value);
+  const nickname=String(byId("paymentNickname")?.value||"").trim(),paymentType=String(byId("paymentType")?.value||""),quantity=parsePaymentQuantity(byId("paymentQuantity")?.value),observation=String(byId("paymentObservation")?.value||"").trim();
   if(nickname.length<2||nickname.length>120)return toast("Informe um nickname válido.");
   if(!PAYMENT_TYPES.includes(paymentType))return toast("Selecione um tipo de pagamento válido.");
   if(!Number.isSafeInteger(quantity)||quantity<1000000||quantity>99000000)return toast("Informe uma quantidade entre 1 e 99 milhões.");
+  if(observation.length>500)return toast("A observação deve ter no máximo 500 caracteres.");
   const button=byId("confirmPayment");if(button)button.disabled=true;
   try{
     const responsibleNick=String(state.profile?.name||state.profile?.displayName||state.user?.email||"Responsável").slice(0,120);
-    await addDoc(collection(db,"payments"),{nickname,paymentType,quantity,responsibleUid:state.user.uid,responsibleNick,createdAt:serverTimestamp()});
-    await audit("pagamento registrado",`${nickname} · ${paymentType} · quantidade ${quantity}`);event.target.reset();toast("Pagamento confirmado e registrado.");
+    await addDoc(collection(db,"payments"),{nickname,paymentType,quantity,observation,responsibleUid:state.user.uid,responsibleNick,createdAt:serverTimestamp()});
+    await audit("pagamento registrado",`${nickname} · ${paymentType} · quantidade ${quantity}${observation?` · observação: ${observation}`:""}`);event.target.reset();toast("Pagamento confirmado e registrado.");
   }catch(error){
     if(error?.code==="permission-denied"){
       const role=currentAccessRole(), open=pagePermissionEnabled("pagamentos"), area=permissionEnabled("access_staff"), manage=permissionEnabled("payments_manage");
@@ -2150,7 +2151,7 @@ function updateLiveClock(){
 }
 updateLiveClock();
 setInterval(updateLiveClock,1000);
-if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js?v=22.9.32-paymentfix6").catch(error=>console.warn("Service Worker indisponível:",error)));
+if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js?v=22.9.32-paymentobs1").catch(error=>console.warn("Service Worker indisponível:",error)));
 
 function animateNumber(id,target,suffix=""){
   const el=byId(id);

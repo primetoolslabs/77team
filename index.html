@@ -309,12 +309,13 @@
 <label>Nickname<input id="paymentNickname" list="paymentNicknameOptions" maxlength="120" placeholder="Digite ou selecione o nickname" required=""/><datalist id="paymentNicknameOptions"></datalist></label>
 <label>Tipo de pagamento<select id="paymentType" required=""><option value="">Selecione uma opção</option><option>Pedra Mística</option><option>Pedra Obscura</option><option>Aço Negro</option><option>Payout</option><option>Criação de Item</option><option>Adiantamento</option></select></label>
 <label>Quantidade (em milhões)<input id="paymentQuantity" autocomplete="off" inputmode="numeric" maxlength="10" placeholder="Ex.: 20 = 20.000.000" required="" type="text"/><small>Digite de 1 a 99. Exemplo: 20 será registrado como 20.000.000.</small></label>
+<label>Observação <span class="muted">(opcional)</span><textarea id="paymentObservation" maxlength="500" rows="3" placeholder="Ex.: referente ao evento, ajuste, complemento ou outra informação importante."></textarea><small>Até 500 caracteres.</small></label>
 <button class="btn primary" id="confirmPayment" type="submit">Confirmar Pagamento</button>
 </form>
 </div></article>
 </div>
 <article class="panel"><div class="panel-head"><div><h3>Baixar histórico em PDF</h3><p>Escolha uma semana ou um mês para gerar o relatório em PDF.</p></div></div><div class="panel-body"><div class="button-row"><label>Semana<input id="paymentExportWeek" type="week"/></label><button class="btn" id="downloadPaymentWeek" type="button">Baixar semana em PDF</button><label>Mês<input id="paymentExportMonth" type="month"/></label><button class="btn" id="downloadPaymentMonth" type="button">Baixar mês em PDF</button></div></div></article>
-<article class="panel"><div class="panel-head"><div><h3>Histórico de pagamentos</h3><p>Registros ordenados do mais recente para o mais antigo. Quantidade permitida: 1 a 99.000.000.</p></div><div class="button-row"><input id="paymentSearch" placeholder="Buscar nickname, tipo ou responsável..." type="search"/><button class="btn danger owner-only" id="clearPaymentHistory" type="button">Apagar todo o histórico</button></div></div><div class="panel-body table-wrap"><table><thead><tr><th>Data/Hora</th><th>Nickname</th><th>Pagamento</th><th>Quantidade (1 a 99.000.000)</th><th>Responsável</th><th>Ações</th></tr></thead><tbody id="paymentRows"></tbody></table></div></article>
+<article class="panel"><div class="panel-head"><div><h3>Histórico de pagamentos</h3><p>Registros ordenados do mais recente para o mais antigo. Quantidade permitida: 1 a 99.000.000.</p></div><div class="button-row"><input id="paymentSearch" placeholder="Buscar nickname, tipo, responsável ou observação..." type="search"/><button class="btn danger owner-only" id="clearPaymentHistory" type="button">Apagar todo o histórico</button></div></div><div class="panel-body table-wrap"><table><thead><tr><th>Data/Hora</th><th>Nickname</th><th>Pagamento</th><th>Quantidade (1 a 99.000.000)</th><th>Responsável</th><th>Observação</th><th>Ações</th></tr></thead><tbody id="paymentRows"></tbody></table></div></article>
 </section>
 <section class="page page-animate editor-only" id="registros">
 <div class="page-title"><div><h2>📁 Registros</h2><p>Consulte e baixe registros gerais ou individuais de presença.</p></div><span class="badge" id="recordsResultCount">0 registros</span></div>
@@ -1347,6 +1348,6 @@
 <div class="global-search-results hidden" id="globalSearchResults"></div>
 <div class="toast" id="toast"></div>
 <script src="js/ui.js?v=22.9.32"></script>
-<script src="js/main.js?v=22.9.32-paymentfix6" type="module"></script>
+<script src="js/main.js?v=22.9.32-paymentobs1" type="module"></script>
 </body>
 </html>
