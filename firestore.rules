@@ -7,11 +7,24 @@ service cloud.firestore {
     // Compatibilidade com contas novas e perfis legados. accessRole é a
     // fonte preferencial; os demais campos só são usados como fallback.
     function accessRoleOf(data){
-      return data.get('accessRole',
-        data.get('systemRole',
-          data.get('permissionRole',
-            data.get('userRole',
-              data.get('cargo', data.get('role','member'))))));
+      let access = data.get('accessRole','');
+      let system = data.get('systemRole','');
+      let permission = data.get('permissionRole','');
+      let userRole = data.get('userRole','');
+      let cargo = data.get('cargo','');
+      let role = data.get('role','');
+      let memberRole = data.get('memberRole','');
+      return isDevRole(access) || isLeadershipRole(access) || isStaffRole(access) ? access
+        : isDevRole(system) || isLeadershipRole(system) || isStaffRole(system) ? system
+        : isDevRole(permission) || isLeadershipRole(permission) || isStaffRole(permission) ? permission
+        : isDevRole(userRole) || isLeadershipRole(userRole) || isStaffRole(userRole) ? userRole
+        : isDevRole(cargo) || isLeadershipRole(cargo) || isStaffRole(cargo) ? cargo
+        : isDevRole(role) || isLeadershipRole(role) || isStaffRole(role) ? role
+        : isDevRole(memberRole) || isLeadershipRole(memberRole) || isStaffRole(memberRole) ? memberRole
+        : access != '' ? access
+        : role != '' ? role
+        : memberRole != '' ? memberRole
+        : 'member';
     }
     function isDevRole(role){return role in ['dev','owner','DEV','Owner','developer'];}
     function isLeadershipRole(role){return role in ['leadership','lideranca','Liderança','Lideranca','lider','leader','administrador','admin'];}
