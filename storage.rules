@@ -2,22 +2,48 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
     function signedIn(){ return request.auth != null; }
+    function profileExists(){ return signedIn() && firestore.exists(/databases/(default)/documents/users/$(request.auth.uid)); }
     function profile(){ return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data; }
-    function accessRole(){ return profile().get('accessRole', profile().get('role','member')); }
-    function active(){ return signedIn() && profile().active == true && profile().status == 'approved'; }
-    function dev(){ return active() && accessRole() in ['dev','owner']; }
-    function leadership(){ return active() && accessRole() in ['leadership','lideranca','Liderança','Lideranca','lider','leader','administrador','admin']; }
-    function staff(){ return active() && accessRole() in ['staff','Staff','moderador','moderator']; }
+    function isDevRole(role){ return role in ['dev','owner','DEV','Owner','developer']; }
+    function isLeadershipRole(role){ return role in ['leadership','lideranca','Liderança','Lideranca','lider','leader','administrador','admin']; }
+    function isStaffRole(role){ return role in ['staff','Staff','moderador','moderator']; }
+    function accessRole(){
+      let data = profile();
+      let access = data.get('accessRole','');
+      let system = data.get('systemRole','');
+      let permissionRole = data.get('permissionRole','');
+      let userRole = data.get('userRole','');
+      let cargo = data.get('cargo','');
+      let role = data.get('role','');
+      let memberRole = data.get('memberRole','');
+      return isDevRole(access) || isLeadershipRole(access) || isStaffRole(access) ? access
+        : isDevRole(system) || isLeadershipRole(system) || isStaffRole(system) ? system
+        : isDevRole(permissionRole) || isLeadershipRole(permissionRole) || isStaffRole(permissionRole) ? permissionRole
+        : isDevRole(userRole) || isLeadershipRole(userRole) || isStaffRole(userRole) ? userRole
+        : isDevRole(cargo) || isLeadershipRole(cargo) || isStaffRole(cargo) ? cargo
+        : isDevRole(role) || isLeadershipRole(role) || isStaffRole(role) ? role
+        : isDevRole(memberRole) || isLeadershipRole(memberRole) || isStaffRole(memberRole) ? memberRole
+        : access != '' ? access : role != '' ? role : memberRole != '' ? memberRole : 'member';
+    }
+    function active(){ return profileExists() && profile().get('active',false) == true && profile().get('status','approved') == 'approved'; }
+    function dev(){ return active() && isDevRole(accessRole()); }
+    function leadership(){ return active() && isLeadershipRole(accessRole()); }
+    function staff(){ return active() && isStaffRole(accessRole()); }
     function roleKey(){ return dev() ? 'dev' : leadership() ? 'leadership' : staff() ? 'staff' : active() ? 'member' : 'guest'; }
-    function permission(key, fallback){
+    function defaultPermission(key){
+      let role = roleKey();
+      return role == 'dev'
+        || (role == 'leadership' && key in ['access_staff','support_manage','page_atendimento','page_chat'])
+        || (role == 'staff' && key in ['access_staff','support_manage','page_atendimento','page_chat']);
+    }
+    function permission(key){
       let cfg = firestore.exists(/databases/(default)/documents/settings/app)
         ? firestore.get(/databases/(default)/documents/settings/app).data.get('rolePermissions', {})
         : {};
-      return dev() || cfg.get(key, {}).get(roleKey(), fallback);
+      return dev() || cfg.get(key, {}).get(roleKey(), defaultPermission(key));
     }
-    function staffAccess(){ return (dev() || leadership() || staff()) && permission('access_staff', true); }
-    function supportManager(){ return staffAccess() && permission('support_manage', true); }
-    function loginCustomizer(){ return dev() && permission('login_customize', true); }
+    function supportManager(pageKey){ return active() && permission('access_staff') && permission(pageKey) && permission('support_manage'); }
+    function loginCustomizer(){ return active() && permission('page_personalizar_login') && permission('login_customize'); }
     function validImage(){ return request.resource.size < 5 * 1024 * 1024 && request.resource.contentType.matches('image/(png|jpeg|webp)'); }
 
     match /login-customization/{fileName} {
@@ -26,19 +52,19 @@ service firebase.storage {
       allow delete: if loginCustomizer();
     }
     match /support/{ownerUid}/{ticketId}/{fileName} {
-      allow read: if active() && (request.auth.uid == ownerUid || supportManager());
-      allow create, update: if active() && (request.auth.uid == ownerUid || supportManager()) && validImage();
-      allow delete: if supportManager();
+      allow read: if active() && (request.auth.uid == ownerUid || supportManager('page_atendimento'));
+      allow create, update: if active() && (request.auth.uid == ownerUid || supportManager('page_atendimento')) && validImage();
+      allow delete: if supportManager('page_atendimento');
     }
     match /chat/{ownerUid}/{fileName} {
-      allow read: if active() && (request.auth.uid == ownerUid || supportManager());
-      allow create, update: if active() && (request.auth.uid == ownerUid || supportManager()) && validImage();
-      allow delete: if supportManager();
+      allow read: if active() && (request.auth.uid == ownerUid || supportManager('page_chat'));
+      allow create, update: if active() && (request.auth.uid == ownerUid || supportManager('page_chat')) && validImage();
+      allow delete: if supportManager('page_chat');
     }
     match /chat/{ownerUid}/{chatId}/{fileName} {
-      allow read: if active() && (request.auth.uid == ownerUid || supportManager());
-      allow create, update: if active() && (request.auth.uid == ownerUid || supportManager()) && validImage();
-      allow delete: if supportManager();
+      allow read: if active() && (request.auth.uid == ownerUid || supportManager('page_chat'));
+      allow create, update: if active() && (request.auth.uid == ownerUid || supportManager('page_chat')) && validImage();
+      allow delete: if supportManager('page_chat');
     }
   }
 }

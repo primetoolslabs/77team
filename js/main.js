@@ -56,7 +56,7 @@ let subscribedPermissionSignature="";
 let permissionResubscribeTimer=null;
 
 function toast(msg){const el=$("#toast");el.textContent=msg;el.classList.add("show");clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.remove("show"),3000)}
-function errMsg(e){return ({'auth/invalid-credential':'E-mail ou senha incorretos.','auth/user-disabled':'Esta conta foi desativada.','auth/too-many-requests':'Muitas tentativas. Aguarde alguns minutos e tente novamente.','auth/network-request-failed':'Falha de conexão. Verifique sua internet.','auth/email-already-in-use':'Este e-mail já possui uma conta. Use a mesma senha para recuperar o cadastro pendente.','auth/operation-not-allowed':'Ative o provedor E-mail/Senha em Firebase Authentication.','auth/invalid-email':'Informe um endereço de e-mail válido.','auth/weak-password':'A senha precisa ter pelo menos 8 caracteres.','permission-denied':'Permissão negada. Publique o firestore.rules novo.'})[e?.code]||`${e?.code||'erro'}: ${e?.message||'Falha inesperada'}`}
+function errMsg(e){return ({'auth/invalid-credential':'E-mail ou senha incorretos.','auth/user-disabled':'Esta conta foi desativada.','auth/too-many-requests':'Muitas tentativas. Aguarde alguns minutos e tente novamente.','auth/network-request-failed':'Falha de conexão. Verifique sua internet.','auth/email-already-in-use':'Este e-mail já possui uma conta. Use a mesma senha para recuperar o cadastro pendente.','auth/operation-not-allowed':'Ative o provedor E-mail/Senha em Firebase Authentication.','auth/invalid-email':'Informe um endereço de e-mail válido.','auth/weak-password':'A senha precisa ter pelo menos 8 caracteres.','permission-denied':'Permissão negada pelo Firebase para esta ação. Confira a aba Cargos e Permissões; se a permissão estiver ativa, atualize a página para sincronizar a matriz.'})[e?.code]||`${e?.code||'erro'}: ${e?.message||'Falha inesperada'}`}
 function showOnly(id){document.body.dataset.screen=id;["loading","authScreen","app"].forEach(x=>$("#"+x).classList.toggle("hidden",x!==id))}
 
 function accessRoleFromMemberRole(memberRole, explicitAccessRole=""){
@@ -216,6 +216,42 @@ const ROLE_PERMISSION_DEFINITIONS=Object.freeze([
   {group:"Avançado",key:"login_customize",label:"Personalizar tela de login",defaults:{dev:true,leadership:false,staff:false,member:false}},
   {group:"Progressão",key:"xp_manage",label:"Gerenciar XP dos membros",defaults:{dev:true,leadership:true,staff:true,member:false}}
   ,{group:"Gestão",key:"goals_manage",label:"Criar e remover metas",defaults:{dev:true,leadership:true,staff:true,member:false}}
+  ,{group:"Eventos",key:"events_manage",label:"Criar, editar e excluir eventos",defaults:{dev:true,leadership:true,staff:true,member:false}}
+  ,{group:"Abas · HOME",key:"page_dashboard",label:"Abrir Visão Geral",defaults:{dev:true,leadership:true,staff:true,member:true}}
+  ,{group:"Abas · HOME",key:"page_meu_perfil",label:"Abrir Meu Perfil",defaults:{dev:true,leadership:true,staff:true,member:true}}
+  ,{group:"Abas · HOME",key:"page_membros",label:"Abrir Membros",defaults:{dev:true,leadership:true,staff:true,member:true}}
+  ,{group:"Abas · HOME",key:"page_historico",label:"Abrir Histórico",defaults:{dev:true,leadership:true,staff:true,member:true}}
+  ,{group:"Abas · HOME",key:"page_ranking",label:"Abrir Ranking",defaults:{dev:true,leadership:true,staff:true,member:true}}
+  ,{group:"Abas · HOME",key:"page_calendario",label:"Abrir Calendário",defaults:{dev:true,leadership:true,staff:true,member:true}}
+  ,{group:"Abas · HOME",key:"page_estatisticas",label:"Abrir Estatísticas",defaults:{dev:true,leadership:true,staff:true,member:true}}
+  ,{group:"Abas · HOME",key:"page_sobre",label:"Abrir Sobre",defaults:{dev:true,leadership:true,staff:true,member:true}}
+  ,{group:"Abas · STAFF",key:"page_staff_hub",label:"Abrir painel STAFF",defaults:{dev:true,leadership:true,staff:true,member:false}}
+  ,{group:"Abas · STAFF",key:"page_presencas",label:"Abrir Presenças",defaults:{dev:true,leadership:true,staff:true,member:false}}
+  ,{group:"Abas · STAFF",key:"page_rt_presenca",label:"Abrir RT Presença",defaults:{dev:true,leadership:true,staff:true,member:false}}
+  ,{group:"Abas · STAFF",key:"page_registros",label:"Abrir Registros",defaults:{dev:true,leadership:true,staff:true,member:false}}
+  ,{group:"Abas · STAFF",key:"page_pagamentos",label:"Abrir Pagamentos",defaults:{dev:true,leadership:true,staff:true,member:false}}
+  ,{group:"Abas · STAFF",key:"page_personagens",label:"Abrir Personagens",defaults:{dev:true,leadership:true,staff:true,member:false}}
+  ,{group:"Abas · STAFF",key:"page_metas",label:"Abrir Metas",defaults:{dev:true,leadership:true,staff:true,member:false}}
+  ,{group:"Abas · STAFF",key:"page_solicitacoes",label:"Abrir Solicitações",defaults:{dev:true,leadership:true,staff:true,member:false}}
+  ,{group:"Abas · STAFF",key:"page_notificacoes",label:"Abrir Notificações",defaults:{dev:true,leadership:true,staff:true,member:false}}
+  ,{group:"Abas · STAFF",key:"page_atendimento",label:"Abrir Atendimento",defaults:{dev:true,leadership:true,staff:true,member:false}}
+  ,{group:"Abas · STAFF",key:"page_chat",label:"Abrir Chat",defaults:{dev:true,leadership:true,staff:true,member:false}}
+  ,{group:"Abas · ADMIN",key:"page_staff",label:"Abrir Gestão STAFF",defaults:{dev:true,leadership:true,staff:false,member:false}}
+  ,{group:"Abas · ADMIN",key:"page_configuracoes",label:"Abrir Configurações",defaults:{dev:true,leadership:true,staff:false,member:false}}
+  ,{group:"Abas · ADMIN",key:"page_backup_central",label:"Abrir Backup Central",defaults:{dev:true,leadership:true,staff:false,member:false}}
+  ,{group:"Abas · ADMIN",key:"page_auditoria",label:"Abrir Auditoria",defaults:{dev:true,leadership:true,staff:false,member:false}}
+  ,{group:"Abas · AVANÇADO",key:"page_atualizacoes",label:"Abrir Atualizações",defaults:{dev:true,leadership:false,staff:false,member:false}}
+  ,{group:"Abas · AVANÇADO",key:"page_backup",label:"Abrir Backup avançado",defaults:{dev:true,leadership:false,staff:false,member:false}}
+  ,{group:"Abas · AVANÇADO",key:"page_logs_sistema",label:"Abrir Logs do Sistema",defaults:{dev:true,leadership:false,staff:false,member:false}}
+  ,{group:"Abas · AVANÇADO",key:"page_status_firebase",label:"Abrir Status Firebase",defaults:{dev:true,leadership:false,staff:false,member:false}}
+  ,{group:"Abas · AVANÇADO",key:"page_status_github",label:"Abrir Status GitHub",defaults:{dev:true,leadership:false,staff:false,member:false}}
+  ,{group:"Abas · AVANÇADO",key:"page_sessoes",label:"Abrir Sessões",defaults:{dev:true,leadership:false,staff:false,member:false}}
+  ,{group:"Abas · AVANÇADO",key:"page_manutencao",label:"Abrir Manutenção",defaults:{dev:true,leadership:false,staff:false,member:false}}
+  ,{group:"Abas · AVANÇADO",key:"page_status_servicos",label:"Abrir Status de Serviços",defaults:{dev:true,leadership:false,staff:false,member:false}}
+  ,{group:"Abas · AVANÇADO",key:"page_limpeza_cache",label:"Abrir Limpeza de Cache",defaults:{dev:true,leadership:false,staff:false,member:false}}
+  ,{group:"Abas · AVANÇADO",key:"page_estatisticas_sistema",label:"Abrir Estatísticas do Sistema",defaults:{dev:true,leadership:false,staff:false,member:false}}
+  ,{group:"Abas · AVANÇADO",key:"page_personalizar_login",label:"Abrir Personalizar Login",defaults:{dev:true,leadership:false,staff:false,member:false}}
+  ,{group:"Abas · AVANÇADO",key:"page_permissoes_cargos",label:"Abrir Cargos e Permissões",defaults:{dev:true,leadership:false,staff:false,member:false}}
 ]);
 function defaultRolePermissions(){
   const result={};
@@ -234,9 +270,16 @@ const PERMISSION_ALLOWED_ROLES=Object.freeze({
   character_view:["dev","leadership","staff","member"],character_edit:["dev","leadership","staff","member"],character_delete:["dev","leadership","staff","member"],
   notifications_send:["dev","leadership","staff"],support_manage:["dev","leadership","staff"],payments_manage:["dev","leadership","staff"],
   audit_view:["dev","leadership"],settings_view:["dev","leadership"],settings_edit:["dev"],login_customize:["dev"],
-  xp_manage:["dev","leadership","staff"],goals_manage:["dev","leadership","staff"]
+  xp_manage:["dev","leadership","staff"],goals_manage:["dev","leadership","staff"],events_manage:["dev","leadership","staff"]
 });
-function permissionRoleAllowed(key,role){return role==="dev"||(PERMISSION_ALLOWED_ROLES[key]||["leadership","staff","member"]).includes(role)}
+function permissionRoleAllowed(key,role){
+  if(role==="dev")return true;
+  const explicit=PERMISSION_ALLOWED_ROLES[key];
+  if(explicit)return explicit.includes(role);
+  const item=ROLE_PERMISSION_DEFINITIONS.find(entry=>entry.key===key);
+  if(item?.group?.startsWith("Abas ·"))return item.defaults?.[role]===true;
+  return ["leadership","staff","member"].includes(role);
+}
 function permissionRequired(key,role){return role==="dev"||key==="access_home"}
 function permissionEnabled(key,role=currentAccessRole()){
   if(role==="dev")return true;
@@ -285,9 +328,15 @@ function pageArea(page){
   if(STAFF_PAGES.has(page))return "staff";
   return "home";
 }
+function pagePermissionKey(page){return `page_${String(page||"").replace(/-/g,"_")}`;}
+function pagePermissionEnabled(page){
+  const key=pagePermissionKey(page);
+  return ROLE_PERMISSION_DEFINITIONS.some(item=>item.key===key)?permissionEnabled(key):true;
+}
 function canOpenPage(page){
   if(!state.user)return page==="dashboard"||page==="sobre";
-  if(state.onboardingRequired)return page==="meu-perfil"||page==="sobre";
+  if(state.onboardingRequired)return (page==="meu-perfil"||page==="sobre")&&pagePermissionEnabled(page);
+  if(!pagePermissionEnabled(page))return false;
   if(page==="personagens")return permissionEnabled("access_staff")&&permissionEnabled("character_view");
   if(page==="solicitacoes")return permissionEnabled("access_staff")&&(permissionEnabled("requests_approve")||permissionEnabled("requests_reject"));
   if(page==="notificacoes")return permissionEnabled("access_staff")&&permissionEnabled("notifications_send");
@@ -529,6 +578,7 @@ function applyPermissions(){
   byId("profileAvatarForm")?.classList.toggle("policy-disabled",state.settings?.team?.allowAvatar===false);
   byId("profilePasswordForm")?.classList.toggle("policy-disabled",state.settings?.team?.allowPassword===false);
   byId("staffNoticeForm")?.classList.toggle("hidden",!permissionEnabled("notifications_send"));
+  byId("newCalendarEvent")?.classList.toggle("hidden",!permissionEnabled("events_manage"));
   byId("xpAdjustmentForm")?.classList.toggle("hidden",!permissionEnabled("xp_manage"));
 
   const displayName=state.profile?.name||state.profile?.email||"Usuário";
@@ -750,7 +800,7 @@ on("paymentQuantity","input",event=>{
   event.target.value=quantity<=99000000?quantity.toLocaleString("pt-BR"):"99.000.000";
 });
 on("paymentForm","submit",async event=>{
-  event.preventDefault();if(!permissionEnabled("payments_manage"))return toast("Seu cargo não possui permissão para registrar pagamentos.");
+  event.preventDefault();if(!canOpenPage("pagamentos")||!permissionEnabled("payments_manage"))return toast("Seu cargo não possui permissão para registrar pagamentos.");
   const nickname=String(byId("paymentNickname")?.value||"").trim(),paymentType=String(byId("paymentType")?.value||""),quantity=parsePaymentQuantity(byId("paymentQuantity")?.value);
   if(nickname.length<2||nickname.length>120)return toast("Informe um nickname válido.");
   if(!PAYMENT_TYPES.includes(paymentType))return toast("Selecione um tipo de pagamento válido.");
@@ -1690,7 +1740,7 @@ Um registro será salvo em Gestão → RT Presença.`))return;
       render();
       await audit("clã de membro alterado",`${member.name} → ${nextClan||"Sem clã"}${accountSynced?" · conta sincronizada por UID":user?" · sincronização da conta pendente":" · membro sem conta vinculada"}`);
       toast(accountSynced?"Clã atualizado no membro e na conta.":user?"Clã atualizado no membro. A sincronização da conta ficou pendente.":"Clã atualizado no membro.");
-    }catch(error){toast(error?.code==="permission-denied"?"Permissão negada. Publique o firestore.rules da V22.9.32.":errMsg(error))}
+    }catch(error){toast(error?.code==="permission-denied"?"Permissão negada pelo Firebase. Confira a permissão correspondente em Cargos e Permissões.":errMsg(error))}
     return;
   }
 
@@ -1877,7 +1927,7 @@ document.addEventListener("click",async event=>{
 });
 function closeCalendarEventModal(){editingCalendarEventId="";$("#eventForm")?.reset();$("#eventModal")?.classList.add("hidden")}
 function openCalendarEventModal(item=null){
-  if(!editor())return;
+  if(!permissionEnabled("events_manage"))return toast("Sem permissão para gerenciar eventos.");
   if(state.settings?.events?.customEventsEnabled===false)return toast("A criação de eventos foi desativada nas Configurações.");
   editingCalendarEventId=item?.id||"";
   setText("eventModalTitle",item?"Editar evento":"Novo evento");
@@ -1895,10 +1945,10 @@ document.addEventListener("click",event=>{
   const view=event.target.closest("[data-view-member]");
   if(view){const member=visibleMembers().find(m=>m.id===view.dataset.viewMember);if(member)openMemberDrawer(member)}
   const calendarEvent=event.target.closest("[data-calendar-event]");
-  if(calendarEvent){const item=state.events.find(entry=>entry.id===calendarEvent.dataset.calendarEvent);if(item)editor()?openCalendarEventModal(item):toast(`${item.title}${item.time?` · ${item.time}`:""}${item.description?` · ${item.description}`:""}`)}
+  if(calendarEvent){const item=state.events.find(entry=>entry.id===calendarEvent.dataset.calendarEvent);if(item)permissionEnabled("events_manage")?openCalendarEventModal(item):toast(`${item.title}${item.time?` · ${item.time}`:""}${item.description?` · ${item.description}`:""}`)}
 });
 $("#eventForm").onsubmit=async event=>{
-  event.preventDefault();if(!editor())return;
+  event.preventDefault();if(!permissionEnabled("events_manage"))return toast("Sem permissão para gerenciar eventos.");
   if(state.settings?.events?.customEventsEnabled===false)return toast("A criação de eventos foi desativada nas Configurações.");
   const submitButton=event.submitter||event.currentTarget.querySelector('[type="submit"]');
   if(submitButton?.disabled)return;
@@ -1930,7 +1980,7 @@ $("#eventForm").onsubmit=async event=>{
     if(submitButton)submitButton.disabled=false;
   }
 };
-on("deleteCalendarEvent","click",async()=>{const item=state.events.find(entry=>entry.id===editingCalendarEventId);if(!item||!editor())return;if(!confirm(`Excluir o evento ${item.title}?`))return;try{await deleteDoc(doc(db,"events",item.id));await audit("evento excluído",`${item.title} · ${item.date}`);closeCalendarEventModal();toast("Evento excluído.")}catch(error){toast(errMsg(error))}});
+on("deleteCalendarEvent","click",async()=>{const item=state.events.find(entry=>entry.id===editingCalendarEventId);if(!item||!permissionEnabled("events_manage"))return;if(!confirm(`Excluir o evento ${item.title}?`))return;try{await deleteDoc(doc(db,"events",item.id));await audit("evento excluído",`${item.title} · ${item.date}`);closeCalendarEventModal();toast("Evento excluído.")}catch(error){toast(errMsg(error))}});
 
 
 
@@ -2094,7 +2144,7 @@ function updateLiveClock(){
 }
 updateLiveClock();
 setInterval(updateLiveClock,1000);
-if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js?v=22.9.32-paymentstaff1").catch(error=>console.warn("Service Worker indisponível:",error)));
+if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js?v=22.9.32-permissionsync1").catch(error=>console.warn("Service Worker indisponível:",error)));
 
 function animateNumber(id,target,suffix=""){
   const el=byId(id);
@@ -2388,7 +2438,7 @@ on("profileNicknameForm","submit",async event=>{
   }catch(error){
     console.error("Falha ao salvar o próprio perfil:",error);
     toast(error?.code==="permission-denied"
-      ? "Permissão negada ao salvar o perfil. Publique o firestore.rules da V22.9.32 no Firebase e confirme o projeto team-f78cd."
+      ? "Permissão negada ao salvar o perfil. Confira Cargos e Permissões e a sessão atual do usuário."
       : (error.message||"Não foi possível atualizar o perfil."));
   }
 });
@@ -2712,7 +2762,7 @@ on("characterForm","submit",async event=>{
   }catch(error){
     console.error("Falha ao salvar o próprio personagem:",error);
     toast(error?.code==="permission-denied"
-      ? "Permissão negada ao salvar o personagem. Publique o firestore.rules da V22.7.2 no Firebase e confirme o projeto team-f78cd."
+      ? "Permissão negada ao salvar o personagem. Confira Cargos e Permissões e a sessão atual do usuário."
       : (error.message||"Não foi possível salvar o personagem."));
   }
 });

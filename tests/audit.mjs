@@ -62,20 +62,20 @@ assert.ok(!main.includes('byId("rememberAccess")'));
 assert.ok(rules.includes("validOptionalHttps"));
 assert.ok(rules.includes("request.resource.data.senderRole == roleKey()"));
 assert.ok(rules.includes("request.resource.data.chatStatus in ['active','finalized']"));
-assert.ok(rules.includes("allow create: if dev() || (editor() && request.resource.data.keys().hasOnly(['title','date','time','type','description','createdBy','createdAt'])"));
-assert.ok(rules.includes("allow create: if dev() || (staffAccess() && permission('presence_reset', false)"));
-assert.ok(rules.includes("allow create: if dev() || (staffAccess() && permission('xp_manage', true)"));
+assert.ok(rules.includes("allow create: if dev() || (active() && permission('events_manage') && request.resource.data.keys().hasOnly(['title','date','time','type','description','createdBy','createdAt'])"));
+assert.ok(rules.includes("allow create: if dev() || (staffAccess() && permission('presence_reset')"));
+assert.ok(rules.includes("allow create: if dev() || (staffAccess() && permission('xp_manage')"));
 assert.ok(rules.includes("!request.resource.data.diff(resource.data).affectedKeys().hasAny(['rolePermissions','security','maintenance','advanced','loginCustomization'])"));
 assert.ok(rules.includes("allow update, delete: if dev();"));
 assert.ok(main.includes('key:"members_delete",label:"Excluir membros",defaults:{dev:true,leadership:true,staff:true,member:false}'));
 assert.ok(main.includes('function permissionRequired(key,role){return role==="dev"||key==="access_home"}'));
 assert.ok(!main.includes('role==="staff"&&["requests_approve","members_delete","members_clan_change"].includes(key)'));
 assert.ok(main.includes("function canDeleteMemberRecord"));
-assert.ok(rules.includes("staff() && permission('members_delete', true) && isMemberRole(accessRoleOf(resource.data))"));
+assert.ok(rules.includes("staff() && permission('members_delete') && isMemberRole(accessRoleOf(resource.data))"));
 assert.ok(main.includes('key:"members_clan_change",label:"Alterar clã dos membros",defaults:{dev:true,leadership:true,staff:true,member:false}'));
 assert.ok(main.includes('permissionEnabled("members_clan_change")'));
 assert.ok(main.includes("function canChangeMemberClan"));
-assert.ok(rules.includes("staff() && permission('members_clan_change', true) && isMemberRole(accessRoleOf(resource.data))"));
+assert.ok(rules.includes("staff() && permission('members_clan_change') && isMemberRole(accessRoleOf(resource.data))"));
 assert.ok(main.includes('await updateDoc(doc(db,"members",member.id),payload)'));
 assert.ok(html.includes('id="pagamentos"'));
 assert.ok(html.includes('id="paymentForm"'));
@@ -83,7 +83,7 @@ assert.ok(ui.includes('["pagamentos","💰","Pagamentos"]'));
 assert.ok(main.includes('collection(db,"payments")'));
 assert.ok(main.includes('payments:state.payments'));
 assert.ok(rules.includes("match /payments/{id}"));
-assert.ok(rules.includes("permission('payments_manage', true)"));
+assert.ok(rules.includes("permission('payments_manage')"));
 assert.ok(html.includes('id="paymentQuantity"'));
 assert.ok(html.includes('id="clearPaymentHistory"'));
 assert.ok(main.includes('data-delete-payment'));
@@ -135,8 +135,8 @@ assert.ok(html.includes('id="signupPassword" minlength="8"'));
 assert.ok(rules.includes("resource.data.status == 'rejected' && resource.data.active == false"));
 assert.ok(rules.includes("function leadershipCanApprovePendingMember"));
 assert.ok(rules.includes("request.resource.data.keys().hasOnly(["));
-assert.ok(main.includes('serviceWorker.register("./service-worker.js?v=22.9.32-paymentstaff1")'));
-assert.ok(html.includes('js/main.js?v=22.9.32-paymentstaff1'));
+assert.ok(main.includes('serviceWorker.register("./service-worker.js?v=22.9.32-permissionsync1")'));
+assert.ok(html.includes('js/main.js?v=22.9.32-permissionsync1'));
 
 
 // Permissões dinâmicas: Firebase e interface devem compartilhar a mesma matriz em tempo real.
@@ -144,12 +144,26 @@ assert.ok(main.includes('function permissionRuntimeSignature()'));
 assert.ok(main.includes('schedulePermissionRuntimeRefresh'));
 assert.ok(main.includes('onSnapshot(doc(db,"users",state.user.uid)'));
 assert.ok(main.includes('Matriz salva no Firebase e aplicada em tempo real para todos os cargos.'));
-assert.ok(rules.includes("permission('requests_approve', true)"));
-assert.ok(rules.includes("permission('members_delete', true)"));
-assert.ok(rules.includes("permission('members_clan_change', true)"));
-assert.ok(rules.includes("function staffAccess(){return editor() && permission('access_staff', true);}"));
-assert.ok(rules.includes("function adminAccess(){return (dev() || leadership()) && permission('access_admin', true);}"));
+assert.ok(rules.includes("permission('requests_approve')"));
+assert.ok(rules.includes("permission('members_delete')"));
+assert.ok(rules.includes("permission('members_clan_change')"));
+assert.ok(rules.includes("function staffAccess(){return active() && permission('access_staff');}"));
+assert.ok(rules.includes("function adminAccess(){return active() && permission('access_admin');}"));
 assert.ok(html.includes('salvas no Firebase e entram em vigor em tempo real'));
+
+// Fonte única de verdade para permissões: interface, Firestore e Storage usam settings/app.rolePermissions.
+assert.ok(main.includes('key:"page_pagamentos",label:"Abrir Pagamentos"'));
+assert.ok(main.includes('function pagePermissionEnabled(page)'));
+assert.ok(main.includes('key:"events_manage",label:"Criar, editar e excluir eventos"'));
+assert.ok(rules.includes("function defaultPermission(key)"));
+assert.ok(rules.includes("cfg.get(key, {}).get(roleKey(), defaultPermission(key))"));
+assert.ok(rules.includes("permission('page_pagamentos') && permission('payments_manage')"));
+assert.ok(!rules.includes("permission('payments_manage', true)"));
+const storageRules=read("storage.rules");
+assert.ok(storageRules.includes("rolePermissions"));
+assert.ok(storageRules.includes("supportManager('page_atendimento')"));
+assert.ok(storageRules.includes("supportManager('page_chat')"));
+assert.ok(storageRules.includes("permission('page_personalizar_login')"));
 
 // A mensagem de sucesso fica no fim para não mascarar falhas nas verificações de Auth.
 console.log("Auditoria estática V22.9.32: OK");
@@ -180,15 +194,14 @@ const clientCollections=new Set([...main.matchAll(/collection\(db,["']([^"']+)["
 for(const name of clientCollections)assert.ok(rules.includes(`match /${name}/{`),`Coleção sem regra explícita: ${name}`);
 
 // Storage precisa obedecer à mesma matriz dinâmica usada no projeto.
-const storageRules=read("storage.rules");
-assert.ok(storageRules.includes("function permission(key, fallback)"));
-assert.ok(storageRules.includes("permission('support_manage', true)"));
-assert.ok(storageRules.includes("permission('login_customize', true)"));
-assert.ok(storageRules.includes("function staffAccess()"));
+assert.ok(storageRules.includes("function permission(key)"));
+assert.ok(storageRules.includes("permission('support_manage')"));
+assert.ok(storageRules.includes("permission('login_customize')"));
+assert.ok(storageRules.includes("function supportManager(pageKey)"));
 
 // Cache/versionamento deve apontar para a mesma revisão das abas.
-assert.ok(main.includes('service-worker.js?v=22.9.32-paymentstaff1'));
-assert.ok(html.includes('js/main.js?v=22.9.32-paymentstaff1'));
+assert.ok(main.includes('service-worker.js?v=22.9.32-permissionsync1'));
+assert.ok(html.includes('js/main.js?v=22.9.32-permissionsync1'));
 const serviceWorker=read("service-worker.js");
-assert.ok(serviceWorker.includes('77-team-manager-v22.9.32-paymentstaff1'));
-assert.ok(serviceWorker.includes('js/main.js?v=22.9.32-paymentstaff1'));
+assert.ok(serviceWorker.includes('77-team-manager-v22.9.32-permissionsync1'));
+assert.ok(serviceWorker.includes('js/main.js?v=22.9.32-permissionsync1'));
