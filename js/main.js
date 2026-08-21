@@ -814,7 +814,7 @@ on("paymentForm","submit",async event=>{
     if(error?.code==="permission-denied"){
       const role=currentAccessRole(), open=pagePermissionEnabled("pagamentos"), area=permissionEnabled("access_staff"), manage=permissionEnabled("payments_manage");
       console.error("Pagamento negado pelo Firestore",{role,page_pagamentos:open,access_staff:area,payments_manage:manage,profile:state.profile});
-      toast(`Pagamento negado pelo Firebase · cargo=${accessRoleLabel(role)} · abrir aba=${open?"SIM":"NÃO"} · acesso STAFF=${area?"SIM":"NÃO"} · registrar=${manage?"SIM":"NÃO"} · regra esperada=active+payments_manage.`);
+      toast(`Pagamento negado pelo Firebase · cargo=${accessRoleLabel(role)} · abrir aba=${open?"SIM":"NÃO"} · acesso STAFF=${area?"SIM":"NÃO"} · registrar=${manage?"SIM":"NÃO"} · regra esperada=paymentsMatrixPermission direta.`);
     }else toast(errMsg(error));
   }finally{if(button)button.disabled=false}
 });
@@ -2150,7 +2150,7 @@ function updateLiveClock(){
 }
 updateLiveClock();
 setInterval(updateLiveClock,1000);
-if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js?v=22.9.32-paymentfix4").catch(error=>console.warn("Service Worker indisponível:",error)));
+if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js?v=22.9.32-paymentfix5").catch(error=>console.warn("Service Worker indisponível:",error)));
 
 function animateNumber(id,target,suffix=""){
   const el=byId(id);
