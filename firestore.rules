@@ -474,14 +474,14 @@ service cloud.firestore {
       allow delete: if active() && permission('events_manage');
     }
     match /rtPresence/{id} {
-      allow read: if staffAccess() && permission('page_rt_presenca');
-      allow create: if dev() || (staffAccess() && permission('page_rt_presenca') && permission('presence_finalize')
+      allow read: if staffAccess() && permission('presence_finalize');
+      allow create: if dev() || (staffAccess() && permission('presence_finalize')
         && request.resource.data.keys().hasOnly(['kind','typeLabel','date','week','slot','slotLabel','clan','records','counts','total','status','finalizedBy','finalizedByName','finalizedAt','createdAt','updatedBy','updatedByName','updatedAt'])
         && request.resource.data.kind in ['worldboss','purgatorio','eventos']
         && request.resource.data.records is list && request.resource.data.records.size() <= 5000
         && request.resource.data.status in ['open','finalized']
         && (request.resource.data.get('finalizedBy',request.auth.uid) == request.auth.uid || request.resource.data.get('updatedBy',request.auth.uid) == request.auth.uid));
-      allow update: if dev() || (staffAccess() && permission('page_rt_presenca') && permission('presence_finalize')
+      allow update: if dev() || (staffAccess() && permission('presence_finalize')
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['records','counts','total','status','finalizedBy','finalizedByName','finalizedAt','updatedBy','updatedByName','updatedAt'])
         && request.resource.data.records is list && request.resource.data.records.size() <= 5000
         && request.resource.data.status in ['open','finalized']
@@ -538,7 +538,7 @@ service cloud.firestore {
         || (resource.data.get('targetType','') == 'member' && isMemberRole(currentAccessRole()))
         || (resource.data.get('targetType','') == 'staff' && (isStaffRole(currentAccessRole()) || isLeadershipRole(currentAccessRole()) || isDevRole(currentAccessRole())))
       ));
-      allow create: if (staffAccess() && permission('page_notificacoes') && permission('notifications_send') && request.resource.data.createdBy == request.auth.uid
+      allow create: if (staffAccess() && permission('notifications_send') && request.resource.data.createdBy == request.auth.uid
         && request.resource.data.get('targetType','all') in ['all','user','member','staff']
         && request.resource.data.get('title','') is string && request.resource.data.get('title','').size() > 0 && request.resource.data.get('title','').size() <= 160
         && request.resource.data.get('message','') is string && request.resource.data.get('message','').size() > 0 && request.resource.data.get('message','').size() <= 4000)
@@ -554,7 +554,7 @@ service cloud.firestore {
     }
 
     match /supportMessages/{id} {
-      allow read: if (staffAccess() && permission('page_atendimento') && permission('support_manage')) || (active() && resource.data.ownerUid == request.auth.uid && resource.data.status != 'resolved');
+      allow read: if (staffAccess() && permission('support_manage')) || (active() && resource.data.ownerUid == request.auth.uid && resource.data.status != 'resolved');
       allow create: if (active()
         && request.resource.data.senderUid == request.auth.uid
         && request.resource.data.senderName == profile().get('name',profile().get('email','Usuário'))
@@ -566,9 +566,9 @@ service cloud.firestore {
         && validOptionalHttps(request.resource.data.get('link',''))
         && request.resource.data.get('status','open') in ['open','in_progress','waiting_user']
         && (request.resource.data.text.size() > 0 || request.resource.data.get('imageUrl','') != '')
-        && ((staffAccess() && permission('page_atendimento') && permission('support_manage')) || (request.resource.data.ownerUid == request.auth.uid && request.resource.data.ownerName == profile().get('name',profile().get('email','Usuário')))))
+        && ((staffAccess() && permission('support_manage')) || (request.resource.data.ownerUid == request.auth.uid && request.resource.data.ownerName == profile().get('name',profile().get('email','Usuário')))))
         || dev();
-      allow update: if (staffAccess() && permission('page_atendimento') && permission('support_manage')
+      allow update: if (staffAccess() && permission('support_manage')
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','statusUpdatedAt','statusUpdatedBy'])
         && request.resource.data.status in ['open','in_progress','waiting_user','resolved'])
         || dev();
@@ -576,7 +576,7 @@ service cloud.firestore {
     }
 
     match /chatMessages/{id} {
-      allow read: if (staffAccess() && permission('page_chat') && permission('support_manage')) || (active() && resource.data.ownerUid == request.auth.uid);
+      allow read: if (staffAccess() && permission('support_manage')) || (active() && resource.data.ownerUid == request.auth.uid);
       allow create: if (active()
         && request.resource.data.senderUid == request.auth.uid
         && request.resource.data.senderName == profile().get('name',profile().get('email','Usuário'))
@@ -588,9 +588,9 @@ service cloud.firestore {
         && validOptionalHttps(request.resource.data.get('link',''))
         && request.resource.data.get('chatStatus','active') == 'active'
         && (request.resource.data.text.size() > 0 || request.resource.data.get('imageUrl','') != '')
-        && ((staffAccess() && permission('page_chat') && permission('support_manage')) || (request.resource.data.ownerUid == request.auth.uid && request.resource.data.ownerName == profile().get('name',profile().get('email','Usuário')))))
+        && ((staffAccess() && permission('support_manage')) || (request.resource.data.ownerUid == request.auth.uid && request.resource.data.ownerName == profile().get('name',profile().get('email','Usuário')))))
         || dev();
-      allow update: if (staffAccess() && permission('page_chat') && permission('support_manage')
+      allow update: if (staffAccess() && permission('support_manage')
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['chatStatus','finalizedAt','finalizedBy'])
         && request.resource.data.chatStatus in ['active','finalized'])
         || dev();
@@ -633,8 +633,8 @@ service cloud.firestore {
       allow update, delete: if dev();
     }
     match /payments/{id} {
-      allow read: if staffAccess() && permission('page_pagamentos') && permission('payments_manage');
-      allow create: if dev() || (staffAccess() && permission('page_pagamentos') && permission('payments_manage')
+      allow read: if staffAccess() && permission('payments_manage');
+      allow create: if dev() || (staffAccess() && permission('payments_manage')
         && request.resource.data.keys().hasOnly(['nickname','paymentType','quantity','responsibleUid','responsibleNick','createdAt'])
         && request.resource.data.nickname is string
         && request.resource.data.nickname.size() >= 2
@@ -651,7 +651,7 @@ service cloud.firestore {
       allow update, delete: if dev();
     }
     match /audit/{id} {
-      allow read: if dev() || (adminAccess() && permission('page_auditoria') && permission('audit_view'));
+      allow read: if dev() || (adminAccess() && permission('audit_view'));
       allow create: if ((editor() || active())
           && request.resource.data.keys().hasOnly(['userId','userName','action','details','createdAt'])
           && request.resource.data.userId == request.auth.uid

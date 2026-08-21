@@ -42,8 +42,8 @@ service firebase.storage {
         : {};
       return dev() || cfg.get(key, {}).get(roleKey(), defaultPermission(key));
     }
-    function supportManager(pageKey){ return active() && permission('access_staff') && permission(pageKey) && permission('support_manage'); }
-    function loginCustomizer(){ return active() && permission('page_personalizar_login') && permission('login_customize'); }
+    function supportManager(){ return active() && permission('access_staff') && permission('support_manage'); }
+    function loginCustomizer(){ return active() && permission('login_customize'); }
     function validImage(){ return request.resource.size < 5 * 1024 * 1024 && request.resource.contentType.matches('image/(png|jpeg|webp)'); }
 
     match /login-customization/{fileName} {
@@ -52,19 +52,19 @@ service firebase.storage {
       allow delete: if loginCustomizer();
     }
     match /support/{ownerUid}/{ticketId}/{fileName} {
-      allow read: if active() && (request.auth.uid == ownerUid || supportManager('page_atendimento'));
-      allow create, update: if active() && (request.auth.uid == ownerUid || supportManager('page_atendimento')) && validImage();
-      allow delete: if supportManager('page_atendimento');
+      allow read: if active() && (request.auth.uid == ownerUid || supportManager());
+      allow create, update: if active() && (request.auth.uid == ownerUid || supportManager()) && validImage();
+      allow delete: if supportManager();
     }
     match /chat/{ownerUid}/{fileName} {
-      allow read: if active() && (request.auth.uid == ownerUid || supportManager('page_chat'));
-      allow create, update: if active() && (request.auth.uid == ownerUid || supportManager('page_chat')) && validImage();
-      allow delete: if supportManager('page_chat');
+      allow read: if active() && (request.auth.uid == ownerUid || supportManager());
+      allow create, update: if active() && (request.auth.uid == ownerUid || supportManager()) && validImage();
+      allow delete: if supportManager();
     }
     match /chat/{ownerUid}/{chatId}/{fileName} {
-      allow read: if active() && (request.auth.uid == ownerUid || supportManager('page_chat'));
-      allow create, update: if active() && (request.auth.uid == ownerUid || supportManager('page_chat')) && validImage();
-      allow delete: if supportManager('page_chat');
+      allow read: if active() && (request.auth.uid == ownerUid || supportManager());
+      allow create, update: if active() && (request.auth.uid == ownerUid || supportManager()) && validImage();
+      allow delete: if supportManager();
     }
   }
 }

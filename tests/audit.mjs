@@ -135,8 +135,8 @@ assert.ok(html.includes('id="signupPassword" minlength="8"'));
 assert.ok(rules.includes("resource.data.status == 'rejected' && resource.data.active == false"));
 assert.ok(rules.includes("function leadershipCanApprovePendingMember"));
 assert.ok(rules.includes("request.resource.data.keys().hasOnly(["));
-assert.ok(main.includes('serviceWorker.register("./service-worker.js?v=22.9.32-permissionsync1")'));
-assert.ok(html.includes('js/main.js?v=22.9.32-permissionsync1'));
+assert.ok(main.includes('serviceWorker.register("./service-worker.js?v=22.9.32-permissionsync2")'));
+assert.ok(html.includes('js/main.js?v=22.9.32-permissionsync2'));
 
 
 // Permissões dinâmicas: Firebase e interface devem compartilhar a mesma matriz em tempo real.
@@ -157,13 +157,13 @@ assert.ok(main.includes('function pagePermissionEnabled(page)'));
 assert.ok(main.includes('key:"events_manage",label:"Criar, editar e excluir eventos"'));
 assert.ok(rules.includes("function defaultPermission(key)"));
 assert.ok(rules.includes("cfg.get(key, {}).get(roleKey(), defaultPermission(key))"));
-assert.ok(rules.includes("permission('page_pagamentos') && permission('payments_manage')"));
+assert.ok(rules.includes("allow create: if dev() || (staffAccess() && permission('payments_manage')"));
 assert.ok(!rules.includes("permission('payments_manage', true)"));
 const storageRules=read("storage.rules");
 assert.ok(storageRules.includes("rolePermissions"));
-assert.ok(storageRules.includes("supportManager('page_atendimento')"));
-assert.ok(storageRules.includes("supportManager('page_chat')"));
-assert.ok(storageRules.includes("permission('page_personalizar_login')"));
+assert.ok(storageRules.includes("supportManager()"));
+assert.ok(storageRules.includes("permission('support_manage')"));
+assert.ok(storageRules.includes("permission('login_customize')"));
 
 // A mensagem de sucesso fica no fim para não mascarar falhas nas verificações de Auth.
 console.log("Auditoria estática V22.9.32: OK");
@@ -197,11 +197,11 @@ for(const name of clientCollections)assert.ok(rules.includes(`match /${name}/{`)
 assert.ok(storageRules.includes("function permission(key)"));
 assert.ok(storageRules.includes("permission('support_manage')"));
 assert.ok(storageRules.includes("permission('login_customize')"));
-assert.ok(storageRules.includes("function supportManager(pageKey)"));
+assert.ok(storageRules.includes("function supportManager()"));
 
 // Cache/versionamento deve apontar para a mesma revisão das abas.
-assert.ok(main.includes('service-worker.js?v=22.9.32-permissionsync1'));
-assert.ok(html.includes('js/main.js?v=22.9.32-permissionsync1'));
+assert.ok(main.includes('service-worker.js?v=22.9.32-permissionsync2'));
+assert.ok(html.includes('js/main.js?v=22.9.32-permissionsync2'));
 const serviceWorker=read("service-worker.js");
-assert.ok(serviceWorker.includes('77-team-manager-v22.9.32-permissionsync1'));
-assert.ok(serviceWorker.includes('js/main.js?v=22.9.32-permissionsync1'));
+assert.ok(serviceWorker.includes('77-team-manager-v22.9.32-permissionsync2'));
+assert.ok(serviceWorker.includes('js/main.js?v=22.9.32-permissionsync2'));
