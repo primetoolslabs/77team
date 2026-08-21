@@ -37,12 +37,11 @@ service cloud.firestore {
     function staff(){return active() && isStaffRole(currentAccessRole());}
     function staffApprover(){
       return signedIn()
-        && staffAccess()
+        && staffRequestsApprovePermission()
         && exists(/databases/$(database)/documents/users/$(request.auth.uid))
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('active',false) == true
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('status','approved') == 'approved'
-        && isStaffRole(accessRoleOf(get(/databases/$(database)/documents/users/$(request.auth.uid)).data))
-        && permission('requests_approve');
+        && isStaffRole(accessRoleOf(get(/databases/$(database)/documents/users/$(request.auth.uid)).data));
     }
     function editor(){return dev() || leadership() || staff();}
     function roleKey(){ return dev() ? 'dev' : leadership() ? 'leadership' : staff() ? 'staff' : active() ? 'member' : 'guest'; }
@@ -95,6 +94,18 @@ service cloud.firestore {
         )
       );
     }
+
+    function staffRequestsApprovePermission(){
+      return staff()
+        && exists(/databases/$(database)/documents/settings/app)
+        && get(/databases/$(database)/documents/settings/app).data.rolePermissions.requests_approve.staff == true;
+    }
+    function staffClanChangePermission(){
+      return staff()
+        && exists(/databases/$(database)/documents/settings/app)
+        && get(/databases/$(database)/documents/settings/app).data.rolePermissions.members_clan_change.staff == true;
+    }
+
     function staffAccess(){return active() && permission('access_staff');}
     function adminAccess(){return active() && permission('access_admin');}
     function ownerExists(){return exists(/databases/$(database)/documents/system/owner);}
@@ -282,7 +293,7 @@ service cloud.firestore {
           && request.resource.data.characterUpdatedBy == request.auth.uid
         )
         || (
-          staff() && permission('members_clan_change') && isMemberRole(accessRoleOf(resource.data))
+          staffClanChangePermission() && isMemberRole(accessRoleOf(resource.data))
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['clan','clanUpdatedAt','clanUpdatedBy','updatedAt'])
           && request.resource.data.clanUpdatedBy == request.auth.uid
         )
@@ -355,7 +366,7 @@ service cloud.firestore {
           && claimMatchesAfter(request.auth.uid, nicknameKey(getAfter(userPath(request.auth.uid)).data))
         )
         || (
-          staff() && permission('members_clan_change') && isMemberRole(accessRoleOf(resource.data))
+          staffClanChangePermission() && isMemberRole(accessRoleOf(resource.data))
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['clan','clanUpdatedAt','clanUpdatedBy','updatedAt'])
           && request.resource.data.clan is string && request.resource.data.clan.size() <= 80
           && request.resource.data.clanUpdatedBy == request.auth.uid

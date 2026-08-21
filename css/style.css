@@ -5510,3 +5510,24 @@ body[data-public-view="true"] .global-search-wrap,body[data-public-view="true"] 
 /* V22.9.33 — HOME com dados reais */
 .home-live-strip{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:16px 18px;margin-bottom:16px;border:1px solid rgba(135,109,255,.22);border-radius:16px;background:linear-gradient(135deg,rgba(90,62,178,.14),rgba(22,25,35,.88));box-shadow:0 12px 30px rgba(0,0,0,.14)}
 .home-live-intro{display:flex;align-items:center;gap:11px;min-width:250px}.home-live-intro strong{display:block;font-size:14px}.home-live-intro small{display:block;margin-top:3px;color:var(--muted,#9da3b3);line-height:1.35}.home-live-dot{width:10px;height:10px;border-radius:50%;background:#56d889;box-shadow:0 0 0 5px rgba(86,216,137,.12),0 0 15px rgba(86,216,137,.55);flex:0 0 auto}.home-live-facts{display:grid;grid-template-columns:repeat(4,minmax(110px,1fr));gap:10px;flex:1}.home-live-facts>div{padding:9px 11px;border:1px solid rgba(255,255,255,.07);border-radius:11px;background:rgba(255,255,255,.025)}.home-live-facts span{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted,#9da3b3);margin-bottom:4px}.home-live-facts strong{display:block;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}@media(max-width:1100px){.home-live-strip{align-items:flex-start;flex-direction:column}.home-live-facts{width:100%}}@media(max-width:720px){.home-live-facts{grid-template-columns:repeat(2,1fr)}}
+
+
+/* Pagamentos — campo Observação legível no tema escuro */
+#paymentObservation{
+  width:100%;
+  min-height:88px;
+  resize:vertical;
+  background:#11131d !important;
+  color:#ffffff !important;
+  caret-color:#ffffff !important;
+  -webkit-text-fill-color:#ffffff !important;
+  border:1px solid rgba(171,81,225,.28) !important;
+}
+#paymentObservation::placeholder{
+  color:#9b9eaa !important;
+  opacity:1;
+}
+#paymentObservation::selection{
+  background:#7652ff;
+  color:#ffffff;
+}

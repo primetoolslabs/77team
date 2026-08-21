@@ -75,7 +75,7 @@ assert.ok(rules.includes("staff() && permission('members_delete') && isMemberRol
 assert.ok(main.includes('key:"members_clan_change",label:"Alterar clã dos membros",defaults:{dev:true,leadership:true,staff:true,member:false}'));
 assert.ok(main.includes('permissionEnabled("members_clan_change")'));
 assert.ok(main.includes("function canChangeMemberClan"));
-assert.ok(rules.includes("staff() && permission('members_clan_change') && isMemberRole(accessRoleOf(resource.data))"));
+assert.ok(rules.includes("staffClanChangePermission() && isMemberRole(accessRoleOf(resource.data))"));
 assert.ok(main.includes('await updateDoc(doc(db,"members",member.id),payload)'));
 assert.ok(html.includes('id="pagamentos"'));
 assert.ok(html.includes('id="paymentForm"'));
@@ -134,8 +134,8 @@ assert.ok(html.includes('id="signupPassword" minlength="8"'));
 assert.ok(rules.includes("resource.data.status == 'rejected' && resource.data.active == false"));
 assert.ok(rules.includes("function leadershipCanApprovePendingMember"));
 assert.ok(rules.includes("request.resource.data.keys().hasOnly(["));
-assert.ok(main.includes('serviceWorker.register("./service-worker.js?v=22.9.32-paymentobs1")'));
-assert.ok(html.includes('js/main.js?v=22.9.32-paymentobs1'));
+assert.ok(main.includes('serviceWorker.register("./service-worker.js?v=22.9.32-staffactions1")'));
+assert.ok(html.includes('js/main.js?v=22.9.32-staffactions1'));
 
 
 // Permissões dinâmicas: Firebase e interface devem compartilhar a mesma matriz em tempo real.
@@ -198,11 +198,11 @@ assert.ok(storageRules.includes("permission('login_customize')"));
 assert.ok(storageRules.includes("function supportManager()"));
 
 // Cache/versionamento deve apontar para a mesma revisão das abas.
-assert.ok(main.includes('service-worker.js?v=22.9.32-paymentobs1'));
-assert.ok(html.includes('js/main.js?v=22.9.32-paymentobs1'));
+assert.ok(main.includes('service-worker.js?v=22.9.32-staffactions1'));
+assert.ok(html.includes('js/main.js?v=22.9.32-staffactions1'));
 const serviceWorker=read("service-worker.js");
-assert.ok(serviceWorker.includes('77-team-manager-v22.9.32-paymentobs1'));
-assert.ok(serviceWorker.includes('js/main.js?v=22.9.32-paymentobs1'));
+assert.ok(serviceWorker.includes('77-team-manager-v22.9.32-staffactions1'));
+assert.ok(serviceWorker.includes('js/main.js?v=22.9.32-staffactions1'));
 assert.ok(rules.includes("function paymentsMatrixPermission()"));
 assert.ok(rules.includes("rolePermissions.payments_manage.staff == true"));
 
@@ -210,3 +210,8 @@ assert.ok(html.includes('id="paymentObservation"'));
 assert.ok(main.includes("observation=String(byId(\"paymentObservation\")"));
 assert.ok(main.includes("quantity,observation,responsibleUid"));
 assert.ok(main.includes("item.observation||\"—\""));
+assert.ok(rules.includes("function staffRequestsApprovePermission()"));
+assert.ok(rules.includes("rolePermissions.requests_approve.staff == true"));
+assert.ok(rules.includes("function staffClanChangePermission()"));
+assert.ok(rules.includes("rolePermissions.members_clan_change.staff == true"));
+assert.ok(rules.includes("staffClanChangePermission() && isMemberRole(accessRoleOf(resource.data))"));

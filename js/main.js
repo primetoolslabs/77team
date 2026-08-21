@@ -1747,7 +1747,13 @@ Um registro será salvo em Gestão → RT Presença.`))return;
       render();
       await audit("clã de membro alterado",`${member.name} → ${nextClan||"Sem clã"}${accountSynced?" · conta sincronizada por UID":user?" · sincronização da conta pendente":" · membro sem conta vinculada"}`);
       toast(accountSynced?"Clã atualizado no membro e na conta.":user?"Clã atualizado no membro. A sincronização da conta ficou pendente.":"Clã atualizado no membro.");
-    }catch(error){toast(error?.code==="permission-denied"?"Permissão negada pelo Firebase. Confira a permissão correspondente em Cargos e Permissões.":errMsg(error))}
+    }catch(error){
+      if(error?.code==="permission-denied"){
+        const allowed=permissionEnabled("members_clan_change");
+        console.error("Alteração de clã negada pelo Firestore",{role:currentAccessRole(),members_clan_change:allowed,member});
+        toast(`Alteração de clã negada pelo Firebase · cargo=${accessRoleLabel(currentAccessRole())} · alterar clã=${allowed?"SIM":"NÃO"}.`);
+      }else toast(errMsg(error));
+    }
     return;
   }
 
@@ -1857,7 +1863,13 @@ Um registro será salvo em Gestão → RT Presença.`))return;
       });
       await audit("solicitação aprovada",`${u.email} · ${roleLabel}`);
       toast(`${u.name} foi aprovado como ${roleLabel}.`);
-    }catch(error){toast(errMsg(error));}
+    }catch(error){
+      if(error?.code==="permission-denied"){
+        const approveAllowed=permissionEnabled("requests_approve"),areaAllowed=permissionEnabled("access_staff");
+        console.error("Aprovação negada pelo Firestore",{role:currentAccessRole(),access_staff:areaAllowed,requests_approve:approveAllowed,target:u});
+        toast(`Aprovação negada pelo Firebase · cargo=${accessRoleLabel(currentAccessRole())} · acesso STAFF=${areaAllowed?"SIM":"NÃO"} · aprovar=${approveAllowed?"SIM":"NÃO"}.`);
+      }else toast(errMsg(error));
+    }
     return;
   }
 
@@ -2151,7 +2163,7 @@ function updateLiveClock(){
 }
 updateLiveClock();
 setInterval(updateLiveClock,1000);
-if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js?v=22.9.32-paymentobs1").catch(error=>console.warn("Service Worker indisponível:",error)));
+if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js?v=22.9.32-staffactions1").catch(error=>console.warn("Service Worker indisponível:",error)));
 
 function animateNumber(id,target,suffix=""){
   const el=byId(id);
