@@ -349,19 +349,15 @@
      tratada no clique dos itens e na inicialização. */
 })();
 
-/* Meu Perfil V4 helper visual — otimizado */
+/* Meu Perfil V4 helper visual — sem observers */
 (function(){
-  const sourceIds=["profileDisplayName","profileCharacterClass","profileRoleBadge","profileCharacterClan"];
-  function value(id){return document.getElementById(id)?.textContent?.trim()||"—";}
-  function setIfChanged(id,value){
-    const el=document.getElementById(id);
-    if(el && el.textContent!==value) el.textContent=value;
-  }
-  function sync(){
-    setIfChanged("rpgInfoName",value("profileDisplayName"));
-    setIfChanged("rpgInfoClass",value("profileCharacterClass"));
-    setIfChanged("rpgInfoRole",value("profileRoleBadge"));
-    setIfChanged("rpgInfoClan",value("profileCharacterClan"));
+  function syncProfileInfo(){
+    const get=id=>document.getElementById(id)?.textContent?.trim()||"—";
+    const set=(id,value)=>{const el=document.getElementById(id);if(el && el.textContent!==value)el.textContent=value;};
+    set("rpgInfoName",get("profileDisplayName"));
+    set("rpgInfoClass",get("profileCharacterClass"));
+    set("rpgInfoRole",get("profileRoleBadge"));
+    set("rpgInfoClan",get("profileCharacterClan"));
   }
   document.addEventListener("click",event=>{
     const jump=event.target.closest("[data-profile-tab-jump]");
@@ -369,12 +365,7 @@
       document.querySelector(`[data-profile-tab="${jump.dataset.profileTabJump}"]`)?.click();
       return;
     }
-  });
-  document.addEventListener("DOMContentLoaded",()=>{
-    sync();
-    sourceIds.forEach(id=>{
-      const el=document.getElementById(id);
-      if(el)new MutationObserver(sync).observe(el,{subtree:true,childList:true,characterData:true});
-    });
-  });
+    if(event.target.closest("#meu-perfil")) requestAnimationFrame(syncProfileInfo);
+  },{passive:true});
+  document.addEventListener("DOMContentLoaded",()=>requestAnimationFrame(syncProfileInfo),{once:true});
 })();

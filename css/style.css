@@ -6926,3 +6926,40 @@ body.sidebar-collapsed #sidebar #nav > .main-category-submenu{
 
 /* MEU PERFIL V4 - NOVA INTERFACE */
 #meu-perfil .profile-v4{--green:#2cdf75;--red:#f04b56;--blue:#35b9ef;--gold:#e0ad40;color:#ddd8e2}#meu-perfil .rpg-profile-hero{display:grid;grid-template-columns:150px minmax(420px,1fr) 220px;gap:16px;min-height:245px;padding:18px;border:1px solid rgba(170,84,234,.34);border-radius:4px;background:radial-gradient(circle at 92% 20%,rgba(101,25,164,.23),transparent 26%),linear-gradient(115deg,#0e1016,#07090c 62%,#0c0811)}#meu-perfil .rpg-avatar-column{display:flex;flex-direction:column;align-items:center;justify-content:center}#meu-perfil .rpg-avatar-frame{position:relative}#meu-perfil .rpg-avatar-frame .player-avatar-frame{width:126px!important;height:126px!important;border-radius:14px!important;padding:5px!important;border:2px solid #8440b4!important;background:linear-gradient(135deg,#281439,#08090c 60%)!important;box-shadow:0 0 0 4px rgba(65,24,91,.85),0 0 0 5px rgba(180,84,244,.4),0 0 34px rgba(146,50,220,.22)!important}#meu-perfil .rpg-avatar-edit{position:absolute;right:-10px;top:-8px;width:32px;height:32px;border:1px solid #7a3ca6;border-radius:5px;color:#dbc5e9;background:#111018;cursor:pointer}#meu-perfil .rpg-level-seal{margin-top:-6px;width:44px;height:36px;display:grid;place-items:center;background:linear-gradient(180deg,#6c2495,#2e0d45);color:#fff;font-weight:900;clip-path:polygon(50% 0,100% 25%,88% 100%,12% 100%,0 25%)}#meu-perfil .rpg-name-line{display:flex;justify-content:space-between;gap:10px}#meu-perfil .rpg-kicker{color:#9c57c8;font-size:.55rem;font-weight:900;letter-spacing:.16em}#meu-perfil .rpg-name-line h1{margin:5px 0;color:#f0edf4;font-size:1.72rem}#meu-perfil .rpg-meta-line{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0;color:#928d99;font-size:.62rem}#meu-perfil .rpg-meta-line span{padding-right:8px;border-right:1px solid rgba(255,255,255,.06)}#meu-perfil .rpg-top-stats{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid rgba(148,72,213,.15)}#meu-perfil .rpg-top-stat{min-height:75px;display:grid;place-items:center;align-content:center;border-right:1px solid rgba(255,255,255,.055)}#meu-perfil .rpg-top-stat:last-child{border:0}#meu-perfil .rpg-top-stat small{font-size:.52rem;color:#7e7886}#meu-perfil .rpg-top-stat strong{font-size:1.18rem;color:#c55cff}#meu-perfil .rpg-top-stat.power strong{color:#efb545}#meu-perfil .rpg-xp-box{margin-top:10px;padding:9px;border:1px solid rgba(144,68,209,.12);background:#090a0e}#meu-perfil .rpg-xp-head{display:flex;justify-content:space-between;font-size:.59rem}#meu-perfil .rpg-xp-bar{height:7px!important;margin:6px 0!important}#meu-perfil .rpg-xp-bar i{background:linear-gradient(90deg,#5a1bb0,#8a27de,#b245ff)!important}#meu-perfil .rpg-reward-card{align-self:center;padding:14px;border:1px solid rgba(143,67,205,.24);background:#0a0b0f;display:flex;flex-direction:column;justify-content:center;min-height:135px}#meu-perfil .rpg-reward-chest{font-size:2rem;color:#e39c27}#meu-perfil .rpg-reward-card span{font-size:.52rem;color:#9a92a0}#meu-perfil .rpg-reward-card strong{color:#cc62ff;margin:5px 0}#meu-perfil .rpg-row{display:grid;gap:9px;margin-top:9px}#meu-perfil .rpg-row-main{grid-template-columns:1fr 1.15fr}#meu-perfil .rpg-panel,#meu-perfil .rpg-character-zone{border:1px solid rgba(145,69,208,.18);background:linear-gradient(180deg,#0e1015,#080a0d)}#meu-perfil .rpg-panel>header,#meu-perfil .rpg-section-title{display:flex;align-items:center;justify-content:space-between;min-height:39px;padding:8px 12px;border-bottom:1px solid rgba(148,70,211,.12)}#meu-perfil .rpg-panel h3,#meu-perfil .rpg-section-title h3{margin:0;color:#d3bae5;font-size:.72rem}#meu-perfil .rpg-performance-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;padding:11px}#meu-perfil .perf{position:relative;min-height:86px;padding:10px;border:1px solid rgba(255,255,255,.07);background:#0a0c10}#meu-perfil .perf span{font-size:.49rem;color:#8b8490}#meu-perfil .perf strong{display:block;margin-top:10px;font-size:1.25rem}.perf.green{color:var(--green)}.perf.red{color:var(--red)}.perf.blue{color:var(--blue)}.perf.gold{color:var(--gold)}.perf.purple{color:#b64cf0}.perf.cyan{color:#45d5df}#meu-perfil .rpg-achievements-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;padding:11px;min-height:179px}#meu-perfil .rpg-achievements-grid span{min-height:120px;display:grid;place-items:center;border:1px solid rgba(155,74,216,.17);background:#0a0c10;color:#c8b7d4;text-align:center;padding:8px}#meu-perfil .rpg-achievements-grid span:before{content:"✦";font-size:2rem;color:#c94eff}#meu-perfil .rpg-character-zone{margin-top:9px}#meu-perfil .rpg-character-grid{display:grid;grid-template-columns:.8fr 1fr 1.15fr 1.15fr;gap:8px;padding:9px}#meu-perfil .rpg-char-panel{padding:10px;border:1px solid rgba(148,71,208,.13);background:#0a0c10}#meu-perfil .rpg-panel-label{display:block;margin-bottom:10px;color:#8f8795;font-size:.51rem;text-align:center}#meu-perfil .rpg-attribute-grid{display:grid;gap:6px}#meu-perfil .rpg-attribute-grid.three,#meu-perfil .rpg-attribute-grid.energy{grid-template-columns:repeat(3,1fr)}#meu-perfil .rpg-attribute-grid.skills{grid-template-columns:repeat(2,1fr)}#meu-perfil .attr{min-height:70px;display:flex;flex-direction:column;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.07);background:#0c0e12}#meu-perfil .attr.wide{grid-column:span 2}#meu-perfil .rpg-attribute-grid.energy .attr.wide{grid-column:2}#meu-perfil .attr span{font-size:.48rem;color:#8b8490}#meu-perfil .attr strong{margin-top:6px;font-size:1rem}.attr.gold strong{color:#e7b44b}.attr.green strong{color:#42e284}.attr.blue strong{color:#49c7ff}.attr.purple strong,.attr.violet strong{color:#c75cff}.attr.orange strong{color:#f29737}#meu-perfil .rpg-bottom-row{display:grid;grid-template-columns:1.25fr .75fr;gap:9px;margin-top:9px}#meu-perfil .rpg-personal-grid{display:grid;grid-template-columns:75px 1fr;gap:7px 12px;padding:12px;font-size:.59rem;color:#8a8390}#meu-perfil .rpg-personal-grid strong{color:#d4ced8}#meu-perfil .rpg-personal-grid .online{color:#3dd77a}#meu-perfil .rpg-edit-profile{width:calc(100% - 24px);margin:0 12px 12px}#meu-perfil .rpg-link-button{width:calc(100% - 20px);margin:0 10px 10px;padding:7px;border:1px solid rgba(145,70,210,.12);background:#090b0f;color:#8f8497}@media(max-width:1320px){#meu-perfil .rpg-profile-hero{grid-template-columns:130px 1fr}#meu-perfil .rpg-reward-card{grid-column:1/-1}.rpg-row-main{grid-template-columns:1fr}.rpg-character-grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:800px){#meu-perfil .rpg-profile-hero{grid-template-columns:1fr}.rpg-row-main,.rpg-bottom-row{grid-template-columns:1fr}.rpg-character-grid{grid-template-columns:1fr}.rpg-performance-grid,.rpg-achievements-grid{grid-template-columns:repeat(2,1fr)}}
+
+/* Meu Perfil V4 — interação segura */
+#meu-perfil,
+#meu-perfil .profile-game-shell,
+#meu-perfil .profile-game-content,
+#meu-perfil .profile-tab-panel,
+#meu-perfil .profile-v4{
+  pointer-events:auto!important;
+}
+#meu-perfil .profile-v4::before,
+#meu-perfil .profile-v4::after,
+#meu-perfil .rpg-profile-hero::before,
+#meu-perfil .rpg-profile-hero::after,
+#meu-perfil .rpg-panel::before,
+#meu-perfil .rpg-panel::after{
+  pointer-events:none!important;
+}
+#meu-perfil button,
+#meu-perfil input,
+#meu-perfil select,
+#meu-perfil textarea,
+#meu-perfil label{
+  pointer-events:auto!important;
+}
+
+@media (prefers-reduced-motion: no-preference){
+  #meu-perfil .profile-v4 *{
+    animation-duration:.18s!important;
+    transition-duration:.15s!important;
+  }
+}
+
+.modal.hidden,
+.drawer.hidden,
+[hidden]{
+  display:none!important;
+}
