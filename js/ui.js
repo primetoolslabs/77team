@@ -161,7 +161,7 @@
   };
 })();
 
-/* V21.0 — menu interno persistente para todas as categorias */
+/* V21.0 — navegação unificada em menu suspenso lateral */
 (function installUnifiedModuleNavigation(){
   const categories={
     home:{title:"HOME",icon:"🏠",defaultPage:"dashboard",items:[
@@ -180,41 +180,115 @@
   };
   const pageCategory={};
   Object.entries(categories).forEach(([key,category])=>category.items.forEach(item=>pageCategory[item[0]]=key));
+  const nav=document.getElementById("nav");
 
   function allowedCategory(key){
     const category=categories[key];
+    if(!category)return false;
     if(category.role==="owner" && typeof window.TeamManagerIsOwner==="function")return window.TeamManagerIsOwner();
     if(category.role==="administrator" && typeof window.TeamManagerIsAdministrator==="function")return window.TeamManagerIsAdministrator();
     if(category.role==="editor" && typeof window.TeamManagerIsEditor==="function")return window.TeamManagerIsEditor();
     return true;
   }
 
+  function itemAllowed(id){
+    return typeof window.TeamManagerCanOpenPage!=="function" || window.TeamManagerCanOpenPage(id);
+  }
+
+  function buildDropdowns(){
+    if(!nav)return;
+    nav.querySelectorAll("[data-category]").forEach(button=>{
+      const key=button.dataset.category;
+      const category=categories[key];
+      if(!category)return;
+      let host=button.nextElementSibling;
+      if(!host || !host.classList.contains("main-category-submenu")){
+        host=document.createElement("div");
+        host.className="main-category-submenu";
+        host.dataset.submenu=key;
+        button.insertAdjacentElement("afterend",host);
+      }
+      host.innerHTML=category.items.filter(([id])=>itemAllowed(id)).map(([id,itemIcon,label])=>
+        `<button type="button" class="main-submenu-link" data-page-jump="${id}" data-submenu-page="${id}"><span>${itemIcon}</span><span>${label}</span></button>`
+      ).join("");
+      button.setAttribute("aria-haspopup","true");
+    });
+  }
+
+  function closeAll(exceptKey=""){
+    if(!nav)return;
+    nav.querySelectorAll("[data-category]").forEach(button=>{
+      const open=button.dataset.category===exceptKey;
+      button.classList.toggle("submenu-open",open);
+      button.setAttribute("aria-expanded",open?"true":"false");
+      const arrow=button.querySelector(".category-arrow");
+      if(arrow)arrow.textContent=open?"⌄":"›";
+      const submenu=nav.querySelector(`[data-submenu="${button.dataset.category}"]`);
+      if(submenu)submenu.classList.toggle("open",open);
+    });
+  }
+
+  function toggleCategory(key){
+    if(!nav||!allowedCategory(key))return;
+    const button=nav.querySelector(`[data-category="${key}"]`);
+    const submenu=nav.querySelector(`[data-submenu="${key}"]`);
+    if(!button||!submenu)return;
+    const open=submenu.classList.contains("open");
+    closeAll(open?"":key);
+    try{
+      if(!open)localStorage.setItem("77team-open-category",key);
+      else localStorage.removeItem("77team-open-category");
+    }catch(_error){}
+  }
+
   function sync(page){
     const key=pageCategory[page]||"home";
     const category=categories[key];
     if(!category)return;
-    const title=document.getElementById("moduleCategoryTitle");
-    const icon=document.getElementById("moduleCategoryIcon");
-    const list=document.getElementById("moduleNavigationList");
+    buildDropdowns();
+
     const breadcrumb=document.getElementById("moduleBreadcrumb");
-    if(title)title.textContent=category.title;
-    if(icon)icon.textContent=category.icon;
-    if(list){
-      list.innerHTML=category.items.filter(([id])=>typeof window.TeamManagerCanOpenPage!=="function"||window.TeamManagerCanOpenPage(id)).map(([id,itemIcon,label])=>`<button type="button" data-page-jump="${id}" class="${id===page?'active':''}"><span>${itemIcon}</span><span>${label}</span></button>`).join("");
-    }
     const current=category.items.find(item=>item[0]===page);
     if(breadcrumb)breadcrumb.textContent=`${category.title} > ${current?.[2]||category.title}`;
-    document.querySelectorAll("#nav [data-category]").forEach(button=>{
-      const active=button.dataset.category===key;
-      button.classList.toggle("active",active);
-      button.setAttribute("aria-current",active?"page":"false");
-    });
+
+    if(nav){
+      nav.querySelectorAll("[data-category]").forEach(button=>{
+        const active=button.dataset.category===key;
+        button.classList.toggle("active",active);
+        button.setAttribute("aria-current",active?"page":"false");
+      });
+      nav.querySelectorAll("[data-submenu-page]").forEach(button=>{
+        const active=button.dataset.submenuPage===page;
+        button.classList.toggle("active",active);
+        button.setAttribute("aria-current",active?"page":"false");
+      });
+      if(allowedCategory(key))closeAll(key);
+    }
+
     const moduleNav=document.getElementById("moduleNavigation");
-    if(moduleNav)moduleNav.classList.toggle("hidden",!allowedCategory(key));
+    if(moduleNav)moduleNav.classList.add("dropdown-menu-replaced");
   }
+
+  if(nav){
+    nav.addEventListener("click",event=>{
+      const categoryButton=event.target.closest("#nav [data-category]");
+      if(categoryButton){
+        event.preventDefault();
+        event.stopPropagation();
+        toggleCategory(categoryButton.dataset.category);
+      }
+    },true);
+  }
+
   window.syncModuleNavigation=sync;
-  document.addEventListener("DOMContentLoaded",()=>sync(document.querySelector(".page.active")?.id||"dashboard"));
+  window.TeamManagerSidebarDropdowns={buildDropdowns,toggleCategory,sync};
+  document.addEventListener("DOMContentLoaded",()=>{
+    buildDropdowns();
+    const page=document.querySelector(".page.active")?.id||"dashboard";
+    sync(page);
+  });
 })();
+
 
 (function installSidebarV13(){
   if(window.__sidebarV13Installed)return;window.__sidebarV13Installed=true;
@@ -228,9 +302,10 @@
   window.SidebarV13={setCollapsed,updateBadges};
 })();
 
+
 /* V14 — categorias expansíveis do menu */
 (()=>{
-  if(window.__sidebarV14CategoriesInstalled)return;
+  if(true)return;
   window.__sidebarV14CategoriesInstalled=true;
   const nav=document.getElementById("nav");
   if(!nav)return;

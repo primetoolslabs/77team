@@ -60,10 +60,10 @@
 </div>
 </div>
 <nav aria-label="Menu principal" class="sidebar-nav-v13 main-category-nav" id="nav">
-<button class="main-category-link active" data-category="home" data-page="dashboard" type="button"><span class="category-icon">🏠</span><span class="nav-group-title">HOME</span><span class="category-arrow">›</span></button>
-<button class="main-category-link editor-only" data-category="staff" data-page="presencas" type="button"><span class="category-icon">👥</span><span class="nav-group-title">STAFF</span><span class="category-arrow">›</span></button>
-<button class="main-category-link admin-only" data-category="administracao" data-page="staff" type="button"><span class="category-icon">🛡️</span><span class="nav-group-title">ADMINISTRAÇÃO</span><span class="category-arrow">›</span></button>
-<button class="main-category-link owner-only" data-category="avancado" data-page="atualizacoes" type="button"><span class="category-icon">🚀</span><span class="nav-group-title">AVANÇADO</span><span class="category-arrow">›</span></button>
+<button class="main-category-link active" data-category="home" data-default-page="dashboard" aria-expanded="true" type="button"><span class="category-icon">🏠</span><span class="nav-group-title">HOME</span><span class="category-arrow">›</span></button>
+<button class="main-category-link editor-only" data-category="staff" data-default-page="presencas" aria-expanded="false" type="button"><span class="category-icon">👥</span><span class="nav-group-title">STAFF</span><span class="category-arrow">›</span></button>
+<button class="main-category-link admin-only" data-category="administracao" data-default-page="staff" aria-expanded="false" type="button"><span class="category-icon">🛡️</span><span class="nav-group-title">ADMINISTRAÇÃO</span><span class="category-arrow">›</span></button>
+<button class="main-category-link owner-only" data-category="avancado" data-default-page="atualizacoes" aria-expanded="false" type="button"><span class="category-icon">🚀</span><span class="nav-group-title">AVANÇADO</span><span class="category-arrow">›</span></button>
 </nav>
 <div class="sidebar-v13-footer">
 <button class="sidebar-about-v152" data-page-jump="sobre" type="button"><span class="menu-icon">ℹ️</span><span class="menu-label">Sobre</span></button>
@@ -1271,6 +1271,6 @@
 <div class="global-search-results hidden" id="globalSearchResults"></div>
 <div class="toast" id="toast"></div>
 <script src="js/ui.js?v=22.9.32"></script>
-<script src="js/main.js?v=22.9.32-mir4ui1" type="module"></script>
+<script src="js/main.js?v=22.9.32-menudrop1" type="module"></script>
 </body>
 </html>
