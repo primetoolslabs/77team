@@ -422,26 +422,12 @@
 </div>
 </article>
 </section>
-<section class="page page-animate" id="meu-perfil">
-<div class="profile-workspace-head">
-<div><span class="profile-eyebrow">PERFIL</span><h2>Meu Perfil</h2><p>Dados do personagem e da conta.</p></div>
-</div>
-<div class="profile-workspace">
-<nav aria-label="Menu do perfil" class="profile-menu">
-<button class="active" data-profile-tab="overview" type="button"><span>🏠</span><span class="profile-menu-copy"><strong>Resumo</strong><small>Visão geral</small></span></button>
-<button data-profile-tab="character" type="button"><span>🎮</span><span class="profile-menu-copy"><strong>Personagem</strong><small>Atributos e evolução</small></span></button>
-<button data-profile-tab="account" type="button"><span>✏️</span><span class="profile-menu-copy"><strong>Identidade</strong><small>Conta e avatar</small></span></button>
-<button data-profile-tab="security" type="button"><span>🔒</span><span class="profile-menu-copy"><strong>Proteção</strong><small>Conta e senha</small></span></button>
-<button data-profile-tab="history" type="button"><span>📜</span><span class="profile-menu-copy"><strong>Crônicas</strong><small>Atividades recentes</small></span></button>
-<button data-profile-tab="chat" type="button"><span>💬</span><span class="profile-menu-copy"><strong>Conversas</strong><small>Chats privados</small></span></button>
-<button data-profile-tab="support" type="button"><span>🎧</span><span class="profile-menu-copy"><strong>Atendimento</strong><small>Suporte e chamados</small></span></button>
-</nav>
-<div class="profile-workspace-content"><section class="first-access-panel hidden" id="firstAccessPanel">
+<section class="page page-animate" id="meu-perfil"><div class="profile-game-shell"><div class="profile-game-breadcrumb">HOME <span>›</span> Meu Perfil</div><nav class="profile-game-tabs" aria-label="Seções do perfil"><button class="active" data-profile-tab="overview" type="button">✦ Visão Geral</button><button data-profile-tab="character" type="button">⚔ Personagem</button><button data-profile-tab="account" type="button">👤 Conta</button><button data-profile-tab="security" type="button">🛡 Segurança</button><button data-profile-tab="history" type="button">📜 Histórico</button><button data-profile-tab="chat" type="button">💬 Conversas</button><button data-profile-tab="support" type="button">🎧 Atendimento</button></nav><div class="profile-game-content"><div class="profile-tab-panel active profile-game-overview" data-profile-panel="overview"><section class="first-access-panel hidden" id="firstAccessPanel">
 <div class="first-access-copy"><span class="profile-eyebrow">PRIMEIRO ACESSO</span><h3>Bem-vindo ao 77 TEAM Manager</h3><p>Complete seu nickname e os dados principais do personagem para liberar todas as áreas do sistema.</p></div>
 <div class="first-access-progress"><div><strong>Progresso do cadastro</strong><span id="firstAccessProgressText">0/5 etapas concluídas</span></div><div class="first-access-progress-bar"><i id="firstAccessProgressFill"></i></div></div>
 <ul class="first-access-checklist" id="firstAccessChecklist"></ul>
 <div class="first-access-actions"><button class="btn" id="firstAccessGoCharacter" type="button">Preencher personagem</button><button class="btn primary" disabled="" id="finishFirstAccessButton" type="button">Concluir primeiro acesso</button></div>
-</section><section class="profile-tab-panel active" data-profile-panel="overview"><div class="profile-tab-heading"><h3>Resumo do perfil</h3><p>Confira sua identidade, conquistas e desempenho.</p></div><article class="panel player-identity-card">
+</section><article class="panel player-identity-card">
 <div class="player-identity-bg"></div>
 <div class="player-identity-content">
 <div class="player-avatar-area">
@@ -517,7 +503,7 @@
 </div>
 </div>
 </article>
-</div></section><section class="profile-tab-panel" data-profile-panel="character"><div class="profile-tab-heading"><h3>Personagem</h3><p>Atualize as informações do seu personagem.</p></div><article class="panel character-form-panel" id="characterEditorPanel">
+</div><div class="profile-game-tip"><strong>✦ DICA DO SISTEMA</strong><span>Participe dos eventos e mantenha seus registros atualizados para acompanhar sua evolução na 77 TEAM.</span></div></div><section class="profile-tab-panel" data-profile-panel="character"><div class="profile-tab-heading"><h3>Personagem</h3><p>Atualize as informações do seu personagem.</p></div><article class="panel character-form-panel" id="characterEditorPanel">
 <div class="panel-head"><h3>Editar informações do personagem</h3></div>
 <div class="panel-body">
 <form class="character-form-grid" id="characterForm">
@@ -606,9 +592,7 @@
 <button class="btn primary" id="profileSupportSubmit" type="submit">Enviar mensagem</button>
 </form>
 </div>
-</article></section></div>
-</div>
-</section>
+</article></section></div></div></section>
 <section class="page page-animate editor-only" id="metas">
 <div class="cards">
 <article class="card"><span>Metas ativas</span><strong id="goalsActiveCount">0</strong></article>
@@ -1271,6 +1255,6 @@
 <div class="global-search-results hidden" id="globalSearchResults"></div>
 <div class="toast" id="toast"></div>
 <script src="js/ui.js?v=22.9.32"></script>
-<script src="js/main.js?v=22.9.32-profilegame2" type="module"></script>
+<script src="js/main.js?v=22.9.32-profilegame3" type="module"></script>
 </body>
 </html>
