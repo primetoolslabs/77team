@@ -6701,3 +6701,223 @@ body.sidebar-collapsed .main-category-link .category-arrow{
     margin-left:0!important;
   }
 }
+
+
+/* =========================================================
+   MENU MIR4 COMPACTO V2
+   Corrige espaçamento vertical excessivo e alinha categorias.
+   ========================================================= */
+#sidebar.sidebar-v13{
+  padding-left:10px!important;
+  padding-right:10px!important;
+}
+#sidebar .sidebar-brand-v13{
+  padding:8px 4px 10px!important;
+  margin-bottom:5px!important;
+}
+#sidebar .sidebar-team-logo{
+  width:58px!important;
+  height:58px!important;
+  margin:0!important;
+}
+#sidebar .sidebar-brand-with-logo{
+  display:grid!important;
+  grid-template-columns:58px minmax(0,1fr)!important;
+  align-items:center!important;
+  justify-items:stretch!important;
+  gap:8px!important;
+  text-align:left!important;
+}
+#sidebar .sidebar-brand-copy strong{
+  margin:0!important;
+  font-size:15px!important;
+  line-height:1.05!important;
+}
+#sidebar .sidebar-brand-copy span{
+  margin-top:4px!important;
+  font-size:7px!important;
+  line-height:1.1!important;
+}
+
+/* O NAV ocupa o espaço disponível, porém os itens ficam todos no topo. */
+#sidebar #nav.main-category-nav{
+  flex:1 1 auto!important;
+  display:flex!important;
+  flex-direction:column!important;
+  justify-content:flex-start!important;
+  align-content:flex-start!important;
+  align-items:stretch!important;
+  gap:5px!important;
+  height:auto!important;
+  min-height:0!important;
+  padding:6px 2px 12px!important;
+  margin:0!important;
+  overflow-y:auto!important;
+}
+
+/* Categoria principal */
+#sidebar #nav > .main-category-link{
+  width:100%!important;
+  min-height:42px!important;
+  max-height:42px!important;
+  flex:0 0 42px!important;
+  display:grid!important;
+  grid-template-columns:27px minmax(0,1fr) 18px!important;
+  align-items:center!important;
+  gap:8px!important;
+  margin:0!important;
+  padding:7px 10px!important;
+  border:1px solid rgba(212,170,89,.13)!important;
+  border-radius:5px!important;
+  color:#a9a293!important;
+  background:linear-gradient(90deg,rgba(255,255,255,.012),rgba(255,255,255,.004))!important;
+  box-shadow:none!important;
+  transform:none!important;
+}
+#sidebar #nav > .main-category-link:hover{
+  color:#e7d7b1!important;
+  border-color:rgba(212,170,89,.26)!important;
+  background:linear-gradient(90deg,rgba(104,25,26,.18),rgba(212,170,89,.025))!important;
+  transform:none!important;
+}
+#sidebar #nav > .main-category-link.active,
+#sidebar #nav > .main-category-link.submenu-open{
+  color:#f0d99f!important;
+  border-color:rgba(212,170,89,.36)!important;
+  background:
+    linear-gradient(90deg,rgba(116,27,28,.32),rgba(43,34,23,.34))!important;
+  box-shadow:inset 0 0 16px rgba(0,0,0,.18)!important;
+}
+#sidebar #nav > .main-category-link:before{
+  top:5px!important;
+  bottom:5px!important;
+  width:2px!important;
+}
+#sidebar #nav > .main-category-link.active:before,
+#sidebar #nav > .main-category-link.submenu-open:before{
+  background:linear-gradient(180deg,#f2d27c,#805923)!important;
+}
+#sidebar #nav .category-icon{
+  width:27px!important;
+  font-size:16px!important;
+  text-align:center!important;
+}
+#sidebar #nav .nav-group-title{
+  margin:0!important;
+  display:block!important;
+  min-width:0!important;
+  font-size:12px!important;
+  font-weight:900!important;
+  line-height:1!important;
+  letter-spacing:.085em!important;
+  text-align:left!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+#sidebar #nav .category-arrow{
+  display:block!important;
+  width:18px!important;
+  font-size:17px!important;
+  line-height:1!important;
+  text-align:center!important;
+  opacity:.72!important;
+}
+
+/* Submenu: imediatamente abaixo da categoria, sem criar espaço quando fechado. */
+#sidebar #nav > .main-category-submenu{
+  display:none!important;
+  flex:0 0 auto!important;
+  margin:0 3px 2px 13px!important;
+  padding:0!important;
+  border-left:1px solid rgba(212,170,89,.15)!important;
+  opacity:1!important;
+  overflow:visible!important;
+}
+#sidebar #nav > .main-category-submenu.open{
+  display:flex!important;
+  flex-direction:column!important;
+  gap:1px!important;
+  padding:2px 0 5px 5px!important;
+}
+#sidebar #nav .main-submenu-link{
+  width:100%!important;
+  min-height:31px!important;
+  flex:0 0 31px!important;
+  display:grid!important;
+  grid-template-columns:21px minmax(0,1fr)!important;
+  align-items:center!important;
+  gap:7px!important;
+  margin:0!important;
+  padding:5px 8px!important;
+  border:0!important;
+  border-left:2px solid transparent!important;
+  border-radius:0 4px 4px 0!important;
+  color:#888276!important;
+  background:transparent!important;
+  font-size:10.5px!important;
+  font-weight:700!important;
+  line-height:1!important;
+}
+#sidebar #nav .main-submenu-link:hover{
+  color:#d9c79e!important;
+  border-left-color:rgba(212,170,89,.38)!important;
+  background:linear-gradient(90deg,rgba(105,24,25,.12),transparent)!important;
+}
+#sidebar #nav .main-submenu-link.active{
+  color:#f0d79b!important;
+  border-left-color:#d4aa59!important;
+  background:linear-gradient(90deg,rgba(111,25,26,.22),rgba(212,170,89,.02))!important;
+}
+#sidebar #nav .main-submenu-link > span:first-child{
+  width:21px!important;
+  font-size:13px!important;
+  text-align:center!important;
+}
+
+/* Rodapé continua no fundo, sem empurrar as categorias entre si. */
+#sidebar .sidebar-v13-footer{
+  flex:0 0 auto!important;
+  margin-top:auto!important;
+  padding-top:7px!important;
+  gap:5px!important;
+}
+
+/* Recolhido: mostra apenas os ícones das categorias. */
+body.sidebar-collapsed #sidebar #nav{
+  gap:5px!important;
+  padding-left:0!important;
+  padding-right:0!important;
+}
+body.sidebar-collapsed #sidebar #nav > .main-category-link{
+  width:46px!important;
+  min-height:42px!important;
+  max-height:42px!important;
+  margin:0 auto!important;
+  grid-template-columns:1fr!important;
+  place-items:center!important;
+  padding:7px!important;
+}
+body.sidebar-collapsed #sidebar #nav .nav-group-title,
+body.sidebar-collapsed #sidebar #nav .category-arrow,
+body.sidebar-collapsed #sidebar #nav > .main-category-submenu{
+  display:none!important;
+}
+
+/* Mobile restaura menu completo e compacto. */
+@media(max-width:760px){
+  body.sidebar-collapsed #sidebar #nav > .main-category-link{
+    width:100%!important;
+    grid-template-columns:27px minmax(0,1fr) 18px!important;
+    place-items:initial!important;
+    align-items:center!important;
+    padding:7px 10px!important;
+  }
+  body.sidebar-collapsed #sidebar #nav .nav-group-title,
+  body.sidebar-collapsed #sidebar #nav .category-arrow{
+    display:block!important;
+  }
+  body.sidebar-collapsed #sidebar #nav > .main-category-submenu.open{
+    display:flex!important;
+  }
+}
