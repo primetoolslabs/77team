@@ -5758,3 +5758,232 @@ body[data-public-view="true"] .global-search-wrap,body[data-public-view="true"] 
 @media(max-width:1350px){.home-main-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.home-personal-card{grid-column:1/-1}.home-personal-summary{grid-template-columns:repeat(4,minmax(0,1fr))}.home-secondary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.home-rate-card{grid-column:1/-1}}
 @media(max-width:980px){.home-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.home-main-grid,.home-secondary-grid{grid-template-columns:1fr}.home-personal-card,.home-rate-card{grid-column:auto}.home-ops-strip{grid-template-columns:repeat(3,minmax(0,1fr))}.home-ops-strip .btn{grid-column:1/-1}.home-command-head{align-items:flex-start}}
 @media(max-width:620px){.home-command-head{flex-direction:column}.home-command-user{text-align:left;width:100%}.home-summary-grid{grid-template-columns:1fr}.home-personal-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.home-ops-strip{grid-template-columns:1fr}}
+
+
+/* HOME — dark fantasy oriental inspirado em MMORPGs como MIR4 */
+#dashboard.home-command{
+  --mir4-gold:#d6aa55;
+  --mir4-gold-soft:#a57936;
+  --mir4-red:#7a1719;
+  --mir4-red-bright:#b33832;
+  --mir4-jade:#3f8f78;
+  --mir4-ink:#08090b;
+  --mir4-panel:#111216;
+  position:relative;
+  padding:14px;
+  border-radius:18px;
+  background:
+    radial-gradient(circle at 12% 0%,rgba(122,23,25,.23),transparent 34%),
+    radial-gradient(circle at 88% 12%,rgba(214,170,85,.10),transparent 28%),
+    linear-gradient(180deg,rgba(13,14,17,.98),rgba(7,8,10,.985));
+  border:1px solid rgba(214,170,85,.24);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.018),0 22px 60px rgba(0,0,0,.35);
+}
+#dashboard.home-command:before,
+#dashboard.home-command:after{
+  content:"";
+  position:absolute;
+  pointer-events:none;
+  width:72px;height:72px;
+  opacity:.38;
+}
+#dashboard.home-command:before{
+  top:8px;left:8px;
+  border-top:2px solid var(--mir4-gold);
+  border-left:2px solid var(--mir4-gold);
+}
+#dashboard.home-command:after{
+  right:8px;bottom:8px;
+  border-right:2px solid var(--mir4-gold);
+  border-bottom:2px solid var(--mir4-gold);
+}
+#dashboard .home-command-head{
+  position:relative;
+  padding:17px 18px 16px;
+  border:1px solid rgba(214,170,85,.28);
+  border-radius:14px;
+  background:
+    linear-gradient(90deg,rgba(122,23,25,.27),rgba(17,18,22,.88) 42%,rgba(12,13,16,.94));
+  box-shadow:inset 0 1px rgba(255,231,177,.04);
+  overflow:hidden;
+}
+#dashboard .home-command-head:after{
+  content:"";
+  position:absolute;left:18px;right:18px;bottom:0;height:1px;
+  background:linear-gradient(90deg,transparent,var(--mir4-gold),transparent);
+  opacity:.55;
+}
+#dashboard .home-eyebrow{
+  color:#cfa75a;
+  font-family:Georgia,"Times New Roman",serif;
+  letter-spacing:.17em;
+  text-shadow:0 1px 8px rgba(214,170,85,.16);
+}
+#dashboard .home-command-head h2{
+  color:#f2e8cf;
+  font-family:Georgia,"Times New Roman",serif;
+  letter-spacing:.02em;
+  font-size:1.6rem;
+  text-shadow:0 2px 14px rgba(0,0,0,.65);
+}
+#dashboard .home-command-head p{color:#aaa38f}
+#dashboard .home-command-user{
+  border-color:rgba(214,170,85,.32);
+  border-radius:4px;
+  background:linear-gradient(180deg,rgba(34,30,23,.9),rgba(14,14,16,.95));
+  box-shadow:inset 0 0 16px rgba(214,170,85,.035);
+}
+#dashboard .home-command-user span{color:#e4c77f}
+#dashboard .home-command-user small{color:#958c79}
+
+#dashboard .home-summary-card{
+  border-radius:5px;
+  border:1px solid rgba(214,170,85,.24);
+  background:
+    linear-gradient(145deg,rgba(32,29,24,.92),rgba(14,15,18,.97));
+  box-shadow:inset 0 0 22px rgba(0,0,0,.26),0 8px 24px rgba(0,0,0,.16);
+}
+#dashboard .home-summary-card:before{
+  width:3px;
+  background:linear-gradient(180deg,#f0cf79,#8c622b);
+}
+#dashboard .home-summary-card:after{
+  content:"";
+  position:absolute;
+  top:0;right:0;
+  width:34px;height:34px;
+  border-top:1px solid rgba(214,170,85,.55);
+  border-right:1px solid rgba(214,170,85,.55);
+}
+#dashboard .home-summary-card span{color:#a89d86;letter-spacing:.09em}
+#dashboard .home-summary-card>strong{
+  color:#f0ddad;
+  font-family:Georgia,"Times New Roman",serif;
+}
+#dashboard .home-summary-card small{color:#827b6c}
+#dashboard .home-summary-card>b{color:#b99c60}
+#dashboard .home-summary-card:nth-child(2):before{background:linear-gradient(180deg,#67b69a,#24594a)}
+#dashboard .home-summary-card:nth-child(3):before{background:linear-gradient(180deg,#c64b44,#651819)}
+#dashboard .home-summary-card:nth-child(4):before{background:linear-gradient(180deg,#b98d4b,#60401f)}
+
+#dashboard .enterprise-panel{
+  border-radius:6px;
+  border:1px solid rgba(214,170,85,.22);
+  background:
+    linear-gradient(180deg,rgba(22,23,27,.97),rgba(11,12,15,.985));
+  box-shadow:inset 0 0 28px rgba(0,0,0,.26),0 10px 28px rgba(0,0,0,.18);
+  overflow:hidden;
+}
+#dashboard .enterprise-panel .panel-head{
+  position:relative;
+  background:
+    linear-gradient(90deg,rgba(113,28,28,.28),rgba(24,22,20,.88) 45%,rgba(13,14,17,.96));
+  border-bottom:1px solid rgba(214,170,85,.18);
+}
+#dashboard .enterprise-panel .panel-head:after{
+  content:"";
+  position:absolute;left:0;bottom:-1px;width:110px;height:1px;
+  background:linear-gradient(90deg,var(--mir4-gold),transparent);
+}
+#dashboard .enterprise-panel .panel-head h3{
+  color:#e6d2a0;
+  font-family:Georgia,"Times New Roman",serif;
+  font-weight:700;
+}
+#dashboard .dashboard-link{
+  color:#ba985b;
+  border:1px solid rgba(214,170,85,.18);
+  border-radius:3px;
+  padding:4px 7px;
+  background:rgba(214,170,85,.035);
+}
+#dashboard .dashboard-link:hover{
+  color:#f0d183;
+  border-color:rgba(214,170,85,.4);
+  background:rgba(214,170,85,.08);
+}
+
+#dashboard .home-personal-summary>div{
+  border-radius:4px;
+  border-color:rgba(214,170,85,.18);
+  background:
+    linear-gradient(180deg,rgba(31,28,23,.72),rgba(13,14,16,.88));
+}
+#dashboard .home-personal-summary span{color:#8e8778}
+#dashboard .home-personal-summary strong{color:#dfc98f}
+
+#dashboard table thead{
+  background:rgba(121,27,28,.13);
+}
+#dashboard th{
+  color:#bfa66d;
+  border-bottom-color:rgba(214,170,85,.22);
+}
+#dashboard td{border-bottom-color:rgba(214,170,85,.07)}
+#dashboard tbody tr:hover{background:rgba(214,170,85,.035)}
+#dashboard .rank-position{
+  border-radius:3px!important;
+  border:1px solid rgba(214,170,85,.18);
+}
+#dashboard .ranking-points{color:#e3ba62}
+
+#dashboard .recent-activity-item{
+  border-color:rgba(214,170,85,.12);
+  background:rgba(255,255,255,.012);
+}
+#dashboard .recent-activity-item>span{
+  border:1px solid rgba(214,170,85,.24);
+  background:linear-gradient(180deg,rgba(93,27,27,.58),rgba(27,21,20,.8));
+  color:#dec37e;
+}
+#dashboard .recent-activity-item strong{color:#d8c8a4}
+#dashboard .recent-activity-item small{color:#807968}
+
+#dashboard .clan-points-list article,
+#dashboard .today-events-list article{
+  border-color:rgba(214,170,85,.14);
+  background:linear-gradient(90deg,rgba(100,24,25,.09),rgba(255,255,255,.014));
+}
+
+#dashboard .rate-gauge{
+  filter:drop-shadow(0 0 10px rgba(214,170,85,.12));
+}
+#dashboard .rate-gauge:before{
+  background:conic-gradient(#d5ac58 calc(var(--rate)*1%),rgba(214,170,85,.08) 0)!important;
+}
+#dashboard .rate-gauge strong{color:#e7c874}
+
+#dashboard .home-ops-strip{
+  border-radius:5px;
+  border-color:rgba(214,170,85,.26);
+  background:
+    linear-gradient(90deg,rgba(103,25,26,.2),rgba(18,18,21,.92),rgba(56,43,22,.16));
+}
+#dashboard .home-ops-strip span{color:#918775}
+#dashboard .home-ops-strip strong{color:#e0c689}
+#dashboard .home-ops-strip .btn,
+#dashboard .public-home-banner .btn{
+  border-radius:3px;
+  border:1px solid #8d6630;
+  color:#f6e3b3;
+  background:linear-gradient(180deg,#7f2827,#491718);
+  box-shadow:inset 0 1px rgba(255,231,177,.08),0 5px 14px rgba(0,0,0,.2);
+}
+#dashboard .home-ops-strip .btn:hover,
+#dashboard .public-home-banner .btn:hover{
+  background:linear-gradient(180deg,#a13a35,#601e1e);
+  border-color:#c8994b;
+}
+
+#dashboard .public-home-banner{
+  border-radius:5px;
+  border-color:rgba(214,170,85,.27);
+  background:linear-gradient(90deg,rgba(83,24,25,.32),rgba(18,18,21,.95));
+}
+#dashboard .public-home-banner strong{color:#e4c67c}
+
+@media(max-width:620px){
+  #dashboard.home-command{padding:8px}
+  #dashboard .home-command-head{padding:14px}
+  #dashboard .home-command-head h2{font-size:1.35rem}
+}
