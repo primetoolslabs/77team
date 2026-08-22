@@ -5987,3 +5987,111 @@ body[data-public-view="true"] .global-search-wrap,body[data-public-view="true"] 
   #dashboard .home-command-head{padding:14px}
   #dashboard .home-command-head h2{font-size:1.35rem}
 }
+
+
+/* HOME — acabamento final visual */
+#dashboard.home-command{
+  isolation:isolate;
+  gap:11px;
+}
+#dashboard.home-command > *{position:relative;z-index:1}
+#dashboard .home-command-head{
+  min-height:112px;
+}
+#dashboard .home-command-head h2{
+  margin-top:2px;
+}
+#dashboard .home-command-user{
+  min-width:190px;
+}
+#dashboard .home-summary-grid{
+  align-items:stretch;
+}
+#dashboard .home-summary-card{
+  transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease;
+}
+#dashboard .home-summary-card:hover{
+  transform:translateY(-2px);
+  border-color:rgba(214,170,85,.42);
+  box-shadow:inset 0 0 22px rgba(0,0,0,.26),0 12px 30px rgba(0,0,0,.24);
+}
+#dashboard .home-summary-card>strong{
+  letter-spacing:.01em;
+}
+#dashboard .home-main-grid,
+#dashboard .home-secondary-grid{
+  align-items:stretch;
+}
+#dashboard .enterprise-panel{
+  min-height:100%;
+}
+#dashboard .enterprise-panel .panel-head{
+  min-height:46px;
+}
+#dashboard .enterprise-panel .panel-body{
+  color:#d6d0c2;
+}
+#dashboard .home-personal-summary>div{
+  transition:border-color .18s ease,background .18s ease;
+}
+#dashboard .home-personal-summary>div:hover{
+  border-color:rgba(214,170,85,.34);
+  background:linear-gradient(180deg,rgba(42,36,28,.82),rgba(15,15,18,.94));
+}
+#dashboard .home-personal-summary strong{
+  font-family:Georgia,"Times New Roman",serif;
+  font-size:.9rem;
+}
+#dashboard .recent-activity-list,
+#dashboard .today-events-list,
+#dashboard .clan-points-list{
+  scrollbar-width:thin;
+  scrollbar-color:#8a6631 transparent;
+}
+#dashboard .recent-activity-list::-webkit-scrollbar,
+#dashboard .today-events-list::-webkit-scrollbar,
+#dashboard .clan-points-list::-webkit-scrollbar{width:6px}
+#dashboard .recent-activity-list::-webkit-scrollbar-thumb,
+#dashboard .today-events-list::-webkit-scrollbar-thumb,
+#dashboard .clan-points-list::-webkit-scrollbar-thumb{
+  background:#725426;
+  border-radius:10px;
+}
+#dashboard .home-ops-strip{
+  min-height:64px;
+}
+#dashboard .home-ops-strip>div{
+  padding:2px 4px;
+}
+#dashboard .home-ops-strip strong{
+  font-family:Georgia,"Times New Roman",serif;
+}
+#dashboard .public-home-banner{
+  box-shadow:inset 0 0 18px rgba(0,0,0,.2);
+}
+#dashboard .public-home-banner span{
+  color:#b8b0a0;
+}
+#dashboard .dashboard-link{
+  transition:all .16s ease;
+}
+#dashboard .dashboard-link:hover{
+  transform:translateY(-1px);
+}
+#dashboard .rate-gauge-wrap{
+  min-height:190px;
+  justify-content:center;
+}
+#dashboard .rate-gauge{
+  margin:auto;
+}
+@media(max-width:1200px){
+  #dashboard .home-command-head{min-height:auto}
+  #dashboard .home-command-user{min-width:160px}
+}
+@media(max-width:760px){
+  #dashboard.home-command{padding:8px;border-radius:12px}
+  #dashboard .home-command-head{border-radius:10px}
+  #dashboard .home-command-user{min-width:0}
+  #dashboard .home-summary-card{min-height:88px}
+}
