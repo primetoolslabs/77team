@@ -2163,7 +2163,7 @@ function updateLiveClock(){
 }
 updateLiveClock();
 setInterval(updateLiveClock,1000);
-if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js?v=22.9.32-homecompact1").catch(error=>console.warn("Service Worker indisponível:",error)));
+if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js?v=22.9.32-homev2").catch(error=>console.warn("Service Worker indisponível:",error)));
 
 function animateNumber(id,target,suffix=""){
   const el=byId(id);
@@ -5104,6 +5104,9 @@ function publicHomeDateValue(value){
 function renderPublicHomeLoading(){
   if(state.user)return;
   setText("homeLiveUser","Visitante");
+  setText("homeWelcomeTitle","Bem-vindo à 77 TEAM");
+  setText("homeUserMeta","Visualização pública");
+  setText("homeMyRole","Entre para visualizar");setText("homeMyClan","—");setText("homeMyPoints","—");setText("homeMyPresence","—");
   setText("homeNextEvent","Carregando...");
   setText("homeUnreadNotifications","Somente membros");
   setText("homeLastSync","Conectando...");
@@ -5260,8 +5263,30 @@ function renderHomeLiveStrip(){
   setText("homeLiveSubtitle","Membros, presenças, eventos, ranking e atividades são preenchidos automaticamente com os registros reais do sistema.");
 }
 
+
+function renderHomeExecutiveSummary(){
+  const publicView=!state.user;
+  const profile=state.profile||{};
+  const role=publicView?"Visitante":accessRoleLabel(currentAccessRole());
+  const clan=publicView?"—":String(profile.clan||profile.cla||profile.memberClan||"—");
+  const uid=state.user?.uid||"";
+  const ownMember=(state.members||[]).find(item=>String(item.uid||item.userId||item.ownerUid||"")===uid)
+    || (state.members||[]).find(item=>String(item.email||"").toLowerCase()===String(profile.email||state.user?.email||"").toLowerCase());
+  const ownAttendance=ownMember?(state.attendance||[]).filter(item=>String(item.memberId||item.member||item.memberUid||"")===String(ownMember.id||ownMember.uid||"")):[];
+  setText("homeWelcomeTitle",publicView?"Bem-vindo à 77 TEAM":`Bem-vindo, ${profile.name||profile.displayName||profile.nickname||"membro"}`);
+  setText("homeUserMeta",publicView?"Visualização pública":`${role}${clan&&clan!=="—"?` · ${clan}`:""}`);
+  setText("homeMyRole",publicView?"Entre para visualizar":role);
+  setText("homeMyClan",publicView?"—":(ownMember?.clan||clan||"—"));
+  setText("homeMyPoints",publicView?"—":Number(ownMember?.points||ownMember?.xp||0).toLocaleString("pt-BR"));
+  setText("homeMyPresence",publicView?"—":ownAttendance.filter(item=>item.status===1||item.status===2).length);
+  setText("homePendingRequests",(state.users||[]).filter(item=>item.status==="pending").length);
+  setText("homeOpenTickets",(state.tickets||state.supportTickets||[]).filter(item=>!["closed","resolved","finalizado"].includes(String(item.status||"").toLowerCase())).length);
+  setText("homeOpenPresence",(state.attendance||[]).filter(item=>item.status===0).length);
+}
+
 function renderEnterpriseDashboard(){
   renderHomeLiveStrip();
+  renderHomeExecutiveSummary();
   const today=dashboardDateOffset(0);
   const yesterday=dashboardDateOffset(-1);
   const currentMonth=today.slice(0,7);

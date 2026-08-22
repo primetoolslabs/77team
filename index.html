@@ -110,153 +110,76 @@
 <nav class="module-navigation-list" id="moduleNavigationList"></nav>
 </aside>
 <div class="module-breadcrumb" id="moduleBreadcrumb">HOME &gt; Visão Geral</div>
-<section class="page active dashboard-enterprise" id="dashboard">
-<div class="home-live-strip" id="homeLiveStrip">
-  <div class="home-live-intro"><span class="home-live-dot"></span><div><strong id="homeLiveTitle">HOME em tempo real</strong><small id="homeLiveSubtitle">Os dados abaixo são atualizados conforme o sistema recebe novos registros.</small></div></div>
-  <div class="home-live-facts">
-    <div><span>Usuário</span><strong id="homeLiveUser">Visitante</strong></div>
-    <div><span>Próximo evento</span><strong id="homeNextEvent">—</strong></div>
-    <div><span>Notificações</span><strong id="homeUnreadNotifications">0</strong></div>
-    <div><span>Última sincronização</span><strong id="homeLastSync">—</strong></div>
+<section class="page active dashboard-enterprise home-command" id="dashboard">
+<div class="home-command-head">
+  <div>
+    <span class="home-eyebrow">PAINEL PRINCIPAL</span>
+    <h2 id="homeWelcomeTitle">Bem-vindo</h2>
+    <p id="homeLiveSubtitle">Informações reais da equipe atualizadas automaticamente.</p>
+  </div>
+  <div class="home-command-user">
+    <span id="homeLiveUser">Visitante</span>
+    <small id="homeUserMeta">Visualização pública</small>
   </div>
 </div>
-<div class="public-home-banner hidden" id="publicHomeBanner"><div><strong>👁️ Visualização pública</strong><span>Você pode conhecer a HOME sem entrar. Para cadastrar, alterar ou excluir informações, crie uma conta e faça login.</span></div><button class="btn primary" id="publicLoginButton" type="button">Entrar ou criar conta</button></div>
-<div class="enterprise-kpis">
-<article class="enterprise-kpi kpi-blue">
-<div class="kpi-symbol">♙</div>
-<div class="kpi-copy">
-<span>MEMBROS</span>
-<strong id="kMembers">0</strong>
-<small>Total de membros</small>
+
+<div class="public-home-banner hidden" id="publicHomeBanner"><div><strong>👁️ Visualização pública</strong><span>Conheça os principais dados da equipe. Entre para acessar suas informações e recursos disponíveis.</span></div><button class="btn primary" id="publicLoginButton" type="button">Entrar ou criar conta</button></div>
+
+<div class="home-summary-grid">
+  <article class="home-summary-card"><span>MEMBROS</span><strong id="kMembers">0</strong><small>Total ativo</small><b id="dashboardMemberTrend">—</b></article>
+  <article class="home-summary-card"><span>PRESENÇAS HOJE</span><strong id="kPresence">0</strong><small>Registradas</small><b id="dashboardPresenceTrend">—</b></article>
+  <article class="home-summary-card home-next-card"><span>PRÓXIMO EVENTO</span><strong id="homeNextEvent">—</strong><small>Agenda da equipe</small><b id="dashboardEventTrend">—</b></article>
+  <article class="home-summary-card"><span>NOTIFICAÇÕES</span><strong id="homeUnreadNotifications">0</strong><small>Não lidas</small><b id="homeLastSync">—</b></article>
 </div>
-<div class="kpi-trend"><b id="dashboardMemberTrend">—</b><small>vs mês passado</small></div>
-</article>
-<article class="enterprise-kpi kpi-green">
-<div class="kpi-symbol">✓</div>
-<div class="kpi-copy">
-<span>PRESENÇAS HOJE</span>
-<strong id="kPresence">0</strong>
-<small>Registradas hoje</small>
+
+<div class="home-main-grid">
+  <article class="panel enterprise-panel home-activity-card">
+    <div class="panel-head"><h3>Atividade recente</h3><button class="dashboard-link" data-page-jump="historico" type="button">Ver histórico</button></div>
+    <div class="panel-body recent-activity-list" id="dashboardRecentActivity"></div>
+  </article>
+  <article class="panel enterprise-panel home-event-card">
+    <div class="panel-head"><h3>Próximos eventos</h3><button class="dashboard-link" data-page-jump="calendario" type="button">Calendário</button></div>
+    <div class="panel-body today-events-list" id="dashboardTodayEvents"></div>
+  </article>
+  <article class="panel enterprise-panel home-personal-card">
+    <div class="panel-head"><h3>Meu resumo</h3><button class="dashboard-link" data-page-jump="configuracoes" type="button">Meu perfil</button></div>
+    <div class="panel-body home-personal-summary">
+      <div><span>Cargo</span><strong id="homeMyRole">—</strong></div>
+      <div><span>Clã</span><strong id="homeMyClan">—</strong></div>
+      <div><span>Pontos</span><strong id="homeMyPoints">0</strong></div>
+      <div><span>Presenças</span><strong id="homeMyPresence">0</strong></div>
+    </div>
+  </article>
 </div>
-<div class="kpi-trend"><b id="dashboardPresenceTrend">—</b><small>vs ontem</small></div>
-</article>
-<article class="enterprise-kpi kpi-orange">
-<div class="kpi-symbol">▣</div>
-<div class="kpi-copy">
-<span>EVENTOS ESTE MÊS</span>
-<strong id="kMonthEvents">0</strong>
-<small>Eventos registrados</small>
+
+<div class="home-secondary-grid">
+  <article class="panel enterprise-panel">
+    <div class="panel-head"><h3>Top 5 ranking</h3><button class="dashboard-link" data-page-jump="ranking" type="button">Ranking completo</button></div>
+    <div class="panel-body table-wrap"><table><thead><tr><th>#</th><th>Membro</th><th>Cargo</th><th>Pontos</th></tr></thead><tbody id="topFiveRows"></tbody></table></div>
+  </article>
+  <article class="panel enterprise-panel">
+    <div class="panel-head"><h3>Top clãs</h3><button class="dashboard-link" data-page-jump="ranking" type="button">Ver todos</button></div>
+    <div class="panel-body clan-points-list" id="dashboardClanPoints"></div>
+  </article>
+  <article class="panel enterprise-panel home-rate-card">
+    <div class="panel-head"><h3>Presença geral</h3></div>
+    <div class="panel-body rate-gauge-wrap"><div class="rate-gauge" id="dashboardRateGauge" style="--rate:0"><div><strong id="dashboardGeneralRate">0%</strong><span id="dashboardRateLabel">Sem dados</span></div></div><small id="dashboardActiveSummary">0 membros ativos</small></div>
+  </article>
 </div>
-<div class="kpi-trend"><b id="dashboardEventTrend">—</b><small>vs mês passado</small></div>
-</article>
-<article class="enterprise-kpi kpi-gold">
-<div class="kpi-symbol">🏆</div>
-<div class="kpi-copy">
-<span>TOP 1 RANKING</span>
-<strong id="kBest">—</strong>
-<small id="kBestPoints">0 pontos</small>
+
+<div class="home-ops-strip editor-only" id="homeOpsStrip">
+  <div><span>Solicitações</span><strong id="homePendingRequests">0</strong></div>
+  <div><span>Atendimentos</span><strong id="homeOpenTickets">0</strong></div>
+  <div><span>Presenças</span><strong id="homeOpenPresence">0</strong></div>
+  <button class="btn" data-page-jump="staff-hub" type="button">Abrir central STAFF</button>
 </div>
-<div class="winner-medal"><span>1</span></div>
-</article>
-</div>
-<div class="enterprise-dashboard-grid enterprise-row-main">
-<article class="panel enterprise-panel enterprise-presences">
-<div class="panel-head">
-<h3>◉ Presenças recentes</h3>
-<button class="dashboard-link" data-page-jump="historico" type="button">Ver todas</button>
-</div>
-<div class="panel-body table-wrap">
-<table>
-<thead><tr><th>Membro</th><th>Cargo</th><th>Data</th><th>Evento</th><th>Status</th></tr></thead>
-<tbody id="recentPresenceRows"></tbody>
-</table>
-</div>
-</article>
-<article class="panel enterprise-panel enterprise-ranking">
-<div class="panel-head">
-<h3>✦ Top 5 ranking</h3>
-<button class="dashboard-link" data-page-jump="ranking" type="button">Ver ranking completo</button>
-</div>
-<div class="panel-body table-wrap">
-<table>
-<thead><tr><th>Posição</th><th>Membro</th><th>Cargo</th><th>Pontos</th></tr></thead>
-<tbody id="topFiveRows"></tbody>
-</table>
-</div>
-</article>
-<article class="panel enterprise-panel dashboard-side-card">
-<div class="panel-head">
-<h3>▣ Eventos de hoje</h3>
-<button class="dashboard-link" data-page-jump="calendario" type="button">Ver calendário</button>
-</div>
-<div class="panel-body today-events-list" id="dashboardTodayEvents"></div>
-</article>
-</div>
-<div class="enterprise-dashboard-grid enterprise-row-analytics">
-<article class="panel enterprise-panel weekly-chart-panel">
-<div class="panel-head">
-<h3>⌁ Presenças da semana</h3>
-<span class="panel-period">Últimos 7 dias</span>
-</div>
-<div class="panel-body">
-<div class="weekly-chart" id="dashboardWeeklyChart"></div>
-</div>
-</article>
-<article class="panel enterprise-panel clan-points-panel">
-<div class="panel-head">
-<h3>▦ Top clãs por pontos</h3>
-<button class="dashboard-link" data-page-jump="ranking" type="button">Ver todos</button>
-</div>
-<div class="panel-body clan-points-list" id="dashboardClanPoints"></div>
-</article>
-<article class="panel enterprise-panel rate-panel">
-<div class="panel-head"><h3>♙ Taxa de presença geral</h3></div>
-<div class="panel-body rate-gauge-wrap">
-<div class="rate-gauge" id="dashboardRateGauge" style="--rate:0">
-<div><strong id="dashboardGeneralRate">0%</strong><span id="dashboardRateLabel">Sem dados</span></div>
-</div>
-<small id="dashboardActiveSummary">0 membros ativos</small>
-</div>
-</article>
-<article class="panel enterprise-panel recent-activity-panel">
-<div class="panel-head"><h3>♣ Atividade recente</h3></div>
-<div class="panel-body recent-activity-list" id="dashboardRecentActivity"></div>
-</article>
-</div>
-<article class="panel enterprise-panel dashboard-members enterprise-members-panel">
-<div class="panel-head dashboard-members-head">
-<h3>♟ Lista de membros</h3>
-<div class="dashboard-tools">
-<input id="dashboardMemberSearch" placeholder="Buscar membro..."/>
-<button class="btn primary editor-only" data-page-jump="membros" type="button">+ Novo membro</button>
-</div>
-</div>
-<div class="panel-body table-wrap">
-<table>
-<thead>
-<tr>
-<th>Nome</th><th>Cargo</th><th>Clã</th><th>Level</th>
-<th>XP</th><th>Presenças</th><th>Taxa</th><th>Status</th><th>Ações</th>
-</tr>
-</thead>
-<tbody id="dashboardMemberRows"></tbody>
-</table>
-</div>
-</article>
-<div class="enterprise-bottom-grid">
-<article class="panel enterprise-panel server-status-panel">
-<div class="panel-head"><h3>⚙ Status do sistema</h3></div>
-<div class="panel-body server-status-content">
-<div class="server-brand"><span>77</span><div><strong>Servidor 77 TEAM</strong><small>Firebase conectado</small></div></div>
-<div class="server-status-grid">
-<div><span>Status</span><strong class="status-online">Online</strong></div>
-<div><span>Usuários</span><strong id="dashboardServerUsers">0</strong></div>
-<div><span>Registros</span><strong id="dashboardServerRecords">0</strong></div>
-<div><span>Atualização</span><strong id="dashboardServerTime">—</strong></div>
-</div>
-<button class="btn full" data-page-jump="configuracoes" type="button">Ver detalhes do sistema</button>
-</div>
-</article>
+
+<div class="home-hidden-compat" aria-hidden="true">
+  <span id="kMonthEvents">0</span><span id="kBest">—</span><span id="kBestPoints">0 pontos</span>
+  <table><tbody id="recentPresenceRows"></tbody></table>
+  <div id="dashboardWeeklyChart"></div>
+  <table><tbody id="dashboardMemberRows"></tbody></table>
+  <span id="dashboardServerUsers">0</span><span id="dashboardServerRecords">0</span><span id="dashboardServerTime">—</span>
 </div>
 </section>
 <section class="page page-animate editor-only" id="staff-hub">
@@ -1348,6 +1271,6 @@
 <div class="global-search-results hidden" id="globalSearchResults"></div>
 <div class="toast" id="toast"></div>
 <script src="js/ui.js?v=22.9.32"></script>
-<script src="js/main.js?v=22.9.32-homecompact1" type="module"></script>
+<script src="js/main.js?v=22.9.32-homev2" type="module"></script>
 </body>
 </html>
