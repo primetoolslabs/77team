@@ -7648,3 +7648,462 @@ body.sidebar-collapsed #sidebar #nav > .main-category-submenu{
     grid-template-columns:1fr;
   }
 }
+
+
+/* ============================================================
+   MEU PERFIL — GAME DASHBOARD V2
+   Inspirado no layout aprovado: roxo/preto, compacto e horizontal.
+   VISUAL SOMENTE.
+   ============================================================ */
+#meu-perfil{
+  --g-purple:#8f39ff;
+  --g-purple-hi:#c364ff;
+  --g-purple-deep:#35105b;
+  --g-gold:#d5a63f;
+  --g-green:#35d67a;
+  --g-blue:#38bdf8;
+  --g-red:#ef4444;
+  --g-orange:#f59e0b;
+  --g-panel:#0d0f14;
+  --g-panel-2:#12151c;
+  --g-line:rgba(146,84,214,.24);
+  --g-line-soft:rgba(255,255,255,.055);
+  --g-text:#e9e6ee;
+  --g-muted:#8b8696;
+}
+
+/* Background and container */
+#meu-perfil{
+  background:
+    radial-gradient(circle at 82% 2%,rgba(111,34,180,.11),transparent 30%),
+    radial-gradient(circle at 12% 0%,rgba(96,31,130,.08),transparent 28%);
+}
+#meu-perfil .profile-workspace-head{
+  min-height:auto!important;
+  padding:0 2px 8px!important;
+  margin:0 0 8px!important;
+  border:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+}
+#meu-perfil .profile-workspace-head:before,
+#meu-perfil .profile-workspace-head:after{
+  display:none!important;
+}
+#meu-perfil .profile-workspace-head h2{
+  font-size:1rem!important;
+  margin:0 0 3px!important;
+  color:#d9d4df!important;
+  font-family:inherit!important;
+  font-weight:700!important;
+}
+#meu-perfil .profile-workspace-head .profile-eyebrow{
+  display:none!important;
+}
+#meu-perfil .profile-workspace-head p{
+  font-size:.65rem!important;
+  color:#6f6a77!important;
+}
+
+/* Workspace internal profile nav becomes slim game tabs */
+#meu-perfil .profile-workspace{
+  grid-template-columns:150px minmax(0,1fr)!important;
+  gap:8px!important;
+}
+#meu-perfil .profile-menu{
+  top:88px!important;
+  gap:2px!important;
+  padding:6px!important;
+  border-color:rgba(147,82,211,.18)!important;
+  border-radius:3px!important;
+  background:linear-gradient(180deg,#0d0f14,#080a0d)!important;
+}
+#meu-perfil .profile-menu:before{
+  content:"PERFIL"!important;
+  padding:3px 6px 7px!important;
+  margin-bottom:2px!important;
+  border-bottom-color:rgba(147,82,211,.12)!important;
+  color:#766985!important;
+  font-size:.5rem!important;
+}
+#meu-perfil .profile-menu button{
+  min-height:37px!important;
+  grid-template-columns:24px minmax(0,1fr)!important;
+  gap:6px!important;
+  padding:5px 7px!important;
+  border-radius:2px!important;
+}
+#meu-perfil .profile-menu button>span:first-child{
+  width:23px!important;
+  height:23px!important;
+  border-color:rgba(145,70,225,.16)!important;
+  background:rgba(126,34,206,.035)!important;
+  font-size:12px!important;
+}
+#meu-perfil .profile-menu button.active{
+  border-color:rgba(158,79,234,.34)!important;
+  background:linear-gradient(90deg,rgba(103,26,158,.36),rgba(61,20,89,.12))!important;
+  box-shadow:inset 2px 0 #aa4fff!important;
+}
+#meu-perfil .profile-menu button.active:before{display:none!important}
+#meu-perfil .profile-menu-copy strong{
+  font-family:inherit!important;
+  font-size:.65rem!important;
+  font-weight:700!important;
+}
+#meu-perfil .profile-menu-copy small{
+  display:none!important;
+}
+
+/* tab heading compact */
+#meu-perfil .profile-tab-heading{
+  min-height:34px!important;
+  padding:7px 10px!important;
+  margin-bottom:7px!important;
+  border-left:0!important;
+  border:1px solid rgba(143,71,211,.16)!important;
+  border-radius:2px!important;
+  background:linear-gradient(90deg,rgba(76,25,110,.12),rgba(10,11,15,.55))!important;
+}
+#meu-perfil .profile-tab-heading h3{
+  font-family:inherit!important;
+  font-size:.74rem!important;
+  color:#cdb2ea!important;
+}
+#meu-perfil .profile-tab-heading p{
+  display:none!important;
+}
+
+/* Main hero profile strip */
+#meu-perfil .player-identity-card{
+  min-height:190px!important;
+  border-color:rgba(144,75,216,.3)!important;
+  border-radius:2px!important;
+  background:
+    radial-gradient(circle at 87% 28%,rgba(104,27,168,.14),transparent 25%),
+    linear-gradient(115deg,#101218,#090b0f 68%,#0b0810)!important;
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,.012),
+    0 10px 28px rgba(0,0,0,.22)!important;
+}
+#meu-perfil .player-identity-card:before,
+#meu-perfil .player-identity-card:after{
+  width:45px!important;
+  height:45px!important;
+  border-color:rgba(153,86,226,.42)!important;
+}
+#meu-perfil .player-identity-content{
+  min-height:190px!important;
+  grid-template-columns:130px minmax(0,1fr) 140px!important;
+  gap:14px!important;
+  padding:13px!important;
+}
+#meu-perfil .player-avatar-frame{
+  width:110px!important;
+  height:110px!important;
+  padding:4px!important;
+  border:1px solid #7941a8!important;
+  border-radius:50%!important;
+  background:
+    radial-gradient(circle,#2a173a,#0c0d11 65%)!important;
+  box-shadow:
+    0 0 0 3px rgba(101,48,142,.55),
+    0 0 0 4px rgba(184,93,255,.3),
+    0 0 22px rgba(147,58,224,.19)!important;
+}
+#meu-perfil .player-avatar-frame:before{
+  inset:5px!important;
+  border-color:rgba(185,91,255,.24)!important;
+  border-radius:50%!important;
+}
+#meu-perfil .avatar-overlay-button{
+  border-color:rgba(158,84,221,.3)!important;
+  color:#c6a6df!important;
+  background:#111019!important;
+}
+
+/* User identity */
+#meu-perfil .player-name-row h1{
+  color:#f0edf4!important;
+  font-family:inherit!important;
+  font-size:1.5rem!important;
+  font-weight:700!important;
+  text-shadow:none!important;
+}
+#meu-perfil .player-name-row .profile-eyebrow{
+  color:#915bc1!important;
+  font-family:inherit!important;
+  font-size:.52rem!important;
+}
+#meu-perfil .player-meta{
+  margin:7px 0 10px!important;
+  gap:4px!important;
+}
+#meu-perfil .player-meta span{
+  padding:3px 6px!important;
+  border-color:rgba(157,78,222,.12)!important;
+  color:#898490!important;
+  font-size:.56rem!important;
+  background:rgba(255,255,255,.01)!important;
+}
+
+/* top stats look like game dashboard */
+#meu-perfil .player-power-row{
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  gap:0!important;
+  border:1px solid rgba(145,76,212,.12)!important;
+  border-radius:2px!important;
+  overflow:hidden!important;
+}
+#meu-perfil .power-chip{
+  padding:8px!important;
+  border:0!important;
+  border-right:1px solid rgba(255,255,255,.055)!important;
+  border-radius:0!important;
+  background:rgba(255,255,255,.012)!important;
+  text-align:center!important;
+}
+#meu-perfil .power-chip:last-child{border-right:0!important}
+#meu-perfil .power-chip small{
+  color:#807888!important;
+  font-size:.48rem!important;
+}
+#meu-perfil .power-chip strong{
+  margin-top:2px!important;
+  color:#c159ff!important;
+  font-family:inherit!important;
+  font-size:1.04rem!important;
+  font-weight:700!important;
+}
+#meu-perfil .power-chip:first-child strong{color:#e7ad42!important}
+#meu-perfil .power-chip:last-child strong{color:#d7a948!important}
+
+/* XP bar purple */
+#meu-perfil .hero-progress{
+  margin-top:8px!important;
+  padding:7px 8px!important;
+  border-color:rgba(151,75,218,.12)!important;
+  background:rgba(4,5,7,.26)!important;
+}
+#meu-perfil .profile-progress-head{
+  color:#9891a1!important;
+  font-size:.55rem!important;
+}
+#meu-perfil .profile-progress-bar{
+  height:5px!important;
+  border-color:rgba(147,71,210,.14)!important;
+}
+#meu-perfil .profile-progress-bar i{
+  background:linear-gradient(90deg,#6825b7,#8e31e6,#ae48ff)!important;
+  box-shadow:0 0 12px rgba(155,61,240,.26)!important;
+}
+
+/* achievements right side */
+#meu-perfil .hero-medals{
+  border-left-color:rgba(149,72,212,.12)!important;
+  background:linear-gradient(90deg,transparent,rgba(91,27,130,.09))!important;
+}
+#meu-perfil .hero-medals h3{
+  color:#c7a7dd!important;
+  font-family:inherit!important;
+  font-size:.67rem!important;
+}
+#meu-perfil #profileMedals{
+  color:#7b7580!important;
+  font-size:.57rem!important;
+}
+
+/* panels */
+#meu-perfil .profile-dashboard-grid{
+  grid-template-columns:minmax(320px,.82fr) minmax(0,1.18fr)!important;
+  gap:8px!important;
+  margin-top:8px!important;
+}
+#meu-perfil .profile-stat-panel,
+#meu-perfil .character-summary-panel,
+#meu-perfil .character-form-panel,
+#meu-perfil .account-settings-panel,
+#meu-perfil .profile-history-panel,
+#meu-perfil .support-profile-card{
+  border-color:rgba(142,76,204,.19)!important;
+  border-radius:2px!important;
+  background:linear-gradient(180deg,#0e1015,#090b0f)!important;
+  box-shadow:none!important;
+}
+#meu-perfil .panel-head{
+  min-height:37px!important;
+  padding:7px 9px!important;
+  border-bottom-color:rgba(143,75,206,.12)!important;
+  background:linear-gradient(90deg,rgba(79,25,115,.15),rgba(12,13,17,.78))!important;
+}
+#meu-perfil .panel-head h3{
+  color:#cdb0e4!important;
+  font-family:inherit!important;
+  font-size:.7rem!important;
+  letter-spacing:.015em!important;
+}
+
+/* performance cards */
+#meu-perfil .profile-stat-cards{
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  gap:5px!important;
+}
+#meu-perfil .profile-stat-cards>div,
+#meu-perfil .character-summary-grid>div{
+  min-height:66px!important;
+  padding:8px!important;
+  border-color:rgba(143,72,210,.13)!important;
+  border-radius:2px!important;
+  background:
+    radial-gradient(circle at 50% 0%,rgba(99,33,145,.075),transparent 55%),
+    #0c0e12!important;
+}
+#meu-perfil .profile-stat-cards>div:after,
+#meu-perfil .character-summary-grid>div:after{
+  border-color:rgba(159,77,224,.15)!important;
+}
+#meu-perfil .profile-stat-cards span,
+#meu-perfil .character-summary-grid span{
+  color:#77717c!important;
+  font-size:.48rem!important;
+}
+#meu-perfil .profile-stat-cards strong,
+#meu-perfil .character-summary-grid strong{
+  color:#dcd5e3!important;
+  font-family:inherit!important;
+  font-size:.88rem!important;
+}
+#meu-perfil .profile-stat-cards>div:nth-child(1) strong{color:#54e68a!important}
+#meu-perfil .profile-stat-cards>div:nth-child(2) strong{color:#f76767!important}
+#meu-perfil .profile-stat-cards>div:nth-child(3) strong{color:#50c7fb!important}
+#meu-perfil .profile-stat-cards>div:nth-child(5) strong{color:#e0ae46!important}
+#meu-perfil .profile-stat-cards>div:nth-child(6) strong{color:#bb67f7!important}
+
+/* character summary as RPG slots */
+#meu-perfil .character-summary-grid{
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  gap:5px!important;
+}
+#meu-perfil .character-summary-grid>div:nth-child(1),
+#meu-perfil .character-summary-grid>div:nth-child(2),
+#meu-perfil .character-summary-grid>div:nth-child(3){
+  border-color:rgba(153,80,216,.23)!important;
+}
+#meu-perfil .character-summary-grid>div:nth-child(6) strong{color:#4fdf8c!important}
+#meu-perfil .character-summary-grid>div:nth-child(7) strong{color:#4bc2ff!important}
+#meu-perfil .character-summary-grid>div:nth-child(8) strong{color:#bd5ef2!important}
+#meu-perfil .character-summary-grid>div:nth-child(9) strong{color:#f0be46!important}
+#meu-perfil .character-summary-grid>div:nth-child(11) strong{color:#f08d38!important}
+
+/* forms/tabs preserve functionality, use same game UI */
+#meu-perfil .character-form-grid{
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  gap:6px!important;
+}
+#meu-perfil .character-form-grid label,
+#meu-perfil .account-tabs label{
+  padding:6px!important;
+  border-color:rgba(143,72,204,.08)!important;
+  background:#0b0d11!important;
+}
+#meu-perfil input,
+#meu-perfil select,
+#meu-perfil textarea{
+  min-height:32px!important;
+  border-color:rgba(147,74,213,.17)!important;
+  background:#080a0e!important;
+  color:#ded8e3!important;
+}
+#meu-perfil input:focus,
+#meu-perfil select:focus,
+#meu-perfil textarea:focus{
+  border-color:rgba(175,85,244,.46)!important;
+  box-shadow:0 0 0 2px rgba(147,56,221,.065)!important;
+}
+#meu-perfil .btn.primary{
+  border-color:#7130a6!important;
+  background:linear-gradient(180deg,#592079,#2c103d)!important;
+  color:#e6d6f0!important;
+}
+#meu-perfil .btn.primary:hover{
+  border-color:#a44ade!important;
+  background:linear-gradient(180deg,#762aa4,#3a124e)!important;
+}
+
+/* account/security */
+#meu-perfil .account-tabs{
+  gap:8px!important;
+}
+#meu-perfil .account-tabs>section{
+  padding:9px!important;
+  border-color:rgba(147,73,207,.10)!important;
+  background:#0a0c10!important;
+}
+#meu-perfil .account-tabs h4{
+  border-bottom-color:rgba(144,70,208,.10)!important;
+  color:#b79bc8!important;
+  font-family:inherit!important;
+  font-size:.67rem!important;
+}
+
+/* timeline / chats */
+#meu-perfil .profile-timeline:before{
+  background:linear-gradient(180deg,rgba(163,76,229,.38),rgba(163,76,229,.04))!important;
+}
+#meu-perfil .support-chat{
+  border-color:rgba(149,75,211,.11)!important;
+  background:#080a0d!important;
+}
+
+/* First access */
+#meu-perfil .first-access-panel{
+  border-color:rgba(149,74,218,.25)!important;
+  background:linear-gradient(90deg,rgba(81,25,118,.20),rgba(12,13,17,.92))!important;
+}
+#meu-perfil .first-access-progress-bar i{
+  background:linear-gradient(90deg,#641ca4,#a23be9)!important;
+}
+
+/* Make overview itself feel like one unified dashboard */
+#meu-perfil [data-profile-panel="overview"]{
+  display:grid;
+  gap:8px;
+}
+#meu-perfil [data-profile-panel="overview"] .profile-tab-heading{
+  display:none!important;
+}
+
+/* Responsive */
+@media(max-width:1250px){
+  #meu-perfil .player-identity-content{
+    grid-template-columns:120px minmax(0,1fr)!important;
+  }
+  #meu-perfil .hero-medals{
+    grid-column:1/-1!important;
+    border-left:0!important;
+    border-top:1px solid rgba(145,70,210,.10)!important;
+  }
+}
+@media(max-width:980px){
+  #meu-perfil .profile-workspace{
+    grid-template-columns:1fr!important;
+  }
+  #meu-perfil .profile-menu{
+    position:relative!important;
+    top:auto!important;
+    grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  }
+}
+@media(max-width:720px){
+  #meu-perfil .player-identity-content{
+    grid-template-columns:1fr!important;
+  }
+  #meu-perfil .player-avatar-area{
+    justify-self:center!important;
+  }
+  #meu-perfil .profile-stat-cards,
+  #meu-perfil .character-summary-grid,
+  #meu-perfil .character-form-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  }
+}
