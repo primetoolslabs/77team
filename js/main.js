@@ -558,10 +558,14 @@ onAuthStateChanged(auth,async user=>{
 });
 
 function applyPermissions(){
-  $$(".owner-only").forEach(el=>el.classList.toggle("hidden",!owner()));
-  $$(".admin-only").forEach(el=>el.classList.toggle("hidden",!permissionEnabled("access_admin")));
-  $$(".editor-only").forEach(el=>el.classList.toggle("hidden",!editor()));
-  document.querySelectorAll('[data-category="staff"]').forEach(el=>el.classList.toggle("hidden",!permissionEnabled("access_staff")));
+  const isPublicView=document.body.dataset.publicView==="true"||!state.user;
+  $$(".owner-only").forEach(el=>el.classList.toggle("hidden",isPublicView||!owner()));
+  $$(".admin-only").forEach(el=>el.classList.toggle("hidden",isPublicView||!permissionEnabled("access_admin")));
+  $$(".editor-only").forEach(el=>el.classList.toggle("hidden",isPublicView||!editor()));
+  document.querySelectorAll('[data-category="staff"]').forEach(el=>el.classList.toggle("hidden",isPublicView||!permissionEnabled("access_staff")));
+  document.querySelectorAll('[data-category="administracao"],[data-category="avancado"],[data-submenu="staff"],[data-submenu="administracao"],[data-submenu="avancado"]').forEach(el=>{
+    if(isPublicView)el.classList.add("hidden");
+  });
   byId("memberForm")?.classList.toggle("hidden",!permissionEnabled("members_edit"));
   document.body.dataset.accessRole=currentAccessRole();
   document.body.dataset.rawAccessRole=String(state.profile?.accessRole||state.profile?.role||"");
@@ -2166,7 +2170,7 @@ setInterval(updateLiveClock,1000);
 
 async function ensureCurrentAppShell(){
   const marker="77team-app-shell-version";
-  const current="22.9.32-profilev6";
+  const current="22.9.32-visitorhide1";
   try{
     const previous=localStorage.getItem(marker);
     if(previous===current)return;
@@ -2179,7 +2183,7 @@ async function ensureCurrentAppShell(){
 }
 
 ensureCurrentAppShell();
-if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js?v=22.9.32-profilev6").catch(error=>console.warn("Service Worker indisponível:",error)));
+if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js?v=22.9.32-visitorhide1").catch(error=>console.warn("Service Worker indisponível:",error)));
 
 function animateNumber(id,target,suffix=""){
   const el=byId(id);

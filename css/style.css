@@ -7150,3 +7150,17 @@ body.sidebar-collapsed #sidebar #nav > .main-category-submenu{
     font-size:.62rem!important;
   }
 }
+
+/* Visitante — oculta áreas internas e respeita .hidden no menu */
+#sidebar #nav > .main-category-link.hidden,
+#sidebar #nav > .main-category-submenu.hidden{
+  display:none!important;
+}
+body[data-public-view="true"] #sidebar #nav > [data-category="staff"],
+body[data-public-view="true"] #sidebar #nav > [data-category="administracao"],
+body[data-public-view="true"] #sidebar #nav > [data-category="avancado"],
+body[data-public-view="true"] #sidebar #nav > [data-submenu="staff"],
+body[data-public-view="true"] #sidebar #nav > [data-submenu="administracao"],
+body[data-public-view="true"] #sidebar #nav > [data-submenu="avancado"]{
+  display:none!important;
+}

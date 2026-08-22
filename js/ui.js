@@ -201,6 +201,10 @@
       const key=button.dataset.category;
       const category=categories[key];
       if(!category)return;
+      const publicView=document.body.dataset.publicView==="true";
+      const privileged=["staff","administracao","avancado"].includes(key);
+      const categoryAllowed=!publicView&&allowedCategory(key) || (!privileged&&allowedCategory(key));
+      button.classList.toggle("hidden",!categoryAllowed);
       let host=button.nextElementSibling;
       if(!host || !host.classList.contains("main-category-submenu")){
         host=document.createElement("div");
@@ -208,9 +212,10 @@
         host.dataset.submenu=key;
         button.insertAdjacentElement("afterend",host);
       }
-      host.innerHTML=category.items.filter(([id])=>itemAllowed(id)).map(([id,itemIcon,label])=>
+      host.classList.toggle("hidden",!categoryAllowed);
+      host.innerHTML=categoryAllowed?category.items.filter(([id])=>itemAllowed(id)).map(([id,itemIcon,label])=>
         `<button type="button" class="main-submenu-link" data-page-jump="${id}" data-submenu-page="${id}"><span>${itemIcon}</span><span>${label}</span></button>`
-      ).join("");
+      ).join(""):"";
       button.setAttribute("aria-haspopup","true");
     });
   }
