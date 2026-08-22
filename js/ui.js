@@ -349,5 +349,32 @@
      tratada no clique dos itens e na inicialização. */
 })();
 
-/* Meu Perfil V4 helper visual */
-(function(){function s(){const t=id=>document.getElementById(id)?.textContent?.trim()||"—";const set=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v||"—"};set("rpgInfoName",t("profileDisplayName"));set("rpgInfoClass",t("profileCharacterClass"));set("rpgInfoRole",document.querySelector("#profileRoleBadge")?.textContent?.trim()||"—");set("rpgInfoClan",t("profileCharacterClan"));}document.addEventListener("click",e=>{const j=e.target.closest("[data-profile-tab-jump]");if(j)document.querySelector(`[data-profile-tab="${j.dataset.profileTabJump}"]`)?.click();});document.addEventListener("DOMContentLoaded",()=>{s();const p=document.getElementById("meu-perfil");if(p)new MutationObserver(s).observe(p,{subtree:true,childList:true,characterData:true});});})();
+/* Meu Perfil V4 helper visual — otimizado */
+(function(){
+  const sourceIds=["profileDisplayName","profileCharacterClass","profileRoleBadge","profileCharacterClan"];
+  function value(id){return document.getElementById(id)?.textContent?.trim()||"—";}
+  function setIfChanged(id,value){
+    const el=document.getElementById(id);
+    if(el && el.textContent!==value) el.textContent=value;
+  }
+  function sync(){
+    setIfChanged("rpgInfoName",value("profileDisplayName"));
+    setIfChanged("rpgInfoClass",value("profileCharacterClass"));
+    setIfChanged("rpgInfoRole",value("profileRoleBadge"));
+    setIfChanged("rpgInfoClan",value("profileCharacterClan"));
+  }
+  document.addEventListener("click",event=>{
+    const jump=event.target.closest("[data-profile-tab-jump]");
+    if(jump){
+      document.querySelector(`[data-profile-tab="${jump.dataset.profileTabJump}"]`)?.click();
+      return;
+    }
+  });
+  document.addEventListener("DOMContentLoaded",()=>{
+    sync();
+    sourceIds.forEach(id=>{
+      const el=document.getElementById(id);
+      if(el)new MutationObserver(sync).observe(el,{subtree:true,childList:true,characterData:true});
+    });
+  });
+})();
