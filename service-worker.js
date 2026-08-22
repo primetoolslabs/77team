@@ -1,4 +1,4 @@
-const CACHE_NAME="77-team-manager-v22.9.32-profilev5";
+const CACHE_NAME="77-team-manager-v22.9.32-profilev6";
 const STATIC_ASSETS=[
   "./manifest.json",
   "./icons/icon-192.png",

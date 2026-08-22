@@ -6963,3 +6963,190 @@ body.sidebar-collapsed #sidebar #nav > .main-category-submenu{
 [hidden]{
   display:none!important;
 }
+
+
+/* ============================================================
+   MEU PERFIL V6 — CORREÇÃO ESTRUTURAL DEFINITIVA
+   ============================================================ */
+#meu-perfil{
+  width:100%!important;
+  max-width:100%!important;
+  min-width:0!important;
+  padding-top:0!important;
+  overflow:visible!important;
+}
+
+#meu-perfil > .profile-game-shell{
+  width:100%!important;
+  max-width:100%!important;
+  min-width:0!important;
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:stretch!important;
+  gap:8px!important;
+  margin:0!important;
+  padding:0!important;
+}
+
+/* O breadcrumb geral do sistema já existe acima. */
+#meu-perfil .profile-game-breadcrumb{
+  display:none!important;
+}
+
+/* Barra horizontal de abas — nunca mais lista vertical. */
+#meu-perfil nav.profile-game-tabs{
+  width:100%!important;
+  min-width:0!important;
+  min-height:42px!important;
+  max-height:none!important;
+  display:flex!important;
+  flex-direction:row!important;
+  flex-wrap:nowrap!important;
+  align-items:center!important;
+  justify-content:flex-start!important;
+  gap:3px!important;
+  margin:0 0 8px!important;
+  padding:5px!important;
+  overflow-x:auto!important;
+  overflow-y:hidden!important;
+  border:1px solid rgba(153,72,216,.22)!important;
+  border-radius:4px!important;
+  background:linear-gradient(180deg,#101218,#090b0f)!important;
+  box-sizing:border-box!important;
+  scrollbar-width:thin!important;
+}
+
+#meu-perfil nav.profile-game-tabs > button{
+  position:relative!important;
+  width:auto!important;
+  min-width:max-content!important;
+  max-width:none!important;
+  height:32px!important;
+  min-height:32px!important;
+  max-height:32px!important;
+  flex:0 0 auto!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:5px!important;
+  margin:0!important;
+  padding:0 11px!important;
+  border:1px solid transparent!important;
+  border-radius:3px!important;
+  background:transparent!important;
+  color:#898391!important;
+  box-shadow:none!important;
+  font:inherit!important;
+  font-size:.66rem!important;
+  font-weight:800!important;
+  line-height:1!important;
+  text-align:center!important;
+  white-space:nowrap!important;
+  cursor:pointer!important;
+  transform:none!important;
+}
+
+#meu-perfil nav.profile-game-tabs > button::before,
+#meu-perfil nav.profile-game-tabs > button::after{
+  display:none!important;
+}
+
+#meu-perfil nav.profile-game-tabs > button:hover{
+  color:#d8b9eb!important;
+  border-color:rgba(158,77,222,.18)!important;
+  background:rgba(100,28,146,.11)!important;
+}
+
+#meu-perfil nav.profile-game-tabs > button.active{
+  color:#f0dfff!important;
+  border-color:rgba(177,82,243,.38)!important;
+  background:linear-gradient(180deg,#552072,#2d103e)!important;
+  box-shadow:inset 0 -2px #b34dff!important;
+}
+
+/* Conteúdo começa imediatamente depois da barra. */
+#meu-perfil .profile-game-content{
+  width:100%!important;
+  max-width:100%!important;
+  min-width:0!important;
+  display:block!important;
+  margin:0!important;
+  padding:0!important;
+}
+
+#meu-perfil .profile-game-content > .profile-tab-panel{
+  width:100%!important;
+  max-width:100%!important;
+  min-width:0!important;
+  margin:0!important;
+  padding:0!important;
+  display:none!important;
+  visibility:hidden!important;
+}
+
+#meu-perfil .profile-game-content > .profile-tab-panel.active{
+  display:block!important;
+  visibility:visible!important;
+}
+
+/* A Visão Geral nova não recebe margens da interface antiga. */
+#meu-perfil .profile-game-content > .profile-v4{
+  width:100%!important;
+  max-width:100%!important;
+  min-width:0!important;
+  margin:0!important;
+  padding:0!important;
+}
+
+/* Hero começa no topo sem faixa vazia. */
+#meu-perfil .profile-v4 > .rpg-profile-hero{
+  margin-top:0!important;
+}
+
+/* Primeiro acesso só ocupa espaço se realmente estiver visível. */
+#meu-perfil .first-access-panel.hidden{
+  display:none!important;
+}
+
+/* Remove qualquer comportamento antigo de menu vertical dentro do perfil. */
+#meu-perfil .profile-menu{
+  display:none!important;
+}
+
+/* Segurança contra regras globais de nav/button. */
+#meu-perfil nav.profile-game-tabs,
+#meu-perfil nav.profile-game-tabs *{
+  float:none!important;
+  clear:none!important;
+}
+
+/* Mantém interação normal. */
+#meu-perfil nav.profile-game-tabs,
+#meu-perfil nav.profile-game-tabs button,
+#meu-perfil .profile-game-content,
+#meu-perfil .profile-v4{
+  pointer-events:auto!important;
+}
+
+@media(max-width:900px){
+  #meu-perfil nav.profile-game-tabs{
+    flex-wrap:nowrap!important;
+  }
+  #meu-perfil nav.profile-game-tabs > button{
+    min-width:max-content!important;
+    padding:0 9px!important;
+  }
+}
+
+@media(max-width:600px){
+  #meu-perfil nav.profile-game-tabs{
+    min-height:40px!important;
+    padding:4px!important;
+  }
+  #meu-perfil nav.profile-game-tabs > button{
+    height:30px!important;
+    min-height:30px!important;
+    max-height:30px!important;
+    font-size:.62rem!important;
+  }
+}
