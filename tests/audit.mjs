@@ -134,8 +134,8 @@ assert.ok(html.includes('id="signupPassword" minlength="8"'));
 assert.ok(rules.includes("resource.data.status == 'rejected' && resource.data.active == false"));
 assert.ok(rules.includes("function leadershipCanApprovePendingMember"));
 assert.ok(rules.includes("request.resource.data.keys().hasOnly(["));
-assert.ok(main.includes('serviceWorker.register("./service-worker.js?v=22.9.32-profilefix1")'));
-assert.ok(html.includes('js/main.js?v=22.9.32-profilefix1'));
+assert.ok(main.includes('serviceWorker.register("./service-worker.js?v=22.9.32-profilev5")'));
+assert.ok(html.includes('js/main.js?v=22.9.32-profilev5'));
 
 
 // Permissões dinâmicas: Firebase e interface devem compartilhar a mesma matriz em tempo real.
@@ -198,11 +198,10 @@ assert.ok(storageRules.includes("permission('login_customize')"));
 assert.ok(storageRules.includes("function supportManager()"));
 
 // Cache/versionamento deve apontar para a mesma revisão das abas.
-assert.ok(main.includes('service-worker.js?v=22.9.32-profilefix1'));
-assert.ok(html.includes('js/main.js?v=22.9.32-profilefix1'));
+assert.ok(main.includes('service-worker.js?v=22.9.32-profilev5'));
+assert.ok(html.includes('js/main.js?v=22.9.32-profilev5'));
 const serviceWorker=read("service-worker.js");
-assert.ok(serviceWorker.includes('77-team-manager-v22.9.32-profilefix1'));
-assert.ok(serviceWorker.includes('js/main.js?v=22.9.32-profilefix1'));
+assert.ok(serviceWorker.includes('77-team-manager-v22.9.32-profilev5'));
 assert.ok(rules.includes("function paymentsMatrixPermission()"));
 assert.ok(rules.includes("rolePermissions.payments_manage.staff == true"));
 
@@ -215,3 +214,5 @@ assert.ok(rules.includes("rolePermissions.requests_approve.staff == true"));
 assert.ok(rules.includes("function staffClanChangePermission()"));
 assert.ok(rules.includes("rolePermissions.members_clan_change.staff == true"));
 assert.ok(rules.includes("staffClanChangePermission() && isMemberRole(accessRoleOf(resource.data))"));
+assert.ok(serviceWorker.includes('CACHE_NAME="77-team-manager-v22.9.32-profilev5"'));
+assert.ok(serviceWorker.includes('fetch(event.request,{cache:"no-store"})'));

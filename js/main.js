@@ -2163,7 +2163,23 @@ function updateLiveClock(){
 }
 updateLiveClock();
 setInterval(updateLiveClock,1000);
-if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js?v=22.9.32-profilefix1").catch(error=>console.warn("Service Worker indisponível:",error)));
+
+async function ensureCurrentAppShell(){
+  const marker="77team-app-shell-version";
+  const current="22.9.32-profilev5";
+  try{
+    const previous=localStorage.getItem(marker);
+    if(previous===current)return;
+    if("caches" in window){
+      const keys=await caches.keys();
+      await Promise.all(keys.filter(k=>k.startsWith("77-team-manager-")).map(k=>caches.delete(k)));
+    }
+    localStorage.setItem(marker,current);
+  }catch(_error){}
+}
+
+ensureCurrentAppShell();
+if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js?v=22.9.32-profilev5").catch(error=>console.warn("Service Worker indisponível:",error)));
 
 function animateNumber(id,target,suffix=""){
   const el=byId(id);
