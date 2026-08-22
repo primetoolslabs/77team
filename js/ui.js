@@ -348,3 +348,6 @@
      quando outra categoria era clicada. A abertura da categoria ativa já é
      tratada no clique dos itens e na inicialização. */
 })();
+
+/* Meu Perfil V4 helper visual */
+(function(){function s(){const t=id=>document.getElementById(id)?.textContent?.trim()||"—";const set=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v||"—"};set("rpgInfoName",t("profileDisplayName"));set("rpgInfoClass",t("profileCharacterClass"));set("rpgInfoRole",document.querySelector("#profileRoleBadge")?.textContent?.trim()||"—");set("rpgInfoClan",t("profileCharacterClan"));}document.addEventListener("click",e=>{const j=e.target.closest("[data-profile-tab-jump]");if(j)document.querySelector(`[data-profile-tab="${j.dataset.profileTabJump}"]`)?.click();});document.addEventListener("DOMContentLoaded",()=>{s();const p=document.getElementById("meu-perfil");if(p)new MutationObserver(s).observe(p,{subtree:true,childList:true,characterData:true});});})();
