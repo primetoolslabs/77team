@@ -133,6 +133,17 @@ function leadership(){return currentAccessRole()==="leadership"}
 function staff(){return currentAccessRole()==="staff"}
 function editor(){return ["dev","leadership","staff"].includes(currentAccessRole())}
 function administrator(){return ["dev","leadership"].includes(currentAccessRole())}
+
+function canShowMenuCategory(key){
+  const publicView=document.body.dataset.publicView==="true"||!state.user;
+  if(key==="home"||key==="sobre")return true;
+  if(publicView)return false;
+  if(key==="staff")return editor()&&permissionEnabled("access_staff");
+  if(key==="administracao")return administrator()&&permissionEnabled("access_admin");
+  if(key==="avancado")return owner();
+  return false;
+}
+window.TeamManagerCanShowCategory=canShowMenuCategory;
 window.TeamManagerState=state;
 window.TeamManagerIsOwner=owner;
 window.TeamManagerIsAdministrator=administrator;
@@ -562,9 +573,9 @@ function applyPermissions(){
   $$(".owner-only").forEach(el=>el.classList.toggle("hidden",isPublicView||!owner()));
   $$(".admin-only").forEach(el=>el.classList.toggle("hidden",isPublicView||!permissionEnabled("access_admin")));
   $$(".editor-only").forEach(el=>el.classList.toggle("hidden",isPublicView||!editor()));
-  document.querySelectorAll('[data-category="staff"]').forEach(el=>el.classList.toggle("hidden",isPublicView||!permissionEnabled("access_staff")));
-  document.querySelectorAll('[data-category="administracao"],[data-category="avancado"],[data-submenu="staff"],[data-submenu="administracao"],[data-submenu="avancado"]').forEach(el=>{
-    if(isPublicView)el.classList.add("hidden");
+  ["home","staff","administracao","avancado"].forEach(key=>{
+    const visible=canShowMenuCategory(key);
+    document.querySelectorAll(`[data-category="${key}"],[data-submenu="${key}"]`).forEach(el=>el.classList.toggle("hidden",!visible));
   });
   byId("memberForm")?.classList.toggle("hidden",!permissionEnabled("members_edit"));
   document.body.dataset.accessRole=currentAccessRole();
@@ -615,6 +626,9 @@ function applyPermissions(){
     button.setAttribute("aria-disabled",allowed?"false":"true");
   });
   updateFirstAccessUI();
+  window.TeamManagerSidebarDropdowns?.buildDropdowns?.();
+  const activePage=document.querySelector(".page.active")?.id||"dashboard";
+  window.syncModuleNavigation?.(activePage);
 }
 
 function subscribePublic(){
@@ -2170,7 +2184,7 @@ setInterval(updateLiveClock,1000);
 
 async function ensureCurrentAppShell(){
   const marker="77team-app-shell-version";
-  const current="22.9.32-visitorhide1";
+  const current="22.9.32-menufix2";
   try{
     const previous=localStorage.getItem(marker);
     if(previous===current)return;
@@ -2183,7 +2197,7 @@ async function ensureCurrentAppShell(){
 }
 
 ensureCurrentAppShell();
-if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js?v=22.9.32-visitorhide1").catch(error=>console.warn("Service Worker indisponível:",error)));
+if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js?v=22.9.32-menufix2").catch(error=>console.warn("Service Worker indisponível:",error)));
 
 function animateNumber(id,target,suffix=""){
   const el=byId(id);

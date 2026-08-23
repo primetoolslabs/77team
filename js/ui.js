@@ -201,9 +201,9 @@
       const key=button.dataset.category;
       const category=categories[key];
       if(!category)return;
-      const publicView=document.body.dataset.publicView==="true";
-      const privileged=["staff","administracao","avancado"].includes(key);
-      const categoryAllowed=!publicView&&allowedCategory(key) || (!privileged&&allowedCategory(key));
+      const categoryAllowed=typeof window.TeamManagerCanShowCategory==="function"
+        ? window.TeamManagerCanShowCategory(key)
+        : allowedCategory(key);
       button.classList.toggle("hidden",!categoryAllowed);
       let host=button.nextElementSibling;
       if(!host || !host.classList.contains("main-category-submenu")){
@@ -251,6 +251,9 @@
     const category=categories[key];
     if(!category)return;
     buildDropdowns();
+    if(typeof window.TeamManagerCanShowCategory==="function"&&!window.TeamManagerCanShowCategory(key)){
+      return;
+    }
 
     const breadcrumb=document.getElementById("moduleBreadcrumb");
     const current=category.items.find(item=>item[0]===page);
