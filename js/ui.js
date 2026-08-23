@@ -165,10 +165,10 @@
 (function installUnifiedModuleNavigation(){
   const categories={
     home:{title:"HOME",icon:"🏠",defaultPage:"dashboard",items:[
-      ["dashboard","📊","Visão Geral"],["meu-perfil","👤","Meu Perfil"],["membros","👥","Membros"],["historico","📜","Histórico"],["ranking","📈","Ranking"],["calendario","📅","Calendário"],["estatisticas","📊","Estatísticas"]
+      ["dashboard","📊","Visão Geral"],["meu-perfil","👤","Meu Perfil"],["historico","📜","Histórico"],["ranking","📈","Ranking"],["calendario","📅","Calendário"],["estatisticas","📊","Estatísticas"]
     ]},
     staff:{title:"STAFF",icon:"👥",defaultPage:"presencas",role:"editor",items:[
-      ["presencas","📅","Presenças"],["rt-presenca","📋","RT Presença"],["personagens","⚔️","Personagens"],["solicitacoes","📥","Solicitações"],["notificacoes","🔔","Notificações"],["atendimento","🎧","Atendimento"],["chat","💬","Chat Privado"],["registros","📁","Consultar Registros"],["pagamentos","💰","Pagamentos"],["metas","🎯","Metas"]
+      ["presencas","📅","Presenças"],["rt-presenca","📋","RT Presença"],["personagens","⚔️","Personagens"],["notificacoes","🔔","Notificações"],["atendimento","🎧","Atendimento"],["chat","💬","Chat Privado"],["registros","📁","Consultar Registros"],["pagamentos","💰","Pagamentos"],["metas","🎯","Metas"]
     ]},
     administracao:{title:"ADMINISTRAÇÃO",icon:"🛡️",defaultPage:"staff",role:"administrator",items:[
       ["staff","👥","Staff"],["configuracoes","⚙️","Configurações"],["backup-central","💾","Backup"],["auditoria","📜","Auditoria"]

@@ -351,6 +351,7 @@ function pagePermissionEnabled(page){
   return ROLE_PERMISSION_DEFINITIONS.some(item=>item.key===key)?permissionEnabled(key):true;
 }
 function canOpenPage(page){
+  if(page==="membros"||page==="solicitacoes")return false;
   if(!state.user)return page==="dashboard"||page==="historico"||page==="sobre";
   if(state.onboardingRequired)return (page==="meu-perfil"||page==="sobre")&&pagePermissionEnabled(page);
   if(!pagePermissionEnabled(page))return false;
@@ -385,8 +386,7 @@ function openAllowedPage(page){
 }
 
 function memberSystemRole(member){
-  const user=linkedUserForMember(member);
-  return user ? resolveAccessRole(user) : normalizeAccessRole(member?.accessRole);
+  return normalizeAccessRole(member?.accessRole||"member");
 }
 
 // O perfil do DEV é técnico e não deve aparecer em diretórios, rankings,
@@ -422,6 +422,10 @@ async function ownerExists(){try{return (await getDoc(doc(db,"system","owner")))
 function fillSelects(){
   $("#memberRole").innerHTML=ALL_ROLES.map(x=>`<option>${x}</option>`).join("");
   $("#memberClan").innerHTML='<option value="">Selecione o clã</option>'+CLANS.map(x=>`<option>${x}</option>`).join("");
+  const characterRole=byId("newCharacterRole");
+  if(characterRole)characterRole.innerHTML=MEMBER_ROLES.map(role=>`<option value="${escapeHtml(role)}">${escapeHtml(role)}</option>`).join("");
+  const characterClan=byId("newCharacterClan");
+  if(characterClan)characterClan.innerHTML='<option value="">Sem clã</option>'+CLANS.map(clan=>`<option value="${escapeHtml(clan)}">${escapeHtml(clan)}</option>`).join("");
 }
 fillSelects();
 
@@ -436,7 +440,7 @@ function showPublicHome(){
   document.body.dataset.publicView="true";showOnly("app");applyPermissions();
   setText("welcomeName","Visitante");setText("topbarUserName","Visitante");setText("userBadge","Visualização");
   byId("publicHomeBanner")?.classList.remove("hidden");
-  const logoutLabel=byId("sidebarLogout")?.querySelector(".menu-label");if(logoutLabel)logoutLabel.textContent="Entrar / Cadastrar";
+  const logoutLabel=byId("sidebarLogout")?.querySelector(".menu-label");if(logoutLabel)logoutLabel.textContent="Login Administrativo";
   window.TeamManagerUI?.activatePage("dashboard");window.syncModuleNavigation?.("dashboard");
   renderPublicHomeLoading();
   subscribePublicHome();
@@ -480,47 +484,11 @@ on("forgotPasswordButton","click",async()=>{
     else toast("Não foi possível enviar agora. Verifique sua conexão e tente novamente.");
   }finally{if(button){button.disabled=false;button.textContent=button.dataset.originalText||"Esqueci minha senha"}}
 });
-$("#toggleSignup").onclick=()=>$("#signupBox").classList.toggle("hidden");
+$("#toggleSignup").onclick=()=>toast("Cadastro público desativado. O acesso é exclusivo para DEV, Liderança e Staff.");
 
 $("#signupForm").onsubmit=async e=>{
   e.preventDefault();
-  let secondary,signupAuth,cred,createdNow=false;
-  const submit=e.currentTarget.querySelector('button[type="submit"]');
-  try{
-    if(submit){submit.disabled=true;submit.dataset.originalText=submit.textContent;submit.textContent="CRIANDO CONTA..."}
-    secondary=initializeApp(firebaseConfig,"signup-"+Date.now());
-    signupAuth=getAuth(secondary);const sd=getFirestore(secondary);
-    const name=$("#signupName").value.trim(),email=$("#signupEmail").value.trim().toLowerCase(),password=$("#signupPassword").value;
-    const nicknameError=nicknameValidationError(name);if(nicknameError)throw new Error(nicknameError);
-    if(password.length<8)throw new Error("A senha precisa ter pelo menos 8 caracteres.");
-    let existingProfile=null;
-    try{cred=await createUserWithEmailAndPassword(signupAuth,email,password);createdNow=true}
-    catch(createError){
-      if(createError?.code!=="auth/email-already-in-use")throw createError;
-      cred=await signInWithEmailAndPassword(signupAuth,email,password);
-      const existingSnap=await getDoc(doc(sd,"users",cred.user.uid));
-      if(existingSnap.exists())existingProfile={id:cred.user.uid,...existingSnap.data()};
-    }
-    await cred.user.getIdToken(true);
-    const profileRef=doc(sd,"users",cred.user.uid);
-    if(existingProfile){
-      const currentStatus=String(existingProfile.status||"").toLowerCase();
-      if(currentStatus==="rejected"){
-        await updateDoc(profileRef,{status:"pending",active:false,rejectedAt:deleteField(),rejectedBy:deleteField(),rejectionReason:deleteField(),requestedAt:serverTimestamp(),updatedAt:serverTimestamp()});
-        try{if(!cred.user.emailVerified)await sendEmailVerification(cred.user)}catch(error){console.warn("Verificação de e-mail não enviada:",error)}
-        await signOut(signupAuth);await deleteApp(secondary);secondary=null;e.target.reset();return toast("Solicitação reenviada para análise.");
-      }
-      if(currentStatus==="pending"||existingProfile.active===false){
-        await signOut(signupAuth);await deleteApp(secondary);secondary=null;return toast("Sua solicitação já está aguardando aprovação.");
-      }
-      await signOut(signupAuth);await deleteApp(secondary);secondary=null;return toast("Esta conta já está ativa. Entre pelo formulário de login.");
-    }
-    const profile={name,email,role:"member",accessRole:"member",memberRole:"Membros",clan:"",active:false,status:"pending",firstLogin:true,profileCompleted:false,requestedAt:serverTimestamp(),createdAt:serverTimestamp(),updatedAt:serverTimestamp()};
-    await setDoc(profileRef,profile);
-    try{if(!cred.user.emailVerified)await sendEmailVerification(cred.user)}catch(error){console.warn("Verificação de e-mail não enviada:",error)}
-    await signOut(signupAuth);await deleteApp(secondary);secondary=null;e.target.reset();toast("Cadastro enviado para aprovação. Confira seu e-mail para a mensagem de verificação.");
-  }catch(e2){if(createdNow&&cred?.user)try{await deleteUser(cred.user)}catch{};if(secondary)try{await deleteApp(secondary)}catch{};toast(errMsg(e2))}
-  finally{if(submit){submit.disabled=false;submit.textContent=submit.dataset.originalText||"Enviar cadastro"}}
+  toast("Cadastro público desativado. Contas de acesso são exclusivas da administração.");
 };
 
 $("#sidebarLogout").onclick=()=>{if(!state.user)return showOnly("authScreen");$("#logoutButton").click()};
@@ -547,6 +515,12 @@ onAuthStateChanged(auth,async user=>{
     if(!snap.exists()){await signOut(auth);return toast("Perfil não encontrado. Solicite ao DEV a recuperação da conta.");}
     state.profile={id:user.uid,...snap.data()};
     state.profile.resolvedAccessRole=resolveAccessRole(state.profile);
+    const loginAccessRole=currentAccessRole();
+    if(!["dev","leadership","staff"].includes(loginAccessRole)){
+      await signOut(auth);
+      state.user=null;state.profile=null;
+      return toast("Acesso restrito. Somente DEV, Liderança e Staff podem entrar no sistema.");
+    }
     const profileStatus=String(state.profile.status||"").toLowerCase();
     if(state.profile.active!==true||profileStatus!=="approved"){
       await signOut(auth);
@@ -674,6 +648,45 @@ function subscribePublic(){
     state.attendanceLoaded=false;
   }
 }
+
+let playerModelMigrationDone=false;
+async function migrateLegacyUserCharactersToPlayers(){
+  if(playerModelMigrationDone||!owner()||!state.usersLoaded||!state.membersLoaded)return;
+  playerModelMigrationDone=true;
+  const candidates=state.users.filter(user=>user.character&&Object.keys(user.character||{}).length);
+  if(!candidates.length)return;
+  let migrated=0;
+  try{
+    for(const user of candidates){
+      let member=state.members.find(row=>row.userId===user.id||row.id===user.id||String(row.name||"").toLowerCase()===String(user.name||"").toLowerCase());
+      const memberRef=member?doc(db,"members",member.id):doc(db,"members",user.id);
+      const role=member?.role||user.memberRole||"Membros";
+      const payload={
+        name:member?.name||user.name||user.email||"Personagem",
+        role:MEMBER_ROLES.includes(role)?role:"Membros",
+        memberRole:MEMBER_ROLES.includes(role)?role:"Membros",
+        accessRole:"member",
+        clan:member?.clan||user.clan||"",
+        userId:member?.userId||user.id,
+        active:member?.active!==false,
+        character:user.character,
+        characterUpdatedAt:user.characterUpdatedAt||serverTimestamp(),
+        legacyAuthUid:user.id,
+        playerRecord:true,
+        loginEnabled:false,
+        migratedToPlayerModelAt:serverTimestamp(),
+        updatedAt:serverTimestamp()
+      };
+      await setDoc(memberRef,payload,{merge:true});
+      migrated++;
+    }
+    if(migrated)await audit("Migração de personagens",`${migrated} personagem(ns) migrados para registros independentes de login`);
+  }catch(error){
+    playerModelMigrationDone=false;
+    console.warn("Migração de personagens legados não concluída:",error);
+  }
+}
+
 function subscribeAll(){
   subscribePublic();
   subscribedPermissionSignature=permissionRuntimeSignature();
@@ -893,7 +906,7 @@ function attendanceMatchesMember(item,member){
   if(!legacyName||legacyName!==memberName)return false;
   return visibleMembers().filter(candidate=>String(candidate.name||"").toLowerCase()===legacyName).length===1;
 }
-function memberForAttendance(item){return visibleMembers().find(member=>attendanceMatchesMember(item,member))||null}
+function memberForAttendance(item){return state.members.find(member=>attendanceMatchesMember(item,member))||null}
 function attendanceTime(item){
   const timestamp=item?.updatedAt||item?.createdAt;
   if(timestamp?.toMillis)return timestamp.toMillis();
@@ -1620,6 +1633,7 @@ function render(){
   renderAuditTable();renderPayments();
   renderNotifications();renderCalendar();renderStatistics();renderOwnProfile();renderCharacterProfile();renderCharactersTable();renderCharacterCenter();renderHistoryCenter();renderGoals();renderSystemHealth();renderStaffCommandCenter();renderLevelSystem();renderAdvancedCenter();scheduleProgressionSync();applyRestrictedVisibility();
   window.SidebarV13?.updateBadges();
+  if(owner())setTimeout(migrateLegacyUserCharactersToPlayers,0);
 }
 
 
@@ -2191,7 +2205,7 @@ setInterval(updateLiveClock,1000);
 
 async function ensureCurrentAppShell(){
   const marker="77team-app-shell-version";
-  const current="22.9.32-publichistory1";
+  const current="22.9.33-adminonly1";
   try{
     const previous=localStorage.getItem(marker);
     if(previous===current)return;
@@ -2204,7 +2218,7 @@ async function ensureCurrentAppShell(){
 }
 
 ensureCurrentAppShell();
-if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js?v=22.9.32-publichistory1").catch(error=>console.warn("Service Worker indisponível:",error)));
+if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js?v=22.9.33-adminonly1").catch(error=>console.warn("Service Worker indisponível:",error)));
 
 function animateNumber(id,target,suffix=""){
   const el=byId(id);
@@ -2732,13 +2746,58 @@ function renderCharacterProfile(){
   setText("summaryWildernessTraining",character.wildernessTraining??0);
 }
 
+
+on("newCharacterForm","submit",async event=>{
+  event.preventDefault();
+  if(!state.user||!editor()||!permissionEnabled("character_edit"))return toast("Sem permissão para cadastrar personagens.");
+  const name=String(byId("newCharacterName")?.value||"").trim();
+  const role=String(byId("newCharacterRole")?.value||"Membros");
+  const clan=String(byId("newCharacterClan")?.value||"");
+  const character={
+    className:String(byId("newCharacterClass")?.value||"").trim(),
+    power:numberOrZero(byId("newCharacterPower")?.value),
+    level:numberOrZero(byId("newCharacterLevel")?.value),
+    codex:numberOrZero(byId("newCharacterCodex")?.value),
+    mandalla:numberOrZero(byId("newCharacterMandalla")?.value),
+    chi1:numberOrZero(byId("newCharacterChi1")?.value),
+    chi2:numberOrZero(byId("newCharacterChi2")?.value),
+    chi3:numberOrZero(byId("newCharacterChi3")?.value),
+    frogPosture:numberOrZero(byId("newCharacterFrogPosture")?.value),
+    constitution:numberOrZero(byId("newCharacterConstitution")?.value),
+    wildernessTraining:numberOrZero(byId("newCharacterWildernessTraining")?.value)
+  };
+  if(name.length<2)return toast("Informe o nickname do personagem.");
+  if(state.members.some(member=>member.active!==false&&String(member.name||"").trim().toLowerCase()===name.toLowerCase()))return toast("Já existe um personagem ativo com esse nickname.");
+  if(!MEMBER_ROLES.includes(role))return toast("Cargo inválido.");
+  if(clan&&!CLANS.includes(clan))return toast("Clã inválido.");
+  if(!character.className)return toast("Informe a classe.");
+  const characterError=validateConfiguredCharacter(character);if(characterError)return toast(characterError);
+  try{
+    const ref=doc(collection(db,"members"));
+    const payload={
+      name,role,memberRole:role,accessRole:"member",clan,userId:ref.id,active:true,
+      character,characterUpdatedAt:serverTimestamp(),characterUpdatedBy:state.user.uid,
+      createdAt:serverTimestamp(),updatedAt:serverTimestamp(),
+      playerRecord:true,loginEnabled:false
+    };
+    await setDoc(ref,payload);
+    event.target.reset();
+    fillSelects();
+    await audit("Personagem cadastrado",`${name} · ${role} · ${clan||"Sem clã"}`);
+    toast("Personagem cadastrado. Nenhuma conta de login foi criada.");
+  }catch(error){
+    console.error("Falha ao cadastrar personagem:",error);
+    toast(error.message||"Não foi possível cadastrar o personagem.");
+  }
+});
+
 function characterRowsData(){
-  return state.users
-    .filter(user=>user.status==="approved"||user.active===true)
-    .map(user=>({
-      id:user.id,
-      nickname:user.name||"—",
-      character:user.character||{}
+  return state.members
+    .filter(member=>member.active!==false)
+    .map(member=>({
+      id:member.id,
+      nickname:member.name||"—",
+      character:member.character||{}
     }));
 }
 
@@ -2876,27 +2935,18 @@ on("editCharacterButton","click",()=>{
 
 
 function characterCenterRows(){
-  return state.users
-    .filter(user=>(user.status==="approved"||user.active===true) && user.character && Object.keys(user.character).length)
-    .map(user=>{
-      const member=state.members.find(item=>
-        item.userId===user.id||
-        item.id===user.id||
-        item.name===user.name
-      )||{};
-      const character=user.character||{};
-      const stat=stats(member);
-      return {
-        id:user.id,
-        nickname:user.name||"—",
-        email:user.email||"—",
-        avatar:user.avatarDataUrl||"",
-        role:member.role||user.memberRole||user.role||"Membro",
-        clan:member.clan||user.clan||"Sem clã",
-        character,
-        stat
-      };
-    });
+  return state.members
+    .filter(member=>member.active!==false && member.character && Object.keys(member.character).length)
+    .map(member=>({
+      id:member.id,
+      nickname:member.name||"—",
+      email:"",
+      avatar:member.avatarDataUrl||"",
+      role:member.role||member.memberRole||"Membros",
+      clan:member.clan||"Sem clã",
+      character:member.character||{},
+      stat:stats(member)
+    }));
 }
 
 function uniqueValues(items,selector){
@@ -2985,49 +3035,30 @@ function characterAvatarHtml(item){
 }
 
 function canDeleteCharacter(item){
-  if(!item||!state.user||!permissionEnabled("character_delete"))return false;
-  const actor=currentAccessRole();
-  const targetUser=state.users.find(user=>user.id===item.id)||{};
-  const targetRole=resolveAccessRole(targetUser);
-  if(item.id===state.user.uid)return true;
-  if(actor==="dev")return targetRole!=="dev";
-  if(actor==="leadership")return ["staff","member"].includes(targetRole);
-  if(actor==="staff")return targetRole==="member";
-  return false;
+  return Boolean(item&&state.user&&editor()&&permissionEnabled("character_delete"));
 }
 
 async function deleteCharacter(item){
   if(!canDeleteCharacter(item)){
-    toast("Você não possui permissão para excluir este personagem.");
+    toast("Você não possui permissão para remover este personagem.");
     return;
   }
-  const own=item.id===state.user.uid;
-  const message=own
-    ? "Excluir seu personagem? Sua conta e seu e-mail continuarão ativos, e você poderá cadastrar o personagem novamente."
-    : `Excluir o personagem de ${item.nickname}? A conta e o e-mail do usuário serão preservados para que ele possa cadastrar novamente.`;
-  if(!confirm(message))return;
+  if(!confirm(`Remover ${item.nickname} da lista ativa de personagens? O histórico de presença será preservado.`))return;
   try{
-    await updateDoc(doc(db,"users",item.id),{
-      character:deleteField(),
-      characterUpdatedAt:deleteField(),
-      characterUpdatedBy:deleteField(),
+    await updateDoc(doc(db,"members",item.id),{
+      active:false,
       characterDeletedAt:serverTimestamp(),
-      characterDeletedBy:state.user.uid
+      characterDeletedBy:state.user.uid,
+      updatedAt:serverTimestamp()
     });
-    const target=state.users.find(user=>user.id===item.id);
-    if(target){delete target.character; target.characterDeletedBy=state.user.uid;}
-    if(own){
-      delete state.profile.character;
-      renderCharacterProfile();
-      renderCharactersTable();
-      setValue("characterClass","");
-      ["characterPower","characterLevel","characterCodex","characterMandalla","characterChi1","characterChi2","characterChi3","characterFrogPosture","characterConstitution","characterWildernessTraining"].forEach(id=>setValue(id,0));
-    }
+    const member=state.members.find(row=>row.id===item.id);
+    if(member)member.active=false;
     renderCharacterCenter();
-    await audit("Personagem excluído",`${item.nickname} · conta e e-mail preservados para novo cadastro`);
-    toast("Personagem excluído. O mesmo e-mail poderá cadastrar novamente.");
+    render();
+    await audit("Personagem removido",`${item.nickname} · histórico de presença preservado`);
+    toast("Personagem removido da lista ativa. O histórico foi preservado.");
   }catch(error){
-    toast(error.message||"Não foi possível excluir o personagem.");
+    toast(error.message||"Não foi possível remover o personagem.");
   }
 }
 
@@ -3142,25 +3173,16 @@ function openResponsibleCharacterEditor(item){
   const c=item.character||{};
   setText("responsibleCharacterName",item.nickname||"Personagem");
   const roleSelect=byId("responsibleCharacterRole");
-  const roleOptions=characterEditorCargoOptions(item);
   if(roleSelect){
-    const currentCargo=characterEditorSelectedCargo(item);
-    roleSelect.innerHTML=(roleOptions.length?roleOptions:[{value:currentCargo,label:item.role||accessRoleLabel(resolveAccessRole(state.users.find(row=>row.id===item.id)||{}))}])
-      .map(option=>`<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`).join("");
-    roleSelect.value=currentCargo;
-    roleSelect.disabled=!roleOptions.length;
-    roleSelect.title=roleOptions.length?"Alterar cargo":"Seu cargo não possui permissão para alterar cargos";
+    roleSelect.innerHTML=MEMBER_ROLES.map(role=>`<option value="${escapeHtml(role)}">${escapeHtml(role)}</option>`).join("");
+    roleSelect.value=MEMBER_ROLES.includes(item.role)?item.role:"Membros";
+    roleSelect.disabled=false;
   }
   const clanSelect=byId("responsibleCharacterClan");
   if(clanSelect){
-    const currentClan=item.clan==="Sem clã"?"":item.clan||"";
     clanSelect.innerHTML=`<option value="">Sem clã</option>${CLANS.map(clan=>`<option value="${escapeHtml(clan)}">${escapeHtml(clan)}</option>`).join("")}`;
-    clanSelect.value=currentClan;
-    const targetUser=state.users.find(row=>row.id===item.id);
-    const targetMember=state.members.find(row=>row.userId===item.id||row.id===item.id||row.name===item.nickname)||{accessRole:targetUser?.accessRole,role:targetUser?.memberRole,userId:item.id};
-    const canClan=currentAccessRole()==="dev"||canChangeMemberClan(targetMember);
-    clanSelect.disabled=!canClan;
-    clanSelect.title=canClan?"Alterar clã":"Seu cargo não possui permissão para alterar o clã deste personagem";
+    clanSelect.value=item.clan==="Sem clã"?"":item.clan||"";
+    clanSelect.disabled=false;
   }
   setValue("responsibleCharacterClass",c.className||"");
   setValue("responsibleCharacterPower",c.power??0);
@@ -3201,63 +3223,29 @@ on("responsibleCharacterForm","submit",async event=>{
     wildernessTraining:numberOrZero(byId("responsibleCharacterWildernessTraining")?.value)
   };
   const characterError=validateConfiguredCharacter(character);if(characterError)return toast(characterError);
-  if(!character.className){toast("Informe a classe do personagem.");return;}
-  const user=state.users.find(item=>item.id===target.id);
-  if(!user)return toast("Conta vinculada ao personagem não encontrada.");
-  const member=state.members.find(item=>item.userId===target.id||item.id===target.id||item.name===target.nickname);
+  if(!character.className)return toast("Informe a classe do personagem.");
+  const member=state.members.find(item=>item.id===target.id);
+  if(!member)return toast("Personagem não encontrado.");
   const roleSelect=byId("responsibleCharacterRole");
   const clanSelect=byId("responsibleCharacterClan");
-  const currentAccess=resolveAccessRole(user);
-  const currentMemberRole=member?.role||user.memberRole||"Membros";
-  const selectedRole=roleSelect?.disabled?characterEditorSelectedCargo(target):String(roleSelect?.value||characterEditorSelectedCargo(target));
-  const nextAccess=selectedRole.startsWith("member:")?"member":selectedRole;
-  const nextMemberRole=selectedRole.startsWith("member:")?selectedRole.slice(7):memberRoleFromAccessRole(nextAccess,currentMemberRole);
-  const nextClan=clanSelect?.disabled?(member?.clan||user.clan||""):String(clanSelect?.value||"");
+  const nextRole=String(roleSelect?.value||member.role||"Membros");
+  const nextClan=String(clanSelect?.value||member.clan||"");
+  if(!MEMBER_ROLES.includes(nextRole))return toast("Cargo de clã inválido.");
   if(nextClan&&!CLANS.includes(nextClan))return toast("Clã inválido.");
-  const roleChanged=currentAccess!==nextAccess||(nextAccess==="member"&&currentMemberRole!==nextMemberRole);
-  const clanChanged=(member?.clan||user.clan||"")!==nextClan;
-  if(roleChanged&&!characterEditorCargoOptions(target).some(option=>option.value===selectedRole))return toast("Cargo inválido para o seu nível de acesso.");
   if(!confirm(`Salvar as alterações do personagem de ${target.nickname}?`))return;
   try{
-    // Salva personagem e clã antes do cargo. Isso mantém o fluxo seguro inclusive
-    // quando o DEV altera o próprio cargo e deixa de ser DEV ao final da operação.
-    await updateDoc(doc(db,"users",target.id),{
-      character,
-      characterUpdatedAt:serverTimestamp(),
-      characterUpdatedBy:state.user.uid
-    });
-    user.character=character;
-    if(clanChanged){
-      const clanPayload={clan:nextClan,clanUpdatedAt:serverTimestamp(),clanUpdatedBy:state.user.uid,updatedAt:serverTimestamp()};
-      await updateDoc(doc(db,"users",target.id),clanPayload);
-      user.clan=nextClan;
-      if(member){await updateDoc(doc(db,"members",member.id),clanPayload);member.clan=nextClan;}
-    }
-    if(roleChanged){
-      const rolePayload={role:nextAccess,accessRole:nextAccess,memberRole:nextMemberRole,roleUpdatedAt:serverTimestamp(),roleUpdatedBy:state.user.uid,updatedAt:serverTimestamp()};
-      const batch=writeBatch(db);
-      batch.update(doc(db,"users",target.id),rolePayload);
-      if(member)batch.set(doc(db,"members",member.id),{role:nextMemberRole,accessRole:nextAccess,memberRole:nextMemberRole,userId:target.id,updatedAt:serverTimestamp()},{merge:true});
-      await batch.commit();
-      Object.assign(user,rolePayload,{resolvedAccessRole:nextAccess});
-      if(member)Object.assign(member,{role:nextMemberRole,accessRole:nextAccess,memberRole:nextMemberRole,userId:target.id});
-    }
-    if(target.id===state.user?.uid){
-      Object.assign(state.profile,user);
-      state.profile.character=character;
-      state.profile.clan=nextClan;
-      state.profile.resolvedAccessRole=nextAccess;
-      applyPermissions();
-      renderCharacterProfile();
-    }
-    renderCharacterCenter();
-    renderCharactersTable();
-    render();
-    const changes=["personagem",roleChanged?`cargo → ${nextAccess==="member"?nextMemberRole:accessRoleLabel(nextAccess)}`:"",clanChanged?`clã → ${nextClan||"Sem clã"}`:""].filter(Boolean).join(" · ");
-    await audit("Personagem editado por responsável",`${target.nickname} · ${changes}`);
+    const payload={
+      role:nextRole,memberRole:nextRole,accessRole:"member",clan:nextClan,
+      character,characterUpdatedAt:serverTimestamp(),characterUpdatedBy:state.user.uid,
+      updatedAt:serverTimestamp()
+    };
+    await updateDoc(doc(db,"members",target.id),payload);
+    Object.assign(member,payload,{character});
+    renderCharacterCenter();render();
+    await audit("Personagem editado",`${target.nickname} · ${nextRole} · ${nextClan||"Sem clã"}`);
     byId("characterEditDrawer")?.classList.add("hidden");
     state.editingCharacterUserId="";
-    toast("Informações do personagem atualizadas.");
+    toast("Personagem atualizado.");
   }catch(error){toast(error.message||"Não foi possível atualizar o personagem.")}
 });
 

@@ -11,7 +11,7 @@
 <title>77 TEAM SA21</title>
 <link href="manifest.json" rel="manifest"/>
 <link href="icons/icon-192.png" rel="icon"/>
-<link href="css/style.css?v=22.9.32-publichistory1" rel="stylesheet"/>
+<link href="css/style.css?v=22.9.33-adminonly1" rel="stylesheet"/>
 </head>
 <body>
 <div class="loading" id="loading">
@@ -25,7 +25,7 @@
 <div class="login-v222-heading">
 <span>Bem-vindo</span>
 <strong id="loginTitle">GUERREIRO!</strong>
-<p>Acesse sua conta para continuar.</p>
+<p>Acesso restrito à administração da 77 TEAM.</p>
 </div>
 <div aria-live="polite" class="maintenance-login-notice hidden" id="maintenanceLoginNotice" role="status"><img alt="Aviso de manutenção" class="maintenance-login-image hidden" id="maintenanceLoginImage"/><div class="maintenance-notice-copy"><strong id="maintenanceLoginTitle">🚧 Sistema em manutenção</strong><p id="maintenanceLoginMessage"></p><small class="hidden" id="maintenanceLoginEnd"></small></div></div>
 <form class="login-v222-form" id="loginForm">
@@ -38,10 +38,10 @@
 </form>
 <div class="login-v222-quick"><span>OU ACESSE RAPIDAMENTE</span></div>
 <div class="login-v222-actions">
-<button class="login-v222-secondary" id="toggleSignup" type="button">＋ Criar conta de membro</button><button class="login-v222-secondary" id="forgotPasswordButton" type="button">🔑 Esqueci minha senha</button>
+<button class="login-v222-secondary hidden" id="toggleSignup" type="button" aria-hidden="true">＋ Cadastro desativado</button><button class="login-v222-secondary" id="forgotPasswordButton" type="button">🔑 Esqueci minha senha</button>
 </div>
-<div class="subbox hidden login-v222-signup" id="signupBox">
-<h3>Cadastro de membro</h3><p>O clã e o cargo serão definidos pela Staff.</p>
+<div class="subbox hidden login-v222-signup" id="signupBox" aria-hidden="true">
+<h3>Cadastro público desativado</h3><p>Somente contas administrativas podem acessar o sistema.</p>
 <form class="stack" id="signupForm"><label>Nickname<input id="signupName" required=""/></label><label>E-mail<input id="signupEmail" required="" type="email"/></label><label>Senha<input autocomplete="new-password" id="signupPassword" minlength="8" required="" type="password"/></label><button class="btn primary" type="submit">Enviar cadastro</button></form>
 </div>
 <div class="login-v222-safe"><strong>🛡 SEUS DADOS PROTEGIDOS</strong><span>Autenticação segura e base original preservada.</span></div>
@@ -398,6 +398,26 @@
 <button class="btn" id="downloadCharactersGeneralPdf" type="button">PDF geral</button>
 </div>
 </div>
+<article class="panel character-create-panel" id="characterCreatePanel">
+<div class="panel-head"><div><h3>➕ Cadastrar novo personagem</h3><p>Cadastre o jogador sem criar conta de login.</p></div></div>
+<form class="panel-body character-create-grid" id="newCharacterForm">
+<label>Nickname<input id="newCharacterName" maxlength="80" required placeholder="Nickname do jogador"/></label>
+<label>Cargo no clã<select id="newCharacterRole"></select></label>
+<label>Clã<select id="newCharacterClan"></select></label>
+<label>Classe<input id="newCharacterClass" maxlength="60" required placeholder="Classe"/></label>
+<label>Power<input id="newCharacterPower" min="0" step="1" type="number" value="0"/></label>
+<label>Level<input id="newCharacterLevel" min="0" step="1" type="number" value="0"/></label>
+<label>Codex<input id="newCharacterCodex" min="0" step="1" type="number" value="0"/></label>
+<label>Mandalla<input id="newCharacterMandalla" min="0" step="1" type="number" value="0"/></label>
+<label>Chi 1<input id="newCharacterChi1" min="0" step="1" type="number" value="0"/></label>
+<label>Chi 2<input id="newCharacterChi2" min="0" step="1" type="number" value="0"/></label>
+<label>Chi 3<input id="newCharacterChi3" min="0" step="1" type="number" value="0"/></label>
+<label>Postura do Sapo<input id="newCharacterFrogPosture" min="0" step="1" type="number" value="0"/></label>
+<label>Constituição<input id="newCharacterConstitution" min="0" step="1" type="number" value="0"/></label>
+<label>Treino Ermo<input id="newCharacterWildernessTraining" min="0" step="1" type="number" value="0"/></label>
+<div class="character-create-actions"><button class="btn primary" type="submit">Cadastrar personagem</button></div>
+</form>
+</article>
 <div class="character-filter-bar">
 <input id="characterSearch" placeholder="Buscar nickname..." type="search"/>
 <select id="characterClassFilter"><option value="">Todas as classes</option></select>
@@ -1202,7 +1222,7 @@
 </div>
 <div class="global-search-results hidden" id="globalSearchResults"></div>
 <div class="toast" id="toast"></div>
-<script src="js/ui.js?v=22.9.32-publichistory1"></script>
-<script src="js/main.js?v=22.9.32-publichistory1" type="module"></script>
+<script src="js/ui.js?v=22.9.33-adminonly1"></script>
+<script src="js/main.js?v=22.9.33-adminonly1" type="module"></script>
 </body>
 </html>

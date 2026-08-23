@@ -7183,3 +7183,36 @@ body[data-public-view="true"] #historico.public-history-view #historyMemberPdf.h
 body[data-public-view="true"] #historico.public-history-view .history-center-head{
   border-color:rgba(212,170,89,.20);
 }
+
+/* V22.9.33 — modo administrativo: telas legadas fora da navegação */
+#membros,
+#solicitacoes{
+  display:none!important;
+}
+#toggleSignup,
+#signupBox{
+  display:none!important;
+}
+
+/* Cadastro principal de jogadores — Personagens */
+.character-create-panel{margin-bottom:12px}
+.character-create-grid{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:9px;
+}
+.character-create-grid label{
+  display:flex;
+  flex-direction:column;
+  gap:5px;
+  min-width:0;
+  font-size:.68rem;
+}
+.character-create-actions{
+  grid-column:1/-1;
+  display:flex;
+  justify-content:flex-end;
+  padding-top:4px;
+}
+@media(max-width:1100px){.character-create-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:620px){.character-create-grid{grid-template-columns:1fr}}
