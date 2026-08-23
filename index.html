@@ -11,7 +11,7 @@
 <title>77 TEAM SA21</title>
 <link href="manifest.json" rel="manifest"/>
 <link href="icons/icon-192.png" rel="icon"/>
-<link href="css/style.css?v=22.9.32-menufix2" rel="stylesheet"/>
+<link href="css/style.css?v=22.9.32-homepresence1" rel="stylesheet"/>
 </head>
 <body>
 <div class="loading" id="loading">
@@ -169,6 +169,18 @@
     <div class="panel-body rate-gauge-wrap"><div class="rate-gauge" id="dashboardRateGauge" style="--rate:0"><div><strong id="dashboardGeneralRate">0%</strong><span id="dashboardRateLabel">Sem dados</span></div></div><small id="dashboardActiveSummary">0 membros ativos</small></div>
   </article>
 </div>
+
+<article class="panel enterprise-panel home-presence-public-panel" id="homePresencePublicPanel">
+  <div class="panel-head">
+    <div><h3>📅 Presenças</h3><small>Visualização disponível para todos os perfis</small></div>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Membro</th><th>Cargo</th><th>Data</th><th>Evento</th><th>Status</th></tr></thead>
+      <tbody id="homePublicPresenceRows"><tr><td colspan="5">Carregando presenças...</td></tr></tbody>
+    </table>
+  </div>
+</article>
 
 <div class="home-ops-strip editor-only" id="homeOpsStrip">
   <div><span>Solicitações</span><strong id="homePendingRequests">0</strong></div>
@@ -1190,7 +1202,7 @@
 </div>
 <div class="global-search-results hidden" id="globalSearchResults"></div>
 <div class="toast" id="toast"></div>
-<script src="js/ui.js?v=22.9.32-menufix2"></script>
-<script src="js/main.js?v=22.9.32-menufix2" type="module"></script>
+<script src="js/ui.js?v=22.9.32-homepresence1"></script>
+<script src="js/main.js?v=22.9.32-homepresence1" type="module"></script>
 </body>
 </html>

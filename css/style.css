@@ -7164,3 +7164,10 @@ body[data-public-view="true"] #sidebar #nav > [data-submenu="administracao"],
 body[data-public-view="true"] #sidebar #nav > [data-submenu="avancado"]{
   display:none!important;
 }
+
+/* HOME — presenças visíveis para todos */
+.home-presence-public-panel{margin-top:14px}
+.home-presence-public-panel .panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.home-presence-public-panel .panel-head small{display:block;margin-top:3px;opacity:.72}
+.home-presence-public-panel .table-wrap{max-height:430px;overflow:auto}
+.home-presence-public-panel table{width:100%}

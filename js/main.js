@@ -1,7 +1,13 @@
 
 function byId(id){return document.getElementById(id)}
 function setText(id,value){const el=byId(id);if(el)el.textContent=value??""}
-function setHtml(id,value){const el=byId(id);if(el)el.innerHTML=value??""}
+function setHtml(id,value){
+  const el=byId(id);if(el)el.innerHTML=value??"";
+  if(id==="recentPresenceRows"){
+    const publicPresence=byId("homePublicPresenceRows");
+    if(publicPresence)publicPresence.innerHTML=value??"";
+  }
+}
 function setValue(id,value){const el=byId(id);if(el)el.value=value??""}
 function escapeHtml(value){return String(value??"").replace(/[&<>"']/g,char=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[char]))}
 function safeImageUrl(value){const url=String(value||"").trim();return /^(https:\/\/|data:image\/(?:png|jpeg|webp);base64,)/i.test(url)?url:""}
@@ -2184,7 +2190,7 @@ setInterval(updateLiveClock,1000);
 
 async function ensureCurrentAppShell(){
   const marker="77team-app-shell-version";
-  const current="22.9.32-menufix2";
+  const current="22.9.32-homepresence1";
   try{
     const previous=localStorage.getItem(marker);
     if(previous===current)return;
@@ -2197,7 +2203,7 @@ async function ensureCurrentAppShell(){
 }
 
 ensureCurrentAppShell();
-if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js?v=22.9.32-menufix2").catch(error=>console.warn("Service Worker indisponível:",error)));
+if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js?v=22.9.32-homepresence1").catch(error=>console.warn("Service Worker indisponível:",error)));
 
 function animateNumber(id,target,suffix=""){
   const el=byId(id);
@@ -5231,7 +5237,7 @@ function buildPublicHomePayload(){
   const joinedThisMonth=members.filter(member=>memberCreatedMonth(member)===month).length,joinedPreviousMonth=members.filter(member=>memberCreatedMonth(member)===previousMonth).length;
   const pointsRank=members.slice().sort((a,b)=>progressionFor(b).totalXp-progressionFor(a).totalXp||String(a.name).localeCompare(String(b.name),"pt-BR"));
   const top5=pointsRank.slice(0,5).map(member=>({name:String(member.name||"Membro").slice(0,80),role:String(member.role||member.memberRole||"Membros").slice(0,40),points:progressionFor(member).totalXp}));
-  const recentPresence=attendance.filter(item=>memberForAttendance(item)&&(item.status===1||item.status===2)).sort((a,b)=>attendanceTime(b)-attendanceTime(a)).slice(0,5).map(item=>{const member=memberForAttendance(item);return{name:String(member?.name||"Membro").slice(0,80),role:String(member?.role||member?.memberRole||"Membros").slice(0,40),date:String(item.date||""),event:String(item.slot||item.kind||"Evento").slice(0,80),status:Number(item.status||0)}});
+  const recentPresence=attendance.filter(item=>memberForAttendance(item)&&(item.status===1||item.status===2)).sort((a,b)=>attendanceTime(b)-attendanceTime(a)).slice(0,50).map(item=>{const member=memberForAttendance(item);return{name:String(member?.name||"Membro").slice(0,80),role:String(member?.role||member?.memberRole||"Membros").slice(0,40),date:String(item.date||""),event:String(item.slot||item.kind||"Evento").slice(0,80),status:Number(item.status||0)}});
   const scheduled=state.events.filter(event=>event.date===today).map(event=>({title:String(event.title||event.type||"Evento").slice(0,100),time:String(event.time||"Horário não informado").slice(0,40),status:"Agendado",kind:normalizedEventKind(event.type)}));
   const attendanceEvents=[...new Map(attendance.filter(item=>item.date===today&&(item.status===1||item.status===2)).map(item=>[`${item.kind}|${item.slot}`,{title:item.kind==="worldboss"?"WorldBoss":item.kind==="purgatorio"?"Purgatório":String(item.slot||"Evento").slice(0,100),time:String(item.slot||"—").slice(0,40),status:"Em andamento",kind:item.kind}])).values()];
   const todayEvents=[...scheduled,...attendanceEvents].filter((item,index,array)=>array.findIndex(other=>other.title===item.title&&other.time===item.time)===index).slice(0,5);
