@@ -7171,3 +7171,15 @@ body[data-public-view="true"] #sidebar #nav > [data-submenu="avancado"]{
 .home-presence-public-panel .panel-head small{display:block;margin-top:3px;opacity:.72}
 .home-presence-public-panel .table-wrap{max-height:430px;overflow:auto}
 .home-presence-public-panel table{width:100%}
+
+/* Histórico público — Visitante */
+body[data-public-view="true"] #historico.public-history-view{
+  display:block;
+}
+body[data-public-view="true"] #historico.public-history-view .history-actions .hidden,
+body[data-public-view="true"] #historico.public-history-view #historyMemberPdf.hidden{
+  display:none!important;
+}
+body[data-public-view="true"] #historico.public-history-view .history-center-head{
+  border-color:rgba(212,170,89,.20);
+}

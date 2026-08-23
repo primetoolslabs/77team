@@ -351,7 +351,7 @@ function pagePermissionEnabled(page){
   return ROLE_PERMISSION_DEFINITIONS.some(item=>item.key===key)?permissionEnabled(key):true;
 }
 function canOpenPage(page){
-  if(!state.user)return page==="dashboard"||page==="sobre";
+  if(!state.user)return page==="dashboard"||page==="historico"||page==="sobre";
   if(state.onboardingRequired)return (page==="meu-perfil"||page==="sobre")&&pagePermissionEnabled(page);
   if(!pagePermissionEnabled(page))return false;
   if(page==="personagens")return permissionEnabled("access_staff")&&permissionEnabled("character_view");
@@ -635,6 +635,7 @@ function applyPermissions(){
   window.TeamManagerSidebarDropdowns?.buildDropdowns?.();
   const activePage=document.querySelector(".page.active")?.id||"dashboard";
   window.syncModuleNavigation?.(activePage);
+  applyPublicHistoryMode();
 }
 
 function subscribePublic(){
@@ -2190,7 +2191,7 @@ setInterval(updateLiveClock,1000);
 
 async function ensureCurrentAppShell(){
   const marker="77team-app-shell-version";
-  const current="22.9.32-homepresence1";
+  const current="22.9.32-publichistory1";
   try{
     const previous=localStorage.getItem(marker);
     if(previous===current)return;
@@ -2203,7 +2204,7 @@ async function ensureCurrentAppShell(){
 }
 
 ensureCurrentAppShell();
-if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js?v=22.9.32-homepresence1").catch(error=>console.warn("Service Worker indisponível:",error)));
+if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js?v=22.9.32-publichistory1").catch(error=>console.warn("Service Worker indisponível:",error)));
 
 function animateNumber(id,target,suffix=""){
   const el=byId(id);
@@ -3421,7 +3422,35 @@ document.addEventListener("click",event=>{
 });
 
 
+
+function applyPublicHistoryMode(){
+  const publicView=!state.user;
+  const history=byId("historico");
+  if(!history)return;
+  history.classList.toggle("public-history-view",publicView);
+  ["downloadHistoryFilteredPdf","downloadHistoryGeneralPdf","downloadHistoryCsv","downloadHistoryIndividualPdf","historyMemberPdf"]
+    .forEach(id=>byId(id)?.classList.toggle("hidden",publicView));
+  const description=history.querySelector(".history-center-head p");
+  if(description)description.textContent=publicView
+    ?"Consulte o histórico público da 77 TEAM. Visualização somente leitura."
+    :"Consulte, filtre, analise e exporte todos os registros.";
+}
+
 function historyCenterRows(){
+  if(!state.user){
+    return (state.publicHome?.history||[]).map((item,index)=>({
+      id:String(item.id||`public-${index}`),
+      activeMember:true,
+      date:String(item.date||""),
+      memberId:String(item.memberId||item.memberName||`public-${index}`),
+      memberName:String(item.memberName||"—"),
+      role:String(item.role||"Membro"),
+      clan:String(item.clan||"Sem clã"),
+      kind:String(item.kind||"—"),
+      slot:String(item.slot||"—"),
+      status:Number(item.status||0)
+    }));
+  }
   return state.attendance
     .filter(item=>item.status!==0)
     .filter(item=>Boolean(memberForAttendance(item)))
@@ -5178,10 +5207,14 @@ function subscribePublicHome(){
       setHtml("dashboardClanPoints",'<p class="empty-state">Sem dados públicos de clãs.</p>');
       setHtml("dashboardRecentActivity",'<p class="empty-state">Sem atividade pública publicada.</p>');
       setHtml("dashboardMemberRows",'<tr><td colspan="9">Nenhum membro publicado ainda.</td></tr>');
+      renderHistoryCenter();
+      applyPublicHistoryMode();
       return;
     }
     state.publicHome={id:snapshot.id,...snapshot.data()};
     renderPublicHomeSnapshot(state.publicHome);
+    renderHistoryCenter();
+    applyPublicHistoryMode();
   },error=>{
     console.error("Falha ao carregar HOME pública:",error);
     setText("homeLastSync","Indisponível");
@@ -5238,6 +5271,23 @@ function buildPublicHomePayload(){
   const pointsRank=members.slice().sort((a,b)=>progressionFor(b).totalXp-progressionFor(a).totalXp||String(a.name).localeCompare(String(b.name),"pt-BR"));
   const top5=pointsRank.slice(0,5).map(member=>({name:String(member.name||"Membro").slice(0,80),role:String(member.role||member.memberRole||"Membros").slice(0,40),points:progressionFor(member).totalXp}));
   const recentPresence=attendance.filter(item=>memberForAttendance(item)&&(item.status===1||item.status===2)).sort((a,b)=>attendanceTime(b)-attendanceTime(a)).slice(0,50).map(item=>{const member=memberForAttendance(item);return{name:String(member?.name||"Membro").slice(0,80),role:String(member?.role||member?.memberRole||"Membros").slice(0,40),date:String(item.date||""),event:String(item.slot||item.kind||"Evento").slice(0,80),status:Number(item.status||0)}});
+  const publicHistory=attendance
+    .filter(item=>memberForAttendance(item)&&Number(item.status)!==0)
+    .sort((a,b)=>attendanceTime(b)-attendanceTime(a))
+    .slice(0,250)
+    .map((item,index)=>{
+      const member=memberForAttendance(item);
+      return{
+        id:`h-${index}-${String(item.date||"").replace(/[^0-9]/g,"")}`,
+        memberName:String(member?.name||item.memberName||"Membro").slice(0,80),
+        role:String(member?.role||member?.memberRole||item.role||"Membros").slice(0,40),
+        clan:String(member?.clan||item.clan||"Sem clã").slice(0,60),
+        date:String(item.date||"").slice(0,20),
+        kind:String(item.kind||"").slice(0,30),
+        slot:String(item.slot||item.kind||"Evento").slice(0,80),
+        status:Number(item.status||0)
+      };
+    });
   const scheduled=state.events.filter(event=>event.date===today).map(event=>({title:String(event.title||event.type||"Evento").slice(0,100),time:String(event.time||"Horário não informado").slice(0,40),status:"Agendado",kind:normalizedEventKind(event.type)}));
   const attendanceEvents=[...new Map(attendance.filter(item=>item.date===today&&(item.status===1||item.status===2)).map(item=>[`${item.kind}|${item.slot}`,{title:item.kind==="worldboss"?"WorldBoss":item.kind==="purgatorio"?"Purgatório":String(item.slot||"Evento").slice(0,100),time:String(item.slot||"—").slice(0,40),status:"Em andamento",kind:item.kind}])).values()];
   const todayEvents=[...scheduled,...attendanceEvents].filter((item,index,array)=>array.findIndex(other=>other.title===item.title&&other.time===item.time)===index).slice(0,5);
@@ -5248,7 +5298,7 @@ function buildPublicHomePayload(){
   const memberActivities=members.slice().sort((a,b)=>memberCreatedTime(b)-memberCreatedTime(a)).slice(0,2).map(item=>({icon:String(item.name||"?").slice(0,1).toUpperCase(),title:`${String(item.name||"Membro").slice(0,70)} entrou para a equipe`,time:memberCreatedTime(item)?new Date(memberCreatedTime(item)).toLocaleDateString("pt-BR"):"Cadastro recente"}));
   const publicMembers=pointsRank.slice(0,100).map(member=>{const memberStats=stats(member),progression=progressionFor(member);return{name:String(member.name||"Membro").slice(0,80),role:String(member.role||member.memberRole||"Membros").slice(0,40),clan:String(member.clan||"").slice(0,60),level:progression.level,points:progression.totalXp,present:memberStats.present,rate:memberStats.rate}});
   const upcoming=[...state.events].filter(event=>String(event.date||"")>=today).sort((a,b)=>`${a.date||""} ${a.time||""}`.localeCompare(`${b.date||""} ${b.time||""}`))[0];
-  return{version:1,membersCount:members.length,todayPresence,monthEvents,memberTrend:dashboardPercentChange(joinedThisMonth,joinedPreviousMonth),presenceTrend:dashboardPercentChange(todayPresence,yesterdayPresence),eventTrend:dashboardPercentChange(monthEvents,previousMonthEvents),top5,recentPresence,todayEvents,weekly,clans,generalRate,activities:[...presenceActivities,...memberActivities].slice(0,6),members:publicMembers,nextEvent:upcoming?{label:`${String(upcoming.title||upcoming.type||"Evento").slice(0,100)}${upcoming.date?` · ${formatHistoryDate(upcoming.date)}`:""}${upcoming.time?` ${String(upcoming.time).slice(0,20)}`:""}`}:{label:"Nenhum agendado"}};
+  return{version:2,membersCount:members.length,todayPresence,monthEvents,memberTrend:dashboardPercentChange(joinedThisMonth,joinedPreviousMonth),presenceTrend:dashboardPercentChange(todayPresence,yesterdayPresence),eventTrend:dashboardPercentChange(monthEvents,previousMonthEvents),top5,recentPresence,history:publicHistory,todayEvents,weekly,clans,generalRate,activities:[...presenceActivities,...memberActivities].slice(0,6),members:publicMembers,nextEvent:upcoming?{label:`${String(upcoming.title||upcoming.type||"Evento").slice(0,100)}${upcoming.date?` · ${formatHistoryDate(upcoming.date)}`:""}${upcoming.time?` ${String(upcoming.time).slice(0,20)}`:""}`}:{label:"Nenhum agendado"}};
 }
 
 function schedulePublicHomePublish(){
