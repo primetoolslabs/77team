@@ -224,4 +224,3 @@ assert.ok(main.includes('doc(db,"members",target.id)'));
 assert.ok(html.includes('id="newCharacterForm"'));
 assert.ok(!ui.includes('["membros","👥","Membros"]'));
 assert.ok(!ui.includes('["solicitacoes","📥","Solicitações"]'));
-assert.ok(rules.includes("request.resource.data.playerRecord == true"));

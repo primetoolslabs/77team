@@ -203,7 +203,19 @@ service cloud.firestore {
           && isDevRole(accessRoleOf(request.resource.data))
           && request.resource.data.active == true && request.resource.data.status == 'approved')
         ||
-        false
+        (request.auth.uid == uid
+          && request.resource.data.keys().hasOnly([
+            'name','email','role','accessRole','memberRole','clan','active','status',
+            'firstLogin','profileCompleted','requestedAt','createdAt','updatedAt'
+          ])
+          && request.resource.data.email == request.auth.token.email
+          && request.resource.data.name is string
+          && request.resource.data.name.size() >= 2 && request.resource.data.name.size() <= 30
+          && request.resource.data.role == 'member'
+          && request.resource.data.accessRole == 'member'
+          && request.resource.data.memberRole == 'Membros'
+          && request.resource.data.clan == ''
+          && request.resource.data.active == false && request.resource.data.status == 'pending')
         ||
         (dev() && (isDevRole(accessRoleOf(request.resource.data)) || isLeadershipRole(accessRoleOf(request.resource.data)) || isStaffRole(accessRoleOf(request.resource.data))) && request.resource.data.active == true && request.resource.data.status == 'approved')
         ||
@@ -216,7 +228,7 @@ service cloud.firestore {
       // cargo, status, ativação, UID e permissões não entram na lista e, por
       // isso, permanecem protegidos automaticamente.
       allow update: if (
-          active()
+          signedIn()
           && request.auth.uid == uid
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
             'name','displayName','nickname','discord','whatsapp','birthDate','bio',
@@ -246,7 +258,7 @@ service cloud.firestore {
         )
         || (
           // O próprio usuário rejeitado pode reenviar a solicitação sem criar outra conta no Auth.
-          false
+          signedIn() && request.auth.uid == uid
           && resource.data.status == 'rejected' && resource.data.active == false
           && isMemberRole(accessRoleOf(resource.data))
           && request.resource.data.status == 'pending' && request.resource.data.active == false
@@ -328,24 +340,6 @@ service cloud.firestore {
     match /members/{id} {
       allow read: if active();
       allow create: if (
-        editor() && permission('character_edit')
-        && request.resource.data.keys().hasOnly([
-          'name','role','memberRole','accessRole','clan','userId','active',
-          'character','characterUpdatedAt','characterUpdatedBy',
-          'createdAt','updatedAt','playerRecord','loginEnabled'
-        ])
-        && request.resource.data.name is string
-        && request.resource.data.name.size() >= 2 && request.resource.data.name.size() <= 120
-        && request.resource.data.role in ['Membros','PT TIME','PT BOOST','PT CORE']
-        && request.resource.data.memberRole == request.resource.data.role
-        && request.resource.data.accessRole == 'member'
-        && request.resource.data.userId == id
-        && request.resource.data.active == true
-        && request.resource.data.playerRecord == true
-        && request.resource.data.loginEnabled == false
-        && request.resource.data.character is map
-        && request.resource.data.characterUpdatedBy == request.auth.uid
-      ) || (
         staffCanApprovePendingMember(id)
         && request.resource.data.keys().hasOnly(['name','role','clan','userId','accessRole','memberRole','active','createdAt','updatedAt'])
         && request.resource.data.get('userId','') == id
@@ -370,16 +364,17 @@ service cloud.firestore {
       allow update: if dev()
         || (
           editor() && permission('character_edit')
-          && resource.data.get('playerRecord',false) == true
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-            'name','role','memberRole','accessRole','clan','active',
-            'character','characterUpdatedAt','characterUpdatedBy',
-            'characterDeletedAt','characterDeletedBy','updatedAt',
-            'legacyAuthUid','playerRecord','loginEnabled','migratedToPlayerModelAt'
+            'character','characterUpdatedAt','characterUpdatedBy','updatedAt'
           ])
-          && request.resource.data.get('accessRole','member') == 'member'
-          && request.resource.data.get('role','Membros') in ['Membros','PT TIME','PT BOOST','PT CORE']
-          && request.resource.data.get('memberRole','Membros') == request.resource.data.get('role','Membros')
+          && request.resource.data.characterUpdatedBy == request.auth.uid
+        )
+        || (
+          editor() && permission('character_delete')
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'active','characterDeletedAt','characterDeletedBy','updatedAt'
+          ])
+          && request.resource.data.characterDeletedBy == request.auth.uid
         )
         || (
           active() && (

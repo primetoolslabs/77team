@@ -653,34 +653,20 @@ let playerModelMigrationDone=false;
 async function migrateLegacyUserCharactersToPlayers(){
   if(playerModelMigrationDone||!owner()||!state.usersLoaded||!state.membersLoaded)return;
   playerModelMigrationDone=true;
-  const candidates=state.users.filter(user=>user.character&&Object.keys(user.character||{}).length);
-  if(!candidates.length)return;
   let migrated=0;
   try{
-    for(const user of candidates){
-      let member=state.members.find(row=>row.userId===user.id||row.id===user.id||String(row.name||"").toLowerCase()===String(user.name||"").toLowerCase());
-      const memberRef=member?doc(db,"members",member.id):doc(db,"members",user.id);
-      const role=member?.role||user.memberRole||"Membros";
-      const payload={
-        name:member?.name||user.name||user.email||"Personagem",
-        role:MEMBER_ROLES.includes(role)?role:"Membros",
-        memberRole:MEMBER_ROLES.includes(role)?role:"Membros",
-        accessRole:"member",
-        clan:member?.clan||user.clan||"",
-        userId:member?.userId||user.id,
-        active:member?.active!==false,
+    for(const user of state.users.filter(user=>user.character&&Object.keys(user.character||{}).length)){
+      const member=state.members.find(row=>row.userId===user.id||row.id===user.id||String(row.name||"").toLowerCase()===String(user.name||"").toLowerCase());
+      if(!member||member.character&&Object.keys(member.character).length)continue;
+      await updateDoc(doc(db,"members",member.id),{
         character:user.character,
-        characterUpdatedAt:user.characterUpdatedAt||serverTimestamp(),
-        legacyAuthUid:user.id,
-        playerRecord:true,
-        loginEnabled:false,
-        migratedToPlayerModelAt:serverTimestamp(),
+        characterUpdatedAt:serverTimestamp(),
+        characterUpdatedBy:state.user.uid,
         updatedAt:serverTimestamp()
-      };
-      await setDoc(memberRef,payload,{merge:true});
+      });
       migrated++;
     }
-    if(migrated)await audit("Migração de personagens",`${migrated} personagem(ns) migrados para registros independentes de login`);
+    if(migrated)await audit("Migração de personagens",`${migrated} personagem(ns) migrados para o cadastro de Personagens`);
   }catch(error){
     playerModelMigrationDone=false;
     console.warn("Migração de personagens legados não concluída:",error);
@@ -2774,13 +2760,18 @@ on("newCharacterForm","submit",async event=>{
   const characterError=validateConfiguredCharacter(character);if(characterError)return toast(characterError);
   try{
     const ref=doc(collection(db,"members"));
-    const payload={
-      name,role,memberRole:role,accessRole:"member",clan,userId:ref.id,active:true,
-      character,characterUpdatedAt:serverTimestamp(),characterUpdatedBy:state.user.uid,
-      createdAt:serverTimestamp(),updatedAt:serverTimestamp(),
-      playerRecord:true,loginEnabled:false
-    };
-    await setDoc(ref,payload);
+    // Primeiro cria o jogador usando o formato antigo já aceito pelas regras estáveis.
+    await setDoc(ref,{
+      name,role,clan,userId:ref.id,accessRole:"member",memberRole:role,active:true,
+      createdAt:serverTimestamp(),updatedAt:serverTimestamp()
+    });
+    // Depois grava somente os atributos do personagem.
+    await updateDoc(ref,{
+      character,
+      characterUpdatedAt:serverTimestamp(),
+      characterUpdatedBy:state.user.uid,
+      updatedAt:serverTimestamp()
+    });
     event.target.reset();
     fillSelects();
     await audit("Personagem cadastrado",`${name} · ${role} · ${clan||"Sem clã"}`);
@@ -3224,25 +3215,18 @@ on("responsibleCharacterForm","submit",async event=>{
   };
   const characterError=validateConfiguredCharacter(character);if(characterError)return toast(characterError);
   if(!character.className)return toast("Informe a classe do personagem.");
-  const member=state.members.find(item=>item.id===target.id);
-  if(!member)return toast("Personagem não encontrado.");
-  const roleSelect=byId("responsibleCharacterRole");
-  const clanSelect=byId("responsibleCharacterClan");
-  const nextRole=String(roleSelect?.value||member.role||"Membros");
-  const nextClan=String(clanSelect?.value||member.clan||"");
-  if(!MEMBER_ROLES.includes(nextRole))return toast("Cargo de clã inválido.");
-  if(nextClan&&!CLANS.includes(nextClan))return toast("Clã inválido.");
-  if(!confirm(`Salvar as alterações do personagem de ${target.nickname}?`))return;
+  if(!confirm(`Salvar os atributos de ${target.nickname}?`))return;
   try{
-    const payload={
-      role:nextRole,memberRole:nextRole,accessRole:"member",clan:nextClan,
-      character,characterUpdatedAt:serverTimestamp(),characterUpdatedBy:state.user.uid,
+    await updateDoc(doc(db,"members",target.id),{
+      character,
+      characterUpdatedAt:serverTimestamp(),
+      characterUpdatedBy:state.user.uid,
       updatedAt:serverTimestamp()
-    };
-    await updateDoc(doc(db,"members",target.id),payload);
-    Object.assign(member,payload,{character});
+    });
+    const member=state.members.find(item=>item.id===target.id);
+    if(member)member.character=character;
     renderCharacterCenter();render();
-    await audit("Personagem editado",`${target.nickname} · ${nextRole} · ${nextClan||"Sem clã"}`);
+    await audit("Personagem editado",target.nickname);
     byId("characterEditDrawer")?.classList.add("hidden");
     state.editingCharacterUserId="";
     toast("Personagem atualizado.");
