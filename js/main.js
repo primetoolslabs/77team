@@ -2191,7 +2191,7 @@ setInterval(updateLiveClock,1000);
 
 async function ensureCurrentAppShell(){
   const marker="77team-app-shell-version";
-  const current="22.9.33-adminonly1";
+  const current="22.9.33-characteredit1";
   try{
     const previous=localStorage.getItem(marker);
     if(previous===current)return;
@@ -2204,7 +2204,7 @@ async function ensureCurrentAppShell(){
 }
 
 ensureCurrentAppShell();
-if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js?v=22.9.33-adminonly1").catch(error=>console.warn("Service Worker indisponível:",error)));
+if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js?v=22.9.33-characteredit1").catch(error=>console.warn("Service Worker indisponível:",error)));
 
 function animateNumber(id,target,suffix=""){
   const el=byId(id);
@@ -3163,6 +3163,7 @@ function openResponsibleCharacterEditor(item){
   state.editingCharacterUserId=item.id;
   const c=item.character||{};
   setText("responsibleCharacterName",item.nickname||"Personagem");
+  setValue("responsibleCharacterNickname",item.nickname||"");
   const roleSelect=byId("responsibleCharacterRole");
   if(roleSelect){
     roleSelect.innerHTML=MEMBER_ROLES.map(role=>`<option value="${escapeHtml(role)}">${escapeHtml(role)}</option>`).join("");
@@ -3187,7 +3188,7 @@ function openResponsibleCharacterEditor(item){
   setValue("responsibleCharacterConstitution",c.constitution??0);
   setValue("responsibleCharacterWildernessTraining",c.wildernessTraining??0);
   byId("characterEditDrawer")?.classList.remove("hidden");
-  byId("responsibleCharacterClass")?.focus();
+  byId("responsibleCharacterNickname")?.focus();
 }
 
 on("closeCharacterEditDrawer","click",()=>{
@@ -3197,9 +3198,15 @@ on("closeCharacterEditDrawer","click",()=>{
 
 on("responsibleCharacterForm","submit",async event=>{
   event.preventDefault();
-  if(!permissionEnabled("character_edit")||!state.editingCharacterUserId)return;
+  if(!state.user||!editor()||!permissionEnabled("character_edit")||!state.editingCharacterUserId){
+    return toast("Sem permissão para editar personagens.");
+  }
   const target=characterCenterRows().find(item=>item.id===state.editingCharacterUserId);
-  if(!target)return;
+  if(!target)return toast("Personagem não encontrado.");
+
+  const nickname=String(byId("responsibleCharacterNickname")?.value||"").trim();
+  const role=String(byId("responsibleCharacterRole")?.value||"Membros").trim();
+  const clan=String(byId("responsibleCharacterClan")?.value||"").trim();
   const character={
     className:String(byId("responsibleCharacterClass")?.value||"").trim(),
     power:numberOrZero(byId("responsibleCharacterPower")?.value),
@@ -3213,24 +3220,50 @@ on("responsibleCharacterForm","submit",async event=>{
     constitution:numberOrZero(byId("responsibleCharacterConstitution")?.value),
     wildernessTraining:numberOrZero(byId("responsibleCharacterWildernessTraining")?.value)
   };
-  const characterError=validateConfiguredCharacter(character);if(characterError)return toast(characterError);
+
+  if(nickname.length<2||nickname.length>80)return toast("Nickname deve ter entre 2 e 80 caracteres.");
+  const duplicate=state.members.some(member=>member.id!==target.id&&member.active!==false&&String(member.name||"").trim().toLowerCase()===nickname.toLowerCase());
+  if(duplicate)return toast("Já existe outro personagem ativo com esse nickname.");
+  if(!MEMBER_ROLES.includes(role))return toast("Cargo do personagem inválido.");
+  if(clan&&!CLANS.includes(clan))return toast("Clã inválido.");
   if(!character.className)return toast("Informe a classe do personagem.");
-  if(!confirm(`Salvar os atributos de ${target.nickname}?`))return;
+  const characterError=validateConfiguredCharacter(character);if(characterError)return toast(characterError);
+
+  const oldClan=target.clan==="Sem clã"?"":String(target.clan||"");
+  const identityChanged=nickname!==String(target.nickname||"").trim()||role!==String(target.role||"Membros")||clan!==oldClan;
+  if(!confirm(`Salvar alterações de ${target.nickname}?`))return;
+
   try{
-    await updateDoc(doc(db,"members",target.id),{
+    const payload={
+      name:nickname,
+      role,
+      memberRole:role,
+      accessRole:"member",
+      clan,
       character,
       characterUpdatedAt:serverTimestamp(),
       characterUpdatedBy:state.user.uid,
       updatedAt:serverTimestamp()
-    });
+    };
+    if(identityChanged){
+      payload.identityUpdatedAt=serverTimestamp();
+      payload.identityUpdatedBy=state.user.uid;
+    }
+    await updateDoc(doc(db,"members",target.id),payload);
+
     const member=state.members.find(item=>item.id===target.id);
-    if(member)member.character=character;
+    if(member)Object.assign(member,{name:nickname,role,memberRole:role,accessRole:"member",clan,character});
+
     renderCharacterCenter();render();
-    await audit("Personagem editado",target.nickname);
+    await audit("Personagem editado",`${target.nickname} → ${nickname} · ${role} · ${clan||"Sem clã"}`);
     byId("characterEditDrawer")?.classList.add("hidden");
     state.editingCharacterUserId="";
-    toast("Personagem atualizado.");
-  }catch(error){toast(error.message||"Não foi possível atualizar o personagem.")}
+    toast("Personagem atualizado com sucesso.");
+  }catch(error){
+    console.error("Falha ao editar personagem:",error);
+    if(error?.code==="permission-denied")toast("Firebase negou a edição. Publique o firestore.rules desta versão.");
+    else toast(error.message||"Não foi possível atualizar o personagem.");
+  }
 });
 
 function printCharacterReport(rows,title){

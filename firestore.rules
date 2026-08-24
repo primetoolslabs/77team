@@ -364,10 +364,28 @@ service cloud.firestore {
       allow update: if dev()
         || (
           editor() && permission('character_edit')
+          && isMemberRole(accessRoleOf(resource.data))
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-            'character','characterUpdatedAt','characterUpdatedBy','updatedAt'
+            'name','role','memberRole','accessRole','clan',
+            'character','characterUpdatedAt','characterUpdatedBy',
+            'identityUpdatedAt','identityUpdatedBy','updatedAt'
           ])
+          && request.resource.data.name is string
+          && request.resource.data.name.size() >= 2
+          && request.resource.data.name.size() <= 80
+          && request.resource.data.role in ['Membros','PT TIME','PT BOOST','PT CORE']
+          && request.resource.data.memberRole == request.resource.data.role
+          && request.resource.data.accessRole == 'member'
+          && request.resource.data.clan is string
+          && request.resource.data.clan.size() <= 80
+          && request.resource.data.character is map
           && request.resource.data.characterUpdatedBy == request.auth.uid
+          && (
+            !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+              'name','role','memberRole','accessRole','clan'
+            ])
+            || request.resource.data.identityUpdatedBy == request.auth.uid
+          )
         )
         || (
           editor() && permission('character_delete')
