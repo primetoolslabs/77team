@@ -1,0 +1,23 @@
+77 TEAM MANAGER - VERSAO FIREBASE SPARK / GRATUITA
+
+Esta versao NAO usa Cloud Functions.
+
+Mantido:
+- Firebase Authentication
+- Cloud Firestore
+- Firebase Hosting
+- Storage conforme o projeto atual
+- Cadastro/edicao de Personagens diretamente pelo cliente + Security Rules
+- Presencas, Historico e demais funcoes atuais
+
+PUBLICAR SITE:
+PUBLICAR-GRATUITO.bat
+
+REGRAS:
+PUBLICAR-REGRAS-QUANDO-DISPONIVEL.bat
+
+IMPORTANTE:
+O plano gratuito elimina a exigencia do Blaze causada pelas Cloud Functions.
+Porem as gravacoes diretas do navegador continuam dependendo das Firestore Security Rules.
+Se o endpoint Firebase Rules estiver retornando HTTP 503, novas alteracoes de permissoes
+que dependam de Rules so entram em vigor quando o Google aceitar o deploy.

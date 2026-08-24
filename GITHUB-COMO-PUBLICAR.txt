@@ -1,0 +1,26 @@
+77 TEAM MANAGER - GITHUB
+
+1. NAO envie o arquivo ZIP para dentro do repositorio como site.
+2. Extraia o ZIP no computador.
+3. No GitHub, abra o repositorio.
+4. Use Add file > Upload files.
+5. Arraste o CONTEUDO da pasta extraida.
+
+Esta versao possui menos de 100 arquivos.
+
+IMPORTANTE:
+- node_modules NAO deve ser enviado.
+- .firebase NAO deve ser enviado.
+- logs NAO devem ser enviados.
+- A pasta functions deve ser enviada.
+- .firebaserc deve ser enviado.
+- firebase.json deve ser enviado.
+
+Se o navegador do GitHub ainda limitar o envio, use GitHub Desktop:
+1. Instale GitHub Desktop.
+2. Clone o repositorio.
+3. Copie estes arquivos para a pasta clonada.
+4. Commit to main.
+5. Push origin.
+
+Isso evita o limite do upload pelo navegador.
