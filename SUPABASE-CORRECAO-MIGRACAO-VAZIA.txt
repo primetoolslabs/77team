@@ -1,0 +1,24 @@
+77 TEAM MANAGER - CORREÇÃO DA MIGRAÇÃO VAZIA
+
+1. No Supabase > Editor SQL, execute:
+   SUPABASE-MIGRACAO-V3-CORRIGIR-UPSERT.sql
+
+2. Publique esta nova versão do site.
+
+3. No 77 TEAM Manager > Configurações > Migração Supabase:
+   - Conectar Supabase
+   - Testar conexão
+   - Migrar dados atuais
+
+4. Agora o painel mostra:
+   Personagens X/Y
+   Presenças X/Y
+   Pagamentos X/Y
+   Eventos X/Y
+   Falhas N
+
+5. Clique em:
+   Conferir dados no Supabase
+
+Se Falhas for maior que 0, abra F12 > Console e envie a primeira mensagem
+que começa com [Supabase shadow].

@@ -57,11 +57,14 @@ function isoFromMaybeTimestamp(value){
   }catch{}
   return new Date().toISOString();
 }
+const supabaseMigrationErrors=[];
 async function supabaseShadowSafe(label,work){
   if(!supabaseShadowEnabled())return null;
   try{return await work()}
   catch(error){
-    console.warn(`[Supabase shadow] ${label}:`,error);
+    const message=String(error?.message||error||"Erro desconhecido");
+    supabaseMigrationErrors.push({label,message});
+    console.error(`[Supabase shadow] ${label}:`,error);
     return null;
   }
 }
@@ -153,14 +156,31 @@ async function migrateCurrentFirebaseDataToSupabase(){
   if(!supabaseShadowEnabled())return toast("Conecte sua conta Supabase primeiro.");
   const button=byId("supabaseMigrateNow");
   if(button)button.disabled=true;
+  supabaseMigrationErrors.length=0;
   try{
     let chars=0,attendanceCount=0,paymentsCount=0,eventsCount=0;
-    for(const member of state.members){if(await supabaseShadowSafe("personagem",()=>shadowCharacter(member)))chars++}
-    for(const item of state.attendance){if(await supabaseShadowSafe("presença",()=>shadowAttendance(item)))attendanceCount++}
-    for(const item of state.payments){if(await supabaseShadowSafe("pagamento",()=>shadowPayment(item)))paymentsCount++}
-    for(const item of state.events){if(await supabaseShadowSafe("evento",()=>shadowEvent(item)))eventsCount++}
-    setText("supabaseMigrationResult",`Personagens ${chars} · Presenças ${attendanceCount} · Pagamentos ${paymentsCount} · Eventos ${eventsCount}`);
-    toast("Migração Supabase concluída. Firebase permaneceu intacto.");
+    for(const member of state.members){
+      if(await supabaseShadowSafe(`personagem ${member.name||member.id}`,()=>shadowCharacter(member)))chars++;
+    }
+    for(const item of state.attendance){
+      if(await supabaseShadowSafe(`presença ${item.id||""}`,()=>shadowAttendance(item)))attendanceCount++;
+    }
+    for(const item of state.payments){
+      if(await supabaseShadowSafe(`pagamento ${item.id||""}`,()=>shadowPayment(item)))paymentsCount++;
+    }
+    for(const item of state.events){
+      if(await supabaseShadowSafe(`evento ${item.id||""}`,()=>shadowEvent(item)))eventsCount++;
+    }
+    const failures=supabaseMigrationErrors.length;
+    const summary=`Personagens ${chars}/${state.members.length} · Presenças ${attendanceCount}/${state.attendance.length} · Pagamentos ${paymentsCount}/${state.payments.length} · Eventos ${eventsCount}/${state.events.length} · Falhas ${failures}`;
+    setText("supabaseMigrationResult",summary);
+    if(failures){
+      const first=supabaseMigrationErrors[0];
+      toast(`Migração parcial: ${failures} falha(s). Primeira: ${first?.label||""}: ${first?.message||""}`);
+      console.error("Erros da migração Supabase:",supabaseMigrationErrors);
+    }else{
+      toast("Migração Supabase concluída sem falhas. Firebase permaneceu intacto.");
+    }
   }finally{
     if(button)button.disabled=false;
   }
@@ -6146,5 +6166,21 @@ on("supabaseTest","click",async()=>{
   }catch(error){toast(`Teste Supabase falhou: ${error.message}`)}
 });
 on("supabaseMigrateNow","click",migrateCurrentFirebaseDataToSupabase);
+on("supabaseVerifyCounts","click",async()=>{
+  if(!supabaseShadowEnabled())return toast("Conecte o Supabase primeiro.");
+  try{
+    const [characters,attendance,payments,events]=await Promise.all([
+      SupabaseShadow.query("characters","select=id"),
+      SupabaseShadow.query("attendance","select=id"),
+      SupabaseShadow.query("payments","select=id"),
+      SupabaseShadow.query("events","select=id")
+    ]);
+    const text=`Supabase → Personagens ${characters?.length||0} · Presenças ${attendance?.length||0} · Pagamentos ${payments?.length||0} · Eventos ${events?.length||0}`;
+    setText("supabaseMigrationResult",text);
+    toast(text);
+  }catch(error){
+    toast(`Falha ao conferir Supabase: ${error.message}`);
+  }
+});
 document.addEventListener("DOMContentLoaded",updateSupabaseMigrationUI,{once:true});
 
