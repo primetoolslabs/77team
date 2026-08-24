@@ -7221,3 +7221,13 @@ body[data-public-view="true"] #historico.public-history-view .history-center-hea
 #characterCreatePanel{
   display:block;
 }
+
+/* Supabase migration shadow */
+.supabase-migration-panel{margin:12px 0;border-color:rgba(61,207,142,.25)!important}
+.supabase-migration-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.supabase-actions{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px}
+.supabase-migration-result{grid-column:1/-1;padding:10px;border:1px solid rgba(61,207,142,.16);background:rgba(61,207,142,.04)}
+.supabase-migration-grid>small{grid-column:1/-1;opacity:.75}
+.supabase-status{padding:5px 9px;border-radius:999px;background:rgba(255,255,255,.05);font-size:.7rem}
+.supabase-status.connected{color:#55e6a6;background:rgba(61,207,142,.12)}
+@media(max-width:760px){.supabase-migration-grid{grid-template-columns:1fr}}

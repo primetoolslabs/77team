@@ -21,6 +21,7 @@ function finalizePrintWindow(printWindow,autoPrint=true){
 }
 
 import {firebaseConfig,FIREBASE_VERSION} from "./firebase-config.js";
+import {SupabaseShadow} from "./supabase-client.js";
 import {asciiPdfText,createTextPdf} from "./pdf-generator.js";
 const SDK=`https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}`;
 const {initializeApp,deleteApp}=await import(`${SDK}/firebase-app.js`);
@@ -37,6 +38,134 @@ const $=s=>document.querySelector(s),$$=s=>Array.from(document.querySelectorAll(
 const CLANS=["77 Team I","77 Team II","77 Team III","Projeto X"];
 const MEMBER_ROLES=["Membros","PT TIME","PT BOOST","PT CORE"];
 const ALL_ROLES=["Staff",...MEMBER_ROLES];
+
+/* ============================================================
+   SUPABASE MIGRATION SHADOW V1
+   Firebase continua como fonte principal.
+   O Supabase recebe cópias apenas quando uma sessão Supabase
+   administrativa estiver conectada neste navegador.
+   ============================================================ */
+function supabaseShadowEnabled(){
+  return SupabaseShadow.mode==="shadow" && SupabaseShadow.isConnected();
+}
+function isoFromMaybeTimestamp(value){
+  try{
+    if(!value)return new Date().toISOString();
+    if(typeof value?.toDate==="function")return value.toDate().toISOString();
+    if(value instanceof Date)return value.toISOString();
+    if(typeof value==="string")return new Date(value).toISOString();
+  }catch{}
+  return new Date().toISOString();
+}
+async function supabaseShadowSafe(label,work){
+  if(!supabaseShadowEnabled())return null;
+  try{return await work()}
+  catch(error){
+    console.warn(`[Supabase shadow] ${label}:`,error);
+    return null;
+  }
+}
+async function supabaseCharacterByLegacyId(legacyId){
+  if(!supabaseShadowEnabled()||!legacyId)return null;
+  const rows=await SupabaseShadow.query("characters",`legacy_id=eq.${encodeURIComponent(legacyId)}&select=id,nickname,legacy_id&limit=1`);
+  return rows?.[0]||null;
+}
+async function shadowCharacter(member){
+  if(!member)return null;
+  const c=member.character||{};
+  const row={
+    legacy_id:String(member.id||""),
+    nickname:String(member.name||"Personagem").slice(0,80),
+    role:MEMBER_ROLES.includes(member.role)?member.role:"Membros",
+    clan:String(member.clan||"").slice(0,80),
+    class_name:String(c.className||"Sem classe").slice(0,60),
+    power:Number(c.power||0),level:Number(c.level||0),codex:Number(c.codex||0),
+    mandalla:Number(c.mandalla||0),chi1:Number(c.chi1||0),chi2:Number(c.chi2||0),chi3:Number(c.chi3||0),
+    frog_posture:Number(c.frogPosture||0),constitution:Number(c.constitution||0),
+    wilderness_training:Number(c.wildernessTraining||0),
+    active:member.active!==false,
+    updated_at:new Date().toISOString()
+  };
+  const result=await SupabaseShadow.upsert("characters",row,"legacy_id");
+  return result?.[0]||null;
+}
+async function shadowAttendance(item){
+  if(!item)return null;
+  let character=await supabaseCharacterByLegacyId(item.memberId);
+  if(!character){
+    const member=state.members.find(m=>m.id===item.memberId);
+    if(member)character=await shadowCharacter(member);
+  }
+  if(!character?.id)return null;
+  const statusMap=new Map([[-1,2],[0,0],[1,1],[2,2],[3,3]]);
+  return SupabaseShadow.upsert("attendance",{
+    legacy_id:String(item.id||`${item.kind}_${item.date}_${item.memberId}_${item.slot}`),
+    legacy_member_id:String(item.memberId||""),
+    character_id:character.id,
+    attendance_date:String(item.date||localIsoDate()),
+    kind:String(item.kind||""),
+    slot:String(item.slot||""),
+    status:statusMap.get(Number(item.status))??0,
+    observation:String(item.note||item.observation||"").slice(0,1000),
+    legacy_payload:item,
+    updated_at:new Date().toISOString()
+  },"legacy_id");
+}
+async function shadowPayment(item){
+  if(!item)return null;
+  let characterId=null;
+  const member=state.members.find(m=>String(m.name||"").trim().toLowerCase()===String(item.nickname||"").trim().toLowerCase());
+  if(member){
+    let ch=await supabaseCharacterByLegacyId(member.id);
+    if(!ch)ch=await shadowCharacter(member);
+    characterId=ch?.id||null;
+  }
+  return SupabaseShadow.upsert("payments",{
+    legacy_id:String(item.id||crypto.randomUUID()),
+    character_id:characterId,
+    nickname:String(item.nickname||"").slice(0,80),
+    description:String(item.paymentType||"Pagamento").slice(0,160),
+    payment_type:String(item.paymentType||"").slice(0,80),
+    quantity:Number(item.quantity||0),
+    amount:Number(item.quantity||0),
+    payment_date:localIsoDate(),
+    observation:String(item.observation||"").slice(0,500),
+    legacy_payload:item,
+    updated_at:new Date().toISOString()
+  },"legacy_id");
+}
+async function shadowEvent(item){
+  if(!item)return null;
+  return SupabaseShadow.upsert("events",{
+    legacy_id:String(item.id||crypto.randomUUID()),
+    title:String(item.title||"Evento").slice(0,120),
+    description:String(item.description||"").slice(0,1000),
+    event_date:String(item.date||localIsoDate()),
+    event_time:item.time||null,
+    event_type:String(item.type||"Evento").slice(0,80),
+    active:item.active!==false,
+    legacy_payload:item,
+    updated_at:new Date().toISOString()
+  },"legacy_id");
+}
+async function migrateCurrentFirebaseDataToSupabase(){
+  if(!owner())return toast("Somente DEV pode executar a migração inicial.");
+  if(!supabaseShadowEnabled())return toast("Conecte sua conta Supabase primeiro.");
+  const button=byId("supabaseMigrateNow");
+  if(button)button.disabled=true;
+  try{
+    let chars=0,attendanceCount=0,paymentsCount=0,eventsCount=0;
+    for(const member of state.members){if(await supabaseShadowSafe("personagem",()=>shadowCharacter(member)))chars++}
+    for(const item of state.attendance){if(await supabaseShadowSafe("presença",()=>shadowAttendance(item)))attendanceCount++}
+    for(const item of state.payments){if(await supabaseShadowSafe("pagamento",()=>shadowPayment(item)))paymentsCount++}
+    for(const item of state.events){if(await supabaseShadowSafe("evento",()=>shadowEvent(item)))eventsCount++}
+    setText("supabaseMigrationResult",`Personagens ${chars} · Presenças ${attendanceCount} · Pagamentos ${paymentsCount} · Eventos ${eventsCount}`);
+    toast("Migração Supabase concluída. Firebase permaneceu intacto.");
+  }finally{
+    if(button)button.disabled=false;
+  }
+}
+
 const REQUEST_ACCESS_OPTIONS={
   dev:[
     {value:"dev",label:"DEV"},{value:"leadership",label:"Liderança"},{value:"staff",label:"Staff"},
@@ -833,7 +962,8 @@ on("paymentForm","submit",async event=>{
   const button=byId("confirmPayment");if(button)button.disabled=true;
   try{
     const responsibleNick=String(state.profile?.name||state.profile?.displayName||state.user?.email||"Responsável").slice(0,120);
-    await addDoc(collection(db,"payments"),{nickname,paymentType,quantity,observation,responsibleUid:state.user.uid,responsibleNick,createdAt:serverTimestamp()});
+    const paymentRef=await addDoc(collection(db,"payments"),{nickname,paymentType,quantity,observation,responsibleUid:state.user.uid,responsibleNick,createdAt:serverTimestamp()});
+    supabaseShadowSafe("pagamento",()=>shadowPayment({id:paymentRef.id,nickname,paymentType,quantity,observation,responsibleUid:state.user.uid,responsibleNick}));
     await audit("pagamento registrado",`${nickname} · ${paymentType} · quantidade ${quantity}${observation?` · observação: ${observation}`:""}`);event.target.reset();toast("Pagamento confirmado e registrado.");
   }catch(error){
     if(error?.code==="permission-denied"){
@@ -1162,6 +1292,7 @@ async function savePresenceFromModal(){
   const payload={memberId:member.id,userId:member.userId||member.id,memberName:member.name,clan:member.clan||"",role:member.role||"Membros",kind,slot,status,date,note,updatedBy:state.user.uid,updatedByName:state.profile?.name||state.user.email,updatedAt:serverTimestamp(),createdAt:existing?.createdAt||serverTimestamp()};
   try{
     await setDoc(doc(db,"attendance",id),payload,{merge:true});
+    supabaseShadowSafe("presença",()=>shadowAttendance({id,...payload,createdAt:null,updatedAt:null}));
     const rtId=(kind+"__"+date+"__"+slot).replace(/[^a-zA-Z0-9_-]/g,"_");
     const current=state.rtPresence.find(rt=>rt.id===rtId)||{};
     const records=[...(current.records||[])].filter(r=>r.memberId!==member.id);
@@ -2007,6 +2138,7 @@ $("#eventForm").onsubmit=async event=>{
   try{
     if(editingCalendarEventId){
       await updateDoc(doc(db,"events",editingCalendarEventId),{...payload,updatedBy:state.user.uid,updatedAt:serverTimestamp()});
+      supabaseShadowSafe("evento atualizado",()=>shadowEvent({id:editingCalendarEventId,...payload,active:true}));
       closeCalendarEventModal();toast("Evento atualizado.");
       audit("evento atualizado",`${payload.title} · ${payload.date}`).catch(error=>console.warn("Auditoria do evento indisponível:",error));return;
     }
@@ -2017,6 +2149,7 @@ $("#eventForm").onsubmit=async event=>{
       batch.set(notificationRef,{title:"Novo evento",message:`${payload.title} em ${payload.date}${payload.time?` às ${payload.time}`:""}`,type:"info",targetType:"all",createdBy:state.user.uid,createdByName:state.profile?.name||"Staff",createdAt:serverTimestamp()});
     }
     await batch.commit();
+    supabaseShadowSafe("evento",()=>shadowEvent({id:eventRef.id,...payload,active:true}));
     closeCalendarEventModal();toast("Evento criado.");
   }catch(error){
     toast(errMsg(error));
@@ -2191,7 +2324,7 @@ setInterval(updateLiveClock,1000);
 
 async function ensureCurrentAppShell(){
   const marker="77team-app-shell-version";
-  const current="22.9.33-characterstaff2";
+  const current="22.9.34-supabase-shadow1";
   try{
     const previous=localStorage.getItem(marker);
     if(previous===current)return;
@@ -2204,7 +2337,7 @@ async function ensureCurrentAppShell(){
 }
 
 ensureCurrentAppShell();
-if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js?v=22.9.33-characterstaff2").catch(error=>console.warn("Service Worker indisponível:",error)));
+if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js?v=22.9.34-supabase-shadow1").catch(error=>console.warn("Service Worker indisponível:",error)));
 
 function animateNumber(id,target,suffix=""){
   const el=byId(id);
@@ -2772,6 +2905,9 @@ on("newCharacterForm","submit",async event=>{
       characterUpdatedBy:state.user.uid,
       updatedAt:serverTimestamp()
     });
+    supabaseShadowSafe("novo personagem",()=>shadowCharacter({
+      id:ref.id,name,role,memberRole:role,clan,active:true,character
+    }));
     event.target.reset();
     fillSelects();
     await audit("Personagem cadastrado",`${name} · ${role} · ${clan||"Sem clã"}`);
@@ -3260,6 +3396,9 @@ on("responsibleCharacterForm","submit",async event=>{
     };
 
     await updateDoc(doc(db,"members",target.id),payload);
+    supabaseShadowSafe("editar personagem",()=>shadowCharacter({
+      id:target.id,name:nickname,role,memberRole:role,clan,active:true,character
+    }));
 
     const member=state.members.find(item=>item.id===target.id);
     if(member){
@@ -5975,3 +6114,37 @@ document.addEventListener("click",event=>{
   markRolePermissionsDirty();
 });
 window.addEventListener("beforeunload",event=>{if(!rolePermissionsDirty&&!maintenanceFormDirty&&!loginCustomizationDirty&&!settingsFormDirty)return;event.preventDefault();event.returnValue=""});
+
+
+function updateSupabaseMigrationUI(){
+  const connected=SupabaseShadow.isConnected();
+  setText("supabaseStatus",connected?"Conectado":"Não conectado");
+  byId("supabaseStatus")?.classList.toggle("connected",connected);
+}
+on("supabaseConnect","click",async()=>{
+  const email=String(byId("supabaseEmail")?.value||"").trim();
+  const password=String(byId("supabasePassword")?.value||"");
+  if(!email||!password)return toast("Informe e-mail e senha da conta Supabase.");
+  try{
+    await SupabaseShadow.login(email,password);
+    const profile=await SupabaseShadow.profile();
+    if(!profile||profile.active!==true||!["dev","leadership","staff"].includes(profile.access_role)){
+      await SupabaseShadow.logout();
+      return toast("O usuário Supabase não possui perfil administrativo ativo.");
+    }
+    updateSupabaseMigrationUI();
+    toast(`Supabase conectado como ${profile.access_role}.`);
+    if(byId("supabasePassword"))byId("supabasePassword").value="";
+  }catch(error){toast(`Falha Supabase: ${error.message}`)}
+});
+on("supabaseDisconnect","click",async()=>{await SupabaseShadow.logout();updateSupabaseMigrationUI();toast("Supabase desconectado.");});
+on("supabaseTest","click",async()=>{
+  try{
+    await SupabaseShadow.health();
+    const profile=await SupabaseShadow.profile();
+    toast(`Supabase OK${profile?` · ${profile.access_role}`:""}.`);
+  }catch(error){toast(`Teste Supabase falhou: ${error.message}`)}
+});
+on("supabaseMigrateNow","click",migrateCurrentFirebaseDataToSupabase);
+document.addEventListener("DOMContentLoaded",updateSupabaseMigrationUI,{once:true});
+

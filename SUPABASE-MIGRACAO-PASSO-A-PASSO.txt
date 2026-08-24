@@ -1,0 +1,32 @@
+77 TEAM MANAGER - MIGRAÇÃO SUPABASE V1 (SHADOW)
+
+ESTA VERSÃO NÃO DESLIGA O FIREBASE.
+
+1. No Supabase, abra Editor SQL.
+2. Cole e execute: SUPABASE-MIGRACAO-V2.sql
+3. Publique os arquivos do site/Hosting.
+4. Entre no 77 TEAM Manager como DEV.
+5. Abra Configurações.
+6. Em "Migração Supabase", informe o e-mail e a senha do usuário DEV criado no Supabase.
+7. Clique "Conectar Supabase".
+8. Clique "Testar conexão".
+9. Clique "Migrar dados atuais".
+
+O sistema copia para Supabase:
+- Personagens
+- Presenças / Histórico
+- Pagamentos
+- Eventos
+
+Firebase NÃO é apagado e continua sendo a fonte principal nesta versão.
+
+Depois da migração inicial, novos registros feitos neste navegador também são copiados
+automaticamente para o Supabase enquanto a sessão Supabase estiver conectada.
+
+SEGURANÇA:
+A Publishable Key pode ficar no frontend.
+A senha Supabase nunca é gravada pelo projeto; somente o token de sessão retornado
+pelo Supabase fica no localStorage do navegador.
+
+PRÓXIMA ETAPA:
+Após validar contagens e dados, migrar leitura + login definitivamente para Supabase.
