@@ -1,0 +1,30 @@
+77 TEAM - RULE DINAMICA / PLANO GRATUITO
+
+A matriz de permissoes fica em:
+settings/app.rolePermissions
+
+A funcao permission(key) consulta essa matriz em tempo de execucao.
+
+OBJETIVO:
+Depois de publicar este firestore.rules UMA VEZ, alterar uma permissao existente
+na aba Cargos e Permissoes nao deve exigir uma nova publicacao de Rules.
+
+Exemplos:
+- character_edit.staff = true/false
+- payments_manage.staff = true/false
+- requests_approve.staff = true/false
+- members_clan_change.staff = true/false
+
+SEGURANCA:
+Somente DEV pode alterar rolePermissions.
+Staff e Lideranca usam a matriz, mas nao podem reescrever a matriz por conta propria.
+
+IMPORTANTE:
+Adicionar uma NOVA colecao, uma NOVA operacao ou uma NOVA chave de permissao que ainda
+nao exista nas Rules pode exigir uma futura alteracao do firestore.rules.
+
+PUBLICACAO INICIAL:
+PUBLICAR-REGRAS-QUANDO-DISPONIVEL.bat
+
+Se o endpoint do Firebase Rules continuar retornando HTTP 503, esta primeira
+publicacao ainda precisa aguardar o servico do Google voltar.

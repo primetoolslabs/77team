@@ -83,11 +83,14 @@ service cloud.firestore {
           'page_dashboard','page_meu_perfil','page_membros','page_historico','page_ranking','page_calendario','page_estatisticas','page_sobre'
         ]);
     }
+    // Matriz dinâmica: depois desta Rule ser publicada uma vez,
+    // mudanças em settings/app.rolePermissions passam a valer sem novo deploy.
     function permission(key){
       let cfg = exists(/databases/$(database)/documents/settings/app)
         ? get(/databases/$(database)/documents/settings/app).data.get('rolePermissions', {})
         : {};
-      return dev() || cfg.get(key, {}).get(roleKey(), defaultPermission(key));
+      let roleCfg = cfg.get(key, {});
+      return dev() || roleCfg.get(roleKey(), defaultPermission(key));
     }
     function paymentsMatrixPermission(){
       return active() && (
@@ -673,6 +676,9 @@ service cloud.firestore {
       allow delete: if id == 'home' && dev();
     }
 
+    // settings/app é a fonte única da matriz Cargos e Permissões.
+    // Somente DEV pode alterar rolePermissions. As demais ações consultam
+    // permission('...') em tempo de execução, sem recompilar as Rules.
     match /settings/{id} {
       allow read: if id == 'app' || (id == 'private' && dev());
       allow create: if dev() || (id == 'app' && permission('settings_edit')
