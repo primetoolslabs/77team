@@ -1,0 +1,24 @@
+77 TEAM MANAGER - CORREÇÃO DEFINITIVA DO ON CONFLICT
+
+O erro:
+there is no unique or exclusion constraint matching the ON CONFLICT specification
+
+foi removido pela arquitetura.
+
+A migração agora:
+1. procura o registro por legacy_id;
+2. se existir, faz PATCH/UPDATE;
+3. se não existir, faz POST/INSERT.
+
+Não utiliza mais `on_conflict=legacy_id`.
+
+PASSOS:
+1. Supabase > Editor SQL
+2. Execute SUPABASE-MIGRACAO-V4-SEM-ON-CONFLICT.sql
+3. Publique esta nova versão do site
+4. Conecte o Supabase
+5. Teste conexão
+6. Clique Migrar dados atuais
+7. Clique Conferir dados no Supabase
+
+O painel continuará exibindo X/Y e Falhas N.

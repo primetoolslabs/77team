@@ -78,9 +78,26 @@ export const SupabaseShadow={
     });
   },
   async upsert(table,row,onConflict="legacy_id"){
-    return request(`/rest/v1/${table}?on_conflict=${encodeURIComponent(onConflict)}`,{
-      method:"POST",body:row,
-      prefer:"resolution=merge-duplicates,return=representation"
+    const conflictValue=row?.[onConflict];
+    if(conflictValue===undefined||conflictValue===null||conflictValue===""){
+      return request(`/rest/v1/${table}`,{
+        method:"POST",body:row,prefer:"return=representation"
+      });
+    }
+
+    // Não depende de ON CONFLICT/PostgREST schema cache:
+    // procura pelo legacy_id, atualiza se existir e cria se não existir.
+    const filter=`${encodeURIComponent(onConflict)}=eq.${encodeURIComponent(String(conflictValue))}`;
+    const existing=await request(`/rest/v1/${table}?${filter}&select=id&limit=1`);
+
+    if(Array.isArray(existing)&&existing.length){
+      return request(`/rest/v1/${table}?${filter}`,{
+        method:"PATCH",body:row,prefer:"return=representation"
+      });
+    }
+
+    return request(`/rest/v1/${table}`,{
+      method:"POST",body:row,prefer:"return=representation"
     });
   },
   async update(table,filter,row){
