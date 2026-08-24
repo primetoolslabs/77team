@@ -1,0 +1,16 @@
+Depois de publicar esta versão:
+
+1. Abra o site.
+2. Pressione CTRL+F5.
+3. Abra F12 > Console.
+4. Os erros antigos NÃO podem mostrar:
+   shadow2
+   on_conflict=legacy_id
+
+A versão esperada é:
+22.9.34-supabase-shadow4-cachefix
+
+No Network, supabase-client.js deve carregar com:
+?v=22.9.34-supabase-shadow4-cachefix
+
+Se ainda aparecer shadow2, o Hosting publicado ainda contém os arquivos antigos.

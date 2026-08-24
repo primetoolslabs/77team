@@ -11,7 +11,31 @@
 <title>77 TEAM SA21</title>
 <link href="manifest.json" rel="manifest"/>
 <link href="icons/icon-192.png" rel="icon"/>
-<link href="css/style.css?v=22.9.34-supabase-shadow3" rel="stylesheet"/>
+<link href="css/style.css?v=22.9.34-supabase-shadow4-cachefix" rel="stylesheet"/>
+
+<script>
+(async()=>{
+  try{
+    if("serviceWorker" in navigator){
+      const regs=await navigator.serviceWorker.getRegistrations();
+      for(const reg of regs) await reg.unregister();
+    }
+    if("caches" in window){
+      const keys=await caches.keys();
+      for(const key of keys) await caches.delete(key);
+    }
+    const marker="77team-cache-version";
+    if(localStorage.getItem(marker)!=="22.9.34-supabase-shadow4-cachefix"){
+      localStorage.setItem(marker,"22.9.34-supabase-shadow4-cachefix");
+      if(!location.search.includes("cachefix=22.9.34-supabase-shadow4-cachefix")){
+        const url=new URL(location.href);
+        url.searchParams.set("cachefix","22.9.34-supabase-shadow4-cachefix");
+        location.replace(url.toString());
+      }
+    }
+  }catch(error){console.warn("Cache cleanup:",error)}
+})();
+</script>
 </head>
 <body>
 <div class="loading" id="loading">
@@ -1250,7 +1274,7 @@
 </div>
 <div class="global-search-results hidden" id="globalSearchResults"></div>
 <div class="toast" id="toast"></div>
-<script src="js/ui.js?v=22.9.34-supabase-shadow1"></script>
-<script src="js/main.js?v=22.9.34-supabase-shadow3" type="module"></script>
+<script src="js/ui.js?v=22.9.34-supabase-shadow4-cachefix"></script>
+<script src="js/main.js?v=22.9.34-supabase-shadow4-cachefix" type="module"></script>
 </body>
 </html>
