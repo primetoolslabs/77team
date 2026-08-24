@@ -354,12 +354,20 @@ service cloud.firestore {
         && request.resource.data.get('active',true) == true
         && (isMemberRole(accessRoleOf(request.resource.data)) || isStaffRole(accessRoleOf(request.resource.data)))
       ) || dev() || (
-        editor() && permission('members_edit')
-        && request.resource.data.keys().hasOnly(['name','role','clan','userId','accessRole','memberRole','active','createdAt','updatedAt'])
-        && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 120
+        editor() && permission('character_edit')
+        && request.resource.data.keys().hasOnly([
+          'name','role','clan','userId','accessRole','memberRole','active','createdAt','updatedAt'
+        ])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() >= 2
+        && request.resource.data.name.size() <= 80
         && request.resource.data.get('clan','') is string
         && request.resource.data.get('clan','').size() <= 80
-        && (isMemberRole(accessRoleOf(request.resource.data)) || isStaffRole(accessRoleOf(request.resource.data)))
+        && request.resource.data.get('userId','') == id
+        && request.resource.data.get('active',true) == true
+        && request.resource.data.get('accessRole','member') == 'member'
+        && request.resource.data.get('memberRole','Membros') == request.resource.data.get('role','Membros')
+        && request.resource.data.get('role','Membros') in ['Membros','PT TIME','PT BOOST','PT CORE']
       );
       allow update: if dev()
         || (
@@ -373,19 +381,14 @@ service cloud.firestore {
           && request.resource.data.name is string
           && request.resource.data.name.size() >= 2
           && request.resource.data.name.size() <= 80
-          && request.resource.data.role in ['Membros','PT TIME','PT BOOST','PT CORE']
-          && request.resource.data.memberRole == request.resource.data.role
-          && request.resource.data.accessRole == 'member'
-          && request.resource.data.clan is string
-          && request.resource.data.clan.size() <= 80
+          && request.resource.data.get('role','Membros') in ['Membros','PT TIME','PT BOOST','PT CORE']
+          && request.resource.data.get('memberRole','Membros') == request.resource.data.get('role','Membros')
+          && request.resource.data.get('accessRole','member') == 'member'
+          && request.resource.data.get('clan','') is string
+          && request.resource.data.get('clan','').size() <= 80
           && request.resource.data.character is map
           && request.resource.data.characterUpdatedBy == request.auth.uid
-          && (
-            !request.resource.data.diff(resource.data).affectedKeys().hasAny([
-              'name','role','memberRole','accessRole','clan'
-            ])
-            || request.resource.data.identityUpdatedBy == request.auth.uid
-          )
+          && request.resource.data.identityUpdatedBy == request.auth.uid
         )
         || (
           editor() && permission('character_delete')

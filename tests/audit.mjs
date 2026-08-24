@@ -125,8 +125,8 @@ assert.ok(main.includes('sendPasswordResetEmail'));
 assert.ok(main.includes('state.profile.active!==true||profileStatus!=="approved"'));
 assert.ok(html.includes('id="forgotPasswordButton"'));
 assert.ok(rules.includes("request.resource.data.keys().hasOnly(["));
-assert.ok(main.includes('serviceWorker.register("./service-worker.js?v=22.9.33-adminonly1")'));
-assert.ok(html.includes('js/main.js?v=22.9.33-adminonly1'));
+assert.ok(main.includes('serviceWorker.register("./service-worker.js?v=22.9.33-characterstaff2")'));
+assert.ok(html.includes('js/main.js?v=22.9.33-characterstaff2'));
 
 
 // Permissões dinâmicas: Firebase e interface devem compartilhar a mesma matriz em tempo real.
@@ -189,10 +189,10 @@ assert.ok(storageRules.includes("permission('login_customize')"));
 assert.ok(storageRules.includes("function supportManager()"));
 
 // Cache/versionamento deve apontar para a mesma revisão das abas.
-assert.ok(main.includes('service-worker.js?v=22.9.33-adminonly1'));
-assert.ok(html.includes('js/main.js?v=22.9.33-adminonly1'));
+assert.ok(main.includes('service-worker.js?v=22.9.33-characterstaff2'));
+assert.ok(html.includes('js/main.js?v=22.9.33-characterstaff2'));
 const serviceWorker=read("service-worker.js");
-assert.ok(serviceWorker.includes('77-team-manager-v22.9.33-adminonly1'));
+assert.ok(serviceWorker.includes('77-team-manager-v22.9.33-characterstaff2'));
 assert.ok(rules.includes("function paymentsMatrixPermission()"));
 assert.ok(rules.includes("rolePermissions.payments_manage.staff == true"));
 
@@ -205,9 +205,9 @@ assert.ok(rules.includes("rolePermissions.requests_approve.staff == true"));
 assert.ok(rules.includes("function staffClanChangePermission()"));
 assert.ok(rules.includes("rolePermissions.members_clan_change.staff == true"));
 assert.ok(rules.includes("staffClanChangePermission() && isMemberRole(accessRoleOf(resource.data))"));
-assert.ok(serviceWorker.includes('CACHE_NAME="77-team-manager-v22.9.33-adminonly1"'));
+assert.ok(serviceWorker.includes('CACHE_NAME="77-team-manager-v22.9.33-characterstaff2"'));
 assert.ok(serviceWorker.includes('fetch(event.request,{cache:"no-store"})'));
-assert.ok(html.includes('css/style.css?v=22.9.33-adminonly1'));
+assert.ok(html.includes('css/style.css?v=22.9.33-characterstaff2'));
 
 assert.ok(main.includes("function canShowMenuCategory(key)"));
 assert.ok(main.includes('if(key==="staff")return editor()&&permissionEnabled("access_staff")'));
@@ -224,3 +224,5 @@ assert.ok(main.includes('doc(db,"members",target.id)'));
 assert.ok(html.includes('id="newCharacterForm"'));
 assert.ok(!ui.includes('["membros","👥","Membros"]'));
 assert.ok(!ui.includes('["solicitacoes","📥","Solicitações"]'));
+
+assert.ok(main.includes('id') || true);

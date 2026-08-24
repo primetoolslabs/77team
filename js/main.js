@@ -2191,7 +2191,7 @@ setInterval(updateLiveClock,1000);
 
 async function ensureCurrentAppShell(){
   const marker="77team-app-shell-version";
-  const current="22.9.33-characteredit1";
+  const current="22.9.33-characterstaff2";
   try{
     const previous=localStorage.getItem(marker);
     if(previous===current)return;
@@ -2204,7 +2204,7 @@ async function ensureCurrentAppShell(){
 }
 
 ensureCurrentAppShell();
-if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js?v=22.9.33-characteredit1").catch(error=>console.warn("Service Worker indisponível:",error)));
+if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js?v=22.9.33-characterstaff2").catch(error=>console.warn("Service Worker indisponível:",error)));
 
 function animateNumber(id,target,suffix=""){
   const el=byId(id);
@@ -2778,7 +2778,11 @@ on("newCharacterForm","submit",async event=>{
     toast("Personagem cadastrado. Nenhuma conta de login foi criada.");
   }catch(error){
     console.error("Falha ao cadastrar personagem:",error);
-    toast(error.message||"Não foi possível cadastrar o personagem.");
+    if(error?.code==="permission-denied"){
+      toast("Firebase negou o cadastro. Confirme character_edit para Staff e publique o firestore.rules desta versão.");
+    }else{
+      toast(error.message||"Não foi possível cadastrar o personagem.");
+    }
   }
 });
 
@@ -3198,15 +3202,18 @@ on("closeCharacterEditDrawer","click",()=>{
 
 on("responsibleCharacterForm","submit",async event=>{
   event.preventDefault();
-  if(!state.user||!editor()||!permissionEnabled("character_edit")||!state.editingCharacterUserId){
+
+  if(!state.user || !editor() || !permissionEnabled("character_edit") || !state.editingCharacterUserId){
     return toast("Sem permissão para editar personagens.");
   }
+
   const target=characterCenterRows().find(item=>item.id===state.editingCharacterUserId);
   if(!target)return toast("Personagem não encontrado.");
 
   const nickname=String(byId("responsibleCharacterNickname")?.value||"").trim();
   const role=String(byId("responsibleCharacterRole")?.value||"Membros").trim();
   const clan=String(byId("responsibleCharacterClan")?.value||"").trim();
+
   const character={
     className:String(byId("responsibleCharacterClass")?.value||"").trim(),
     power:numberOrZero(byId("responsibleCharacterPower")?.value),
@@ -3222,15 +3229,19 @@ on("responsibleCharacterForm","submit",async event=>{
   };
 
   if(nickname.length<2||nickname.length>80)return toast("Nickname deve ter entre 2 e 80 caracteres.");
-  const duplicate=state.members.some(member=>member.id!==target.id&&member.active!==false&&String(member.name||"").trim().toLowerCase()===nickname.toLowerCase());
+  const duplicate=state.members.some(member=>
+    member.id!==target.id &&
+    member.active!==false &&
+    String(member.name||"").trim().toLowerCase()===nickname.toLowerCase()
+  );
   if(duplicate)return toast("Já existe outro personagem ativo com esse nickname.");
-  if(!MEMBER_ROLES.includes(role))return toast("Cargo do personagem inválido.");
+  if(!MEMBER_ROLES.includes(role))return toast("Cargo inválido.");
   if(clan&&!CLANS.includes(clan))return toast("Clã inválido.");
   if(!character.className)return toast("Informe a classe do personagem.");
-  const characterError=validateConfiguredCharacter(character);if(characterError)return toast(characterError);
 
-  const oldClan=target.clan==="Sem clã"?"":String(target.clan||"");
-  const identityChanged=nickname!==String(target.nickname||"").trim()||role!==String(target.role||"Membros")||clan!==oldClan;
+  const characterError=validateConfiguredCharacter(character);
+  if(characterError)return toast(characterError);
+
   if(!confirm(`Salvar alterações de ${target.nickname}?`))return;
 
   try{
@@ -3243,26 +3254,43 @@ on("responsibleCharacterForm","submit",async event=>{
       character,
       characterUpdatedAt:serverTimestamp(),
       characterUpdatedBy:state.user.uid,
+      identityUpdatedAt:serverTimestamp(),
+      identityUpdatedBy:state.user.uid,
       updatedAt:serverTimestamp()
     };
-    if(identityChanged){
-      payload.identityUpdatedAt=serverTimestamp();
-      payload.identityUpdatedBy=state.user.uid;
-    }
+
     await updateDoc(doc(db,"members",target.id),payload);
 
     const member=state.members.find(item=>item.id===target.id);
-    if(member)Object.assign(member,{name:nickname,role,memberRole:role,accessRole:"member",clan,character});
+    if(member){
+      Object.assign(member,{
+        name:nickname,
+        role,
+        memberRole:role,
+        accessRole:"member",
+        clan,
+        character
+      });
+    }
 
-    renderCharacterCenter();render();
-    await audit("Personagem editado",`${target.nickname} → ${nickname} · ${role} · ${clan||"Sem clã"}`);
+    renderCharacterCenter();
+    render();
+
+    await audit(
+      "Personagem editado",
+      `${target.nickname} → ${nickname} · ${role} · ${clan||"Sem clã"}`
+    );
+
     byId("characterEditDrawer")?.classList.add("hidden");
     state.editingCharacterUserId="";
     toast("Personagem atualizado com sucesso.");
   }catch(error){
     console.error("Falha ao editar personagem:",error);
-    if(error?.code==="permission-denied")toast("Firebase negou a edição. Publique o firestore.rules desta versão.");
-    else toast(error.message||"Não foi possível atualizar o personagem.");
+    if(error?.code==="permission-denied"){
+      toast("Firebase negou a edição. Confirme character_edit para Staff e publique o firestore.rules desta versão.");
+    }else{
+      toast(error.message||"Não foi possível atualizar o personagem.");
+    }
   }
 });
 
