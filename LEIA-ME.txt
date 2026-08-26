@@ -1,0 +1,13 @@
+77 TEAM MANAGER - V6 SUPABASE (PACOTE ESSENCIAL)
+
+1. No Supabase > SQL Editor, execute:
+   SUPABASE-V6-AUDITORIA-CARGOS.sql
+
+2. Publique os demais arquivos mantendo a estrutura de pastas.
+
+3. Pressione CTRL+F5 no navegador.
+
+4. Teste primeiro DEV e depois Staff.
+
+Este ZIP remove arquivos antigos de migração, diagnóstico, documentação e backup
+que não são necessários para publicar esta versão.

@@ -21,7 +21,7 @@ function finalizePrintWindow(printWindow,autoPrint=true){
 }
 
 import {firebaseConfig,FIREBASE_VERSION} from "./firebase-config.js";
-import {SupabaseShadow} from "./supabase-client.js?v=22.9.36-supabase-auth-v5";
+import {SupabaseShadow} from "./supabase-client.js?v=22.9.37-supabase-audit-v6";
 import {asciiPdfText,createTextPdf} from "./pdf-generator.js";
 const SDK=`https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}`;
 const {initializeApp,deleteApp}=await import(`${SDK}/firebase-app.js`);
@@ -329,13 +329,13 @@ function configuredPresenceSlots(kind){
 }
 function configuredEventEnabled(kind){const cfg=state.settings?.events||{};return kind==="worldboss"?cfg.worldbossEnabled!==false:kind==="purgatorio"?cfg.purgatorioEnabled!==false:cfg.customEventsEnabled!==false}
 
-const state={user:null,profile:null,onboardingRequired:false,members:[],membersLoaded:false,attendance:[],attendanceLoaded:false,rtPresence:[],users:[],usersLoaded:false,audit:[],events:[],eventsLoaded:false,notifications:[],sentNotifications:[],notificationReads:[],settings:{},publicHome:null,xpLogs:[],payments:[],supportMessages:[],selectedSupportOwnerUid:"",selectedSupportTicketId:"",supportView:"active",chatMessages:[],selectedChatOwnerUid:"",selectedChatId:"",chatView:"active",chatSearch:"",editingCharacterUserId:"",presenceFilters:{},presenceBackups:[],sessions:[],unsubs:[]};
+const state={user:null,profile:null,onboardingRequired:false,members:[],membersLoaded:false,attendance:[],attendanceLoaded:false,rtPresence:[],users:[],usersLoaded:false,audit:[],events:[],eventsLoaded:false,notifications:[],sentNotifications:[],notificationReads:[],settings:{},supabaseRolePermissions:null,publicHome:null,xpLogs:[],payments:[],supportMessages:[],selectedSupportOwnerUid:"",selectedSupportTicketId:"",supportView:"active",chatMessages:[],selectedChatOwnerUid:"",selectedChatId:"",chatView:"active",chatSearch:"",editingCharacterUserId:"",presenceFilters:{},presenceBackups:[],sessions:[],unsubs:[]};
 let rolePermissionsDirty=false;
 let subscribedPermissionSignature="";
 let permissionResubscribeTimer=null;
 
 function toast(msg){const el=$("#toast");el.textContent=msg;el.classList.add("show");clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.remove("show"),3000)}
-function errMsg(e){return ({'auth/invalid-credential':'E-mail ou senha incorretos.','auth/user-disabled':'Esta conta foi desativada.','auth/too-many-requests':'Muitas tentativas. Aguarde alguns minutos e tente novamente.','auth/network-request-failed':'Falha de conexão. Verifique sua internet.','auth/email-already-in-use':'Este e-mail já possui uma conta. Use a mesma senha para recuperar o cadastro pendente.','auth/operation-not-allowed':'Ative o provedor E-mail/Senha em Firebase Authentication.','auth/invalid-email':'Informe um endereço de e-mail válido.','auth/weak-password':'A senha precisa ter pelo menos 8 caracteres.','permission-denied':'Permissão negada pelo Firebase para esta ação. Confira a aba Cargos e Permissões; se a permissão estiver ativa, atualize a página para sincronizar a matriz.'})[e?.code]||`${e?.code||'erro'}: ${e?.message||'Falha inesperada'}`}
+function errMsg(e){return ({'auth/invalid-credential':'E-mail ou senha incorretos.','auth/user-disabled':'Esta conta foi desativada.','auth/too-many-requests':'Muitas tentativas. Aguarde alguns minutos e tente novamente.','auth/network-request-failed':'Falha de conexão. Verifique sua internet.','auth/email-already-in-use':'Este e-mail já possui uma conta. Use a mesma senha para recuperar o cadastro pendente.','auth/operation-not-allowed':'Ative o provedor E-mail/Senha em Firebase Authentication.','auth/invalid-email':'Informe um endereço de e-mail válido.','auth/weak-password':'A senha precisa ter pelo menos 8 caracteres.','permission-denied':'Permissão negada. Confira Cargos e Permissões e o perfil ativo no Supabase.'})[e?.code]||`${e?.code||'erro'}: ${e?.message||'Falha inesperada'}`}
 function showOnly(id){document.body.dataset.screen=id;["loading","authScreen","app"].forEach(x=>$("#"+x).classList.toggle("hidden",x!==id))}
 
 function accessRoleFromMemberRole(memberRole, explicitAccessRole=""){
@@ -548,7 +548,10 @@ function defaultRolePermissions(){
   ROLE_PERMISSION_DEFINITIONS.forEach(item=>{result[item.key]={...item.defaults};});
   return result;
 }
-function configuredRolePermissions(){return state.settings?.rolePermissions||defaultRolePermissions();}
+function configuredRolePermissions(){
+  if(SupabaseShadow.isConnected()&&state.supabaseRolePermissions)return state.supabaseRolePermissions;
+  return state.settings?.rolePermissions||defaultRolePermissions();
+}
 const PERMISSION_ALLOWED_ROLES=Object.freeze({
   access_home:["dev","leadership","staff","member"],
   access_staff:["dev","leadership","staff"],
@@ -579,6 +582,90 @@ function permissionEnabled(key,role=currentAccessRole()){
   const configured=configuredRolePermissions()?.[key];
   return configured?.[role] ?? item?.defaults?.[role] ?? false;
 }
+
+function rolePermissionRowsToMatrix(rows){
+  const matrix=defaultRolePermissions();
+  for(const row of rows||[]){
+    const key=String(row.permission_key||"");
+    const role=String(row.role||"").toLowerCase();
+    if(matrix[key]&&Object.prototype.hasOwnProperty.call(matrix[key],role)){
+      matrix[key][role]=Boolean(row.enabled);
+    }
+  }
+  // Hierarchy invariants are always enforced locally too.
+  for(const item of ROLE_PERMISSION_DEFINITIONS){
+    matrix[item.key].dev=true;
+    if(!permissionRoleAllowed(item.key,"leadership"))matrix[item.key].leadership=false;
+    if(!permissionRoleAllowed(item.key,"staff"))matrix[item.key].staff=false;
+    if(!permissionRoleAllowed(item.key,"member"))matrix[item.key].member=false;
+  }
+  return matrix;
+}
+async function loadSupabaseSecurityRuntime(){
+  if(!SupabaseShadow.isConnected())return false;
+  const [permissionRows,profileRows]=await Promise.all([
+    SupabaseShadow.query("role_permissions","select=role,permission_key,enabled"),
+    SupabaseShadow.query("profiles","select=id,name,email,access_role,active,status")
+  ]);
+  state.supabaseRolePermissions=rolePermissionRowsToMatrix(permissionRows);
+  state.users=(profileRows||[]).map(row=>({
+    id:row.id,
+    uid:row.id,
+    name:row.name||row.email||"Usuário",
+    email:row.email||"",
+    role:row.access_role,
+    accessRole:row.access_role,
+    resolvedAccessRole:row.access_role,
+    active:row.active===true,
+    status:row.status||"approved"
+  }));
+  state.usersLoaded=true;
+
+  if(permissionEnabled("audit_view")){
+    try{
+      const auditRows=await SupabaseShadow.query("audit","select=*&order=created_at.desc&limit=500");
+      state.audit=(auditRows||[]).map(row=>({
+        id:row.id,
+        userId:row.actor_id||row.user_id||"",
+        userName:state.users.find(user=>user.id===(row.actor_id||row.user_id))?.name||"",
+        action:row.action||"",
+        details:row.details||"",
+        createdAt:row.created_at||null
+      }));
+    }catch(error){
+      console.warn("Auditoria Supabase não carregada:",error);
+      state.audit=[];
+    }
+  }else state.audit=[];
+
+  subscribedPermissionSignature=permissionRuntimeSignature();
+  applyPermissions();
+  render();
+  return true;
+}
+async function saveSupabaseRolePermissions(matrix){
+  if(!SupabaseShadow.isConnected())throw new Error("Supabase não conectado.");
+  const roles=["dev","leadership","staff","member"];
+  for(const item of ROLE_PERMISSION_DEFINITIONS){
+    for(const role of roles){
+      // role_permissions atual só armazena cargos administrativos.
+      if(role==="member")continue;
+      const enabled=permissionRequired(item.key,role)
+        || (permissionRoleAllowed(item.key,role)&&Boolean(matrix[item.key]?.[role]));
+      const filter=`role=eq.${encodeURIComponent(role)}&permission_key=eq.${encodeURIComponent(item.key)}`;
+      const existing=await SupabaseShadow.query("role_permissions",`${filter}&select=role&limit=1`);
+      if(existing?.length){
+        await SupabaseShadow.update("role_permissions",filter,{enabled,updated_at:new Date().toISOString()});
+      }else{
+        await SupabaseShadow.insert("role_permissions",{
+          role,permission_key:item.key,enabled,updated_at:new Date().toISOString()
+        },{returning:false});
+      }
+    }
+  }
+  await loadSupabaseSecurityRuntime();
+}
+
 function permissionRuntimeSignature(){
   return JSON.stringify({role:currentAccessRole(),permissions:configuredRolePermissions()});
 }
@@ -805,6 +892,7 @@ async function startSupabaseAuthenticatedApp(session,profile){
   const logoutLabel=byId("sidebarLogout")?.querySelector(".menu-label");
   if(logoutLabel)logoutLabel.textContent="Sair";
   showOnly("app");
+  await loadSupabaseSecurityRuntime();
   applyPermissions();
   subscribeAll();
   startSupabasePrimaryRefresh();
@@ -1017,7 +1105,7 @@ async function migrateLegacyUserCharactersToPlayers(){
 function subscribeAll(){
   subscribePublic();
   subscribedPermissionSignature=permissionRuntimeSignature();
-  if(state.user){
+  if(state.user&&!SupabaseShadow.isConnected()){
     state.unsubs.push(onSnapshot(doc(db,"users",state.user.uid),snapshot=>{
       if(!snapshot.exists())return;
       const nextProfile={id:snapshot.id,...snapshot.data()};
@@ -1036,8 +1124,12 @@ function subscribeAll(){
     state.unsubs.push(onSnapshot(collection(db,"rtPresence"),snapshot=>{state.rtPresence=snapshot.docs.map(d=>({id:d.id,...d.data()}));renderRtPresence();},error=>console.error("Falha ao carregar RT Presença:",error)));
     state.unsubs.push(onSnapshot(collection(db,"presenceBackups"),snapshot=>{state.presenceBackups=snapshot.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>rtDateValue(b.createdAt)-rtDateValue(a.createdAt));renderPresenceBackups();renderBackupCenter();},error=>console.error("Falha ao carregar backups de presença:",error)));
   }else{state.rtPresence=[];state.presenceBackups=[];}
-  if(permissionEnabled("access_staff")||permissionEnabled("access_admin"))state.unsubs.push(onSnapshot(collection(db,"users"),s=>{state.users=s.docs.map(d=>{const user={id:d.id,...d.data()};return {...user,resolvedAccessRole:resolveAccessRole(user)}});state.usersLoaded=true;render();if(permissionEnabled("members_edit"))scheduleAttendanceUserMigration();scheduleAccountRoleSync();scheduleNicknameClaimMigration()},error=>console.error("Falha ao carregar usuários:",error)));else{state.users=[];state.usersLoaded=false;}
-  if(permissionEnabled("access_admin")&&permissionEnabled("audit_view"))state.unsubs.push(onSnapshot(collection(db,"audit"),s=>{state.audit=s.docs.map(d=>({id:d.id,...d.data()}));render()},error=>console.error("Falha ao carregar auditoria:",error)));else state.audit=[];
+  if(SupabaseShadow.isConnected()){
+    loadSupabaseSecurityRuntime().catch(error=>console.error("Falha ao atualizar segurança Supabase:",error));
+  }else{
+    if(permissionEnabled("access_staff")||permissionEnabled("access_admin"))state.unsubs.push(onSnapshot(collection(db,"users"),s=>{state.users=s.docs.map(d=>{const user={id:d.id,...d.data()};return {...user,resolvedAccessRole:resolveAccessRole(user)}});state.usersLoaded=true;render();if(permissionEnabled("members_edit"))scheduleAttendanceUserMigration();scheduleAccountRoleSync();scheduleNicknameClaimMigration()},error=>console.error("Falha ao carregar usuários:",error)));else{state.users=[];state.usersLoaded=false;}
+    if(permissionEnabled("access_admin")&&permissionEnabled("audit_view"))state.unsubs.push(onSnapshot(collection(db,"audit"),s=>{state.audit=s.docs.map(d=>({id:d.id,...d.data()}));render()},error=>console.error("Falha ao carregar auditoria:",error)));else state.audit=[];
+  }
   if(permissionEnabled("access_staff")&&permissionEnabled("xp_manage"))state.unsubs.push(onSnapshot(collection(db,"xpLogs"),s=>{state.xpLogs=s.docs.map(d=>({id:d.id,...d.data()}));render()},error=>console.error("Falha ao carregar XP:",error)));else state.xpLogs=[];
   if(!supabasePrimaryMode()){
     if(permissionEnabled("access_staff")&&permissionEnabled("payments_manage"))state.unsubs.push(onSnapshot(collection(db,"payments"),s=>{state.payments=s.docs.map(d=>({id:d.id,...d.data()}));renderPayments()},error=>console.error("Falha ao carregar pagamentos:",error)));else state.payments=[];
@@ -3061,19 +3153,39 @@ function collectRolePermissions(){
 }
 async function saveConfigurableRolePermissions(){
   if(!owner())return toast("Somente o DEV pode alterar permissões.");
-  const button=byId("saveRolePermissions"); if(button)button.disabled=true;
+  const button=byId("saveRolePermissions");
+  if(button)button.disabled=true;
   try{
     const rolePermissions=collectRolePermissions();
-    await setDoc(doc(db,"settings","app"),{rolePermissions,updatedAt:serverTimestamp(),updatedBy:state.user.uid},{merge:true});
-    state.settings={...state.settings,rolePermissions};
-    setText("rolePermissionStatus","Salvo no Firebase · aplicado em tempo real.");
-    byId("rolePermissionStatus")?.classList.remove("permission-status-dirty");byId("rolePermissionStatus")?.classList.add("permission-status-saved");
+
+    if(SupabaseShadow.isConnected()){
+      await saveSupabaseRolePermissions(rolePermissions);
+      state.supabaseRolePermissions=rolePermissions;
+      setText("rolePermissionStatus","Salvo no Supabase · aplicado em tempo real.");
+    }else{
+      // Compatibilidade de emergência com a V4.
+      await setDoc(doc(db,"settings","app"),{rolePermissions,updatedAt:serverTimestamp(),updatedBy:state.user.uid},{merge:true});
+      state.settings={...state.settings,rolePermissions};
+      setText("rolePermissionStatus","Salvo no Firebase (modo compatibilidade).");
+    }
+
+    byId("rolePermissionStatus")?.classList.remove("permission-status-dirty");
+    byId("rolePermissionStatus")?.classList.add("permission-status-saved");
     rolePermissionsDirty=false;
     await audit("permissões de cargos atualizadas",`${Object.values(rolePermissions).reduce((sum,roles)=>sum+Object.values(roles).filter(Boolean).length,0)} permissões ativas`);
-    applyPermissions();render();schedulePermissionRuntimeRefresh();
-    toast("Matriz salva no Firebase e aplicada em tempo real para todos os cargos.");
-  }catch(error){toast(errMsg(error));setText("rolePermissionStatus","Não foi possível salvar.");}
-  finally{updateRolePermissionControls();}
+    applyPermissions();
+    render();
+    schedulePermissionRuntimeRefresh();
+    toast(SupabaseShadow.isConnected()
+      ?"Matriz salva no Supabase e aplicada aos cargos."
+      :"Matriz salva no modo de compatibilidade.");
+  }catch(error){
+    console.error("Falha ao salvar permissões:",error);
+    toast(error.message||"Não foi possível salvar as permissões.");
+    setText("rolePermissionStatus","Não foi possível salvar.");
+  }finally{
+    updateRolePermissionControls();
+  }
 }
 
 function numberOrZero(value){
