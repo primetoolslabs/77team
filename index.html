@@ -11,7 +11,7 @@
 <title>77 TEAM SA21</title>
 <link href="manifest.json" rel="manifest"/>
 <link href="icons/icon-192.png" rel="icon"/>
-<link href="css/style.css?v=22.9.34-supabase-shadow4-cachefix" rel="stylesheet"/>
+<link href="css/style.css?v=22.9.35-supabase-primary-v4" rel="stylesheet"/>
 
 <script>
 (async()=>{
@@ -873,8 +873,12 @@
       <button class="btn" id="supabaseTest" type="button">Testar conexão</button>
       <button class="btn primary" id="supabaseMigrateNow" type="button">Migrar dados atuais</button>
       <button class="btn" id="supabaseVerifyCounts" type="button">Conferir dados no Supabase</button>
+      <button class="btn" id="supabaseRepairPaymentLinks" type="button">Vincular pagamentos aos personagens</button>
+      <button class="btn primary" id="supabaseActivatePrimary" type="button">Ativar Supabase como principal</button>
+      <button class="btn" id="supabaseDeactivatePrimary" type="button">Voltar ao Firebase</button>
     </div>
     <div class="supabase-migration-result" id="supabaseMigrationResult">Nenhuma migração executada.</div>
+    <div class="supabase-primary-state" id="supabasePrimaryState">Banco principal: Firebase</div>
     <small>Primeiro execute o arquivo <b>SUPABASE-MIGRACAO-V2.sql</b> no Editor SQL do Supabase.</small>
   </div>
 </section>
@@ -1275,6 +1279,6 @@
 <div class="global-search-results hidden" id="globalSearchResults"></div>
 <div class="toast" id="toast"></div>
 <script src="js/ui.js?v=22.9.34-supabase-shadow4-cachefix"></script>
-<script src="js/main.js?v=22.9.34-supabase-shadow4-cachefix" type="module"></script>
+<script src="js/main.js?v=22.9.35-supabase-primary-v4" type="module"></script>
 </body>
 </html>

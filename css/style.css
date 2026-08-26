@@ -7231,3 +7231,6 @@ body[data-public-view="true"] #historico.public-history-view .history-center-hea
 .supabase-status{padding:5px 9px;border-radius:999px;background:rgba(255,255,255,.05);font-size:.7rem}
 .supabase-status.connected{color:#55e6a6;background:rgba(61,207,142,.12)}
 @media(max-width:760px){.supabase-migration-grid{grid-template-columns:1fr}}
+
+.supabase-primary-state{grid-column:1/-1;padding:9px 11px;border-radius:8px;background:rgba(255,255,255,.035);font-weight:700}
+.supabase-primary-state.active{color:#55e6a6;border:1px solid rgba(61,207,142,.28);background:rgba(61,207,142,.07)}

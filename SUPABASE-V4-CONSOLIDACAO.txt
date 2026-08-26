@@ -1,0 +1,30 @@
+77 TEAM MANAGER - V4 CONSOLIDAÇÃO SUPABASE
+
+1. Supabase > Editor SQL:
+   execute SUPABASE-CONSOLIDACAO-V5.sql
+
+2. Publique esta versão do site e pressione CTRL+F5.
+
+3. Entre como DEV e abra Configurações > Migração Supabase.
+
+4. Conecte e teste o Supabase.
+
+5. Clique:
+   - Migrar dados atuais
+   - Vincular pagamentos aos personagens
+   - Conferir dados no Supabase
+
+6. Se estiver correto, clique:
+   ATIVAR SUPABASE COMO PRINCIPAL
+
+Nesse modo:
+- Personagens: Supabase principal
+- Presenças/Histórico: Supabase principal
+- Pagamentos: Supabase principal
+- Eventos: Supabase principal
+- Firebase recebe cópia de segurança quando possível
+- Login/perfil e módulos ainda não migrados continuam temporariamente no Firebase
+
+É possível voltar ao Firebase pelo botão "Voltar ao Firebase".
+
+NÃO APAGUE O FIREBASE ainda.

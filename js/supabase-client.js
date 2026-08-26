@@ -104,6 +104,11 @@ export const SupabaseShadow={
     return request(`/rest/v1/${table}?${filter}`,{
       method:"PATCH",body:row,prefer:"return=representation"
     });
+  },
+  async delete(table,filter){
+    return request(`/rest/v1/${table}?${filter}`,{
+      method:"DELETE",prefer:"return=representation"
+    });
   }
 };
 
