@@ -50,7 +50,16 @@ export const SupabaseShadow={
     saveSession(data);
     return data;
   },
-  async logout(){saveSession(null)},
+  async logout(){
+    const session=loadSession();
+    try{
+      if(session?.access_token)await request("/auth/v1/logout",{method:"POST"});
+    }catch{}
+    saveSession(null);
+  },
+  async resetPassword(email){
+    return request("/auth/v1/recover",{method:"POST",body:{email},auth:true});
+  },
   async refresh(){
     const session=loadSession();
     if(!session?.refresh_token)return null;

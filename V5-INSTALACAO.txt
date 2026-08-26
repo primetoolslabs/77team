@@ -1,0 +1,22 @@
+77 TEAM MANAGER - V5 SUPABASE
+
+1. NÃO APAGUE A V4.
+2. Supabase > Editor SQL:
+   execute SUPABASE-V5-PRODUCAO.sql
+3. Publique esta V5.
+4. Pressione CTRL+F5.
+5. Faça login usando o usuário de Authentication do Supabase.
+
+V5:
+- Login: Supabase Auth
+- Perfil DEV/Staff/Liderança: Supabase profiles
+- Personagens: Supabase
+- Presenças/Histórico: Supabase
+- Pagamentos: Supabase
+- Eventos: Supabase
+- Auditoria: Supabase + backup Firebase temporário
+- Firebase: somente backup temporário para módulos legados
+
+IMPORTANTE:
+Esta é a etapa de transição final. Não exclua o projeto Firebase ainda.
+Teste DEV e Staff antes de remover o backup.

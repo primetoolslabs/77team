@@ -21,7 +21,7 @@ function finalizePrintWindow(printWindow,autoPrint=true){
 }
 
 import {firebaseConfig,FIREBASE_VERSION} from "./firebase-config.js";
-import {SupabaseShadow} from "./supabase-client.js?v=22.9.35-supabase-primary-v4";
+import {SupabaseShadow} from "./supabase-client.js?v=22.9.36-supabase-auth-v5";
 import {asciiPdfText,createTextPdf} from "./pdf-generator.js";
 const SDK=`https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}`;
 const {initializeApp,deleteApp}=await import(`${SDK}/firebase-app.js`);
@@ -719,6 +719,7 @@ function showPublicHome(){
   subscribePublicHome();
 }
 decideInitialScreen();
+restoreSupabaseSession();
 
 // Aviso público informativo; nunca bloqueia a autenticação.
 onSnapshot(doc(db,"settings","app"),snapshot=>{const publicSettings=snapshot.exists()?snapshot.data():{};state.settings={...state.settings,...publicSettings};applyMaintenanceNotice();applyLoginCustomization()},error=>console.warn("Aviso de manutenção indisponível:",error));
@@ -732,9 +733,17 @@ $("#loginForm").onsubmit=async e=>{
   if(!email.includes("@"))return toast("Use o e-mail cadastrado para entrar.");
   try{
     if(submit){submit.disabled=true;submit.dataset.originalText=submit.textContent;submit.textContent="ENTRANDO..."}
-    const remember=Boolean($("#rememberLoginV222")?.checked);
-    await setPersistence(auth,remember?browserLocalPersistence:browserSessionPersistence);
-    await signInWithEmailAndPassword(auth,email,password);
+    const session=await SupabaseShadow.login(email,password);
+    const profile=await SupabaseShadow.profile();
+    if(!profile||profile.active!==true){
+      await SupabaseShadow.logout();
+      throw new Error("Perfil Supabase não encontrado ou inativo.");
+    }
+    if(!["dev","leadership","staff"].includes(String(profile.access_role||"").toLowerCase())){
+      await SupabaseShadow.logout();
+      throw new Error("Acesso restrito. Somente DEV, Liderança e Staff podem entrar.");
+    }
+    await startSupabaseAuthenticatedApp(session,profile);
   }catch(e2){
     console.error("Falha no login:",e2);
     toast(errMsg(e2));
@@ -748,8 +757,8 @@ on("forgotPasswordButton","click",async()=>{
   const button=byId("forgotPasswordButton");
   try{
     if(button){button.disabled=true;button.dataset.originalText=button.textContent;button.textContent="ENVIANDO..."}
-    await sendPasswordResetEmail(auth,email);
-    toast("Se o e-mail estiver cadastrado, enviaremos um link para redefinir a senha.");
+    await SupabaseShadow.resetPassword(email);
+    toast("Se o e-mail estiver cadastrado, o Supabase enviará um link para redefinir a senha.");
   }catch(error){
     console.error("Falha ao solicitar redefinição de senha:",error);
     // Mantém resposta neutra para não revelar se um e-mail existe no sistema.
@@ -766,9 +775,62 @@ $("#signupForm").onsubmit=async e=>{
 
 $("#sidebarLogout").onclick=()=>{if(!state.user)return showOnly("authScreen");$("#logoutButton").click()};
 $("#publicLoginButton").onclick=()=>showOnly("authScreen");
-$("#logoutButton").onclick=async()=>{if(!state.user)return showOnly("authScreen");await writeSessionHeartbeat(false);clearInterval(sessionHeartbeatTimer);clearSubs();await signOut(auth)};
+$("#logoutButton").onclick=async()=>{
+  clearInterval(sessionHeartbeatTimer);clearInterval(supabasePrimaryRefreshTimer);clearSubs();
+  await SupabaseShadow.logout();
+  state.user=null;state.profile=null;
+  showPublicHome();
+};
+
+
+async function startSupabaseAuthenticatedApp(session,profile){
+  const user=session?.user||SupabaseShadow.getSession()?.user;
+  if(!user?.id)throw new Error("Sessão Supabase inválida.");
+  const role=String(profile.access_role||"").toLowerCase();
+  state.user={uid:user.id,id:user.id,email:user.email||profile.email||"",displayName:profile.name||""};
+  state.profile={
+    id:user.id,
+    name:profile.name||user.email||"Usuário",
+    displayName:profile.name||user.email||"Usuário",
+    email:user.email||profile.email||"",
+    role,accessRole:role,resolvedAccessRole:role,
+    memberRole:"Membros",clan:"",
+    active:profile.active===true,status:profile.status||"approved",
+    firstLogin:false,profileCompleted:true
+  };
+  state.onboardingRequired=false;
+  setSupabasePrimaryMode(true);
+  document.body.dataset.publicView="false";
+  byId("publicHomeBanner")?.classList.add("hidden");
+  const logoutLabel=byId("sidebarLogout")?.querySelector(".menu-label");
+  if(logoutLabel)logoutLabel.textContent="Sair";
+  showOnly("app");
+  applyPermissions();
+  subscribeAll();
+  startSupabasePrimaryRefresh();
+  updateSupabaseMigrationUI();
+}
+async function restoreSupabaseSession(){
+  const session=SupabaseShadow.getSession();
+  if(!session?.access_token)return false;
+  try{
+    let profile=await SupabaseShadow.profile();
+    if(!profile&&session.refresh_token){
+      await SupabaseShadow.refresh();
+      profile=await SupabaseShadow.profile();
+    }
+    if(!profile||profile.active!==true)return false;
+    await startSupabaseAuthenticatedApp(SupabaseShadow.getSession(),profile);
+    return true;
+  }catch(error){
+    console.warn("Sessão Supabase não restaurada:",error);
+    await SupabaseShadow.logout();
+    return false;
+  }
+}
 
 onAuthStateChanged(auth,async user=>{
+  if(SupabaseShadow.getSession()?.access_token)return;
   state.user=user;
   if(!user){showPublicHome();return}
   try{
@@ -1042,7 +1104,20 @@ function subscribeAll(){
     if(privateSettings.notificationsPrivate){state.settings.notifications={...(state.settings.notifications||{}),...privateSettings.notificationsPrivate};loadSettingsForm();}
   },error=>console.warn("Configurações privadas indisponíveis:",error)));
 }
-async function audit(action,details){if(!state.user||!editor())return;const label=String(action||"");const critical=/dev|cargo|permiss|restaur|rollback|exclu|senha|seguran|login|sessão|backup/i.test(label);if(state.settings?.security?.auditChanges===false&&!critical)return;try{await addDoc(collection(db,"audit"),{userId:state.user.uid,userName:state.profile?.name||state.profile?.email||"Usuário",action:label.slice(0,160),details:String(details||"").slice(0,2000),createdAt:serverTimestamp()})}catch{}}
+async function audit(action,details=""){
+  if(SupabaseShadow.isConnected()){
+    try{
+      await SupabaseShadow.insert("audit",{
+        actor_id:SupabaseShadow.getSession()?.user?.id||null,
+        action:String(action||"").slice(0,120),
+        details:String(details||"").slice(0,2000)
+      },{returning:false});
+    }catch(error){console.warn("Auditoria Supabase indisponível:",error)}
+  }
+  // Firebase permanece somente como backup temporário.
+  try{return await firebaseAuditLegacy(action,details)}catch(error){console.warn("Backup Firebase da auditoria indisponível:",error)}
+}
+async function firebaseAuditLegacy(action,details){if(!state.user||!editor())return;const label=String(action||"");const critical=/dev|cargo|permiss|restaur|rollback|exclu|senha|seguran|login|sessão|backup/i.test(label);if(state.settings?.security?.auditChanges===false&&!critical)return;try{await addDoc(collection(db,"audit"),{userId:state.user.uid,userName:state.profile?.name||state.profile?.email||"Usuário",action:label.slice(0,160),details:String(details||"").slice(0,2000),createdAt:serverTimestamp()})}catch{}}
 
 const PAYMENT_TYPES=Object.freeze(["Pedra Mística","Pedra Obscura","Aço Negro","Payout","Criação de Item","Adiantamento"]);
 function paymentDate(value){const date=value?.toDate?.()||new Date(value||0);return Number.isNaN(date.getTime())?"Processando...":date.toLocaleString("pt-BR",{dateStyle:"short",timeStyle:"medium"})}
