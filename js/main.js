@@ -21,7 +21,7 @@ function finalizePrintWindow(printWindow,autoPrint=true){
 }
 
 import {firebaseConfig,FIREBASE_VERSION} from "./firebase-config.js";
-import {SupabaseShadow} from "./supabase-client.js?v=22.9.39-dev-role-rpc";
+import {SupabaseShadow} from "./supabase-client.js?v=22.9.40-character-role-fix";
 import {asciiPdfText,createTextPdf} from "./pdf-generator.js";
 const SDK=`https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}`;
 const {initializeApp,deleteApp}=await import(`${SDK}/firebase-app.js`);
@@ -271,7 +271,18 @@ async function loadSupabasePrimaryCore(){
       SupabaseShadow.query("payments","select=*&order=created_at.desc"),
       SupabaseShadow.query("events","select=*&order=event_date.asc")
     ]);
-    state.members=(characters||[]).map(mapSupabaseCharacter);
+    state.members=(characters||[]).map(mapSupabaseCharacter).map(member=>{
+      const linked=state.users.find(user=>
+        user.id===member.id||
+        String(user.name||"").trim().toLowerCase()===String(member.name||"").trim().toLowerCase()
+      );
+      if(linked){
+        member.userId=linked.id;
+        member.accessRole=resolveAccessRole(linked);
+        member.memberRole=member.role;
+      }
+      return member;
+    });
     state.membersLoaded=true;
     state.attendance=(attendance||[]).map(mapSupabaseAttendance);
     state.attendanceLoaded=true;
@@ -486,9 +497,26 @@ function selectedCargoValue(member,user){
   return role==="member"?`member:${member?.role||user?.memberRole||"Membros"}`:role;
 }
 
+
+function linkedProfileForCharacter(item){
+  if(!item)return null;
+  const member=state.members.find(row=>row.id===item.id||row.supabaseId===item.supabaseId||row.name===item.nickname)||{};
+  const explicitId=String(member.userId||member.legacyUserId||"").trim();
+  if(explicitId){
+    const exact=state.users.find(user=>user.id===explicitId);
+    if(exact)return exact;
+  }
+  const idMatch=state.users.find(user=>user.id===item.id);
+  if(idMatch)return idMatch;
+  // Compatibilidade com personagens migrados: usa nickname somente para localizar
+  // a conta já existente, nunca para criar uma nova conta.
+  const name=String(item.nickname||member.name||"").trim().toLowerCase();
+  return name?state.users.find(user=>String(user.name||"").trim().toLowerCase()===name)||null:null;
+}
+
 function characterEditorCargoOptions(item){
   if(!item||!state.user)return [];
-  const user=state.users.find(row=>row.id===item.id);
+  const user=linkedProfileForCharacter(item);
   const member=state.members.find(row=>row.userId===item.id||row.id===item.id||row.name===item.nickname)||{};
   // Na edição de Personagem o DEV pode alterar qualquer cargo, inclusive o próprio.
   if(currentAccessRole()==="dev")return [
@@ -499,7 +527,7 @@ function characterEditorCargoOptions(item){
   return allowedCargoOptions(member,user);
 }
 function characterEditorSelectedCargo(item){
-  const user=state.users.find(row=>row.id===item?.id)||{};
+  const user=linkedProfileForCharacter(item)||{};
   const member=state.members.find(row=>row.userId===item?.id||row.id===item?.id||row.name===item?.nickname)||{};
   const access=resolveAccessRole(user);
   return access==="member"?`member:${member.role||user.memberRole||"Membros"}`:access;
@@ -3506,6 +3534,10 @@ function characterCenterRows(){
       email:"",
       avatar:member.avatarDataUrl||"",
       role:member.role||member.memberRole||"Membros",
+      accessRole:member.accessRole||"member",
+      displayRole:(member.accessRole&&member.accessRole!=="member")
+        ?accessRoleLabel(member.accessRole)
+        :(member.role||member.memberRole||"Membros"),
       clan:member.clan||"Sem clã",
       character:member.character||{},
       stat:stats(member)
@@ -3636,7 +3668,7 @@ function renderCharacterCards(rows){
         <div class="character-card-avatar">${characterAvatarHtml(item)}</div>
         <div>
           <h3>${escapeHtml(item.nickname)}</h3>
-          <p>${escapeHtml(c.className||"Classe não informada")} · ${escapeHtml(item.role)}</p>
+          <p>${escapeHtml(c.className||"Classe não informada")} · ${escapeHtml(item.displayRole||item.role)}</p>
           <small>${escapeHtml(item.clan)}</small>
         </div>
       </div>
@@ -3664,7 +3696,7 @@ function renderCharactersTableV71(rows){
     return `<tr>
       <td><strong>${escapeHtml(item.nickname)}</strong></td>
       <td>${escapeHtml(c.className||"—")}</td>
-      <td>${escapeHtml(item.role)}</td>
+      <td>${escapeHtml(item.displayRole||item.role)}</td>
       <td>${escapeHtml(item.clan)}</td>
       <td>${Number(c.power||0).toLocaleString("pt-BR")}</td>
       <td>${escapeHtml(c.level|| 0)}</td>
@@ -3705,7 +3737,7 @@ function openCharacterDetails(item){
   content.innerHTML=`<div class="character-drawer-hero">
     <div class="character-drawer-avatar">${characterAvatarHtml(item)}</div>
     <h2>${escapeHtml(item.nickname)}</h2>
-    <p>${escapeHtml(c.className||"Classe não informada")} · ${escapeHtml(item.role)}</p>
+    <p>${escapeHtml(c.className||"Classe não informada")} · ${escapeHtml(item.displayRole||item.role)}</p>
     <small>${escapeHtml(item.clan)}</small>
   </div>
   <div class="character-drawer-highlight">
@@ -3742,7 +3774,7 @@ function openResponsibleCharacterEditor(item){
       ?[{value:"dev",label:"DEV"},{value:"leadership",label:"Liderança"},{value:"staff",label:"Staff"},...MEMBER_ROLES.map(role=>({value:`member:${role}`,label:role}))]
       :MEMBER_ROLES.map(role=>({value:`member:${role}`,label:role}));
     roleSelect.innerHTML=options.map(option=>`<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`).join("");
-    const linked=state.users.find(user=>user.id===item.id);
+    const linked=linkedProfileForCharacter(item);
     const currentAccess=linked?resolveAccessRole(linked):"member";
     roleSelect.value=currentAccess==="member"?`member:${MEMBER_ROLES.includes(item.role)?item.role:"Membros"}`:currentAccess;
     roleSelect.disabled=false;
@@ -3826,7 +3858,7 @@ on("responsibleCharacterForm","submit",async event=>{
       name:nickname,
       role,
       memberRole:role,
-      accessRole:"member",
+      accessRole:nextAccess,
       clan,
       character,
       characterUpdatedAt:serverTimestamp(),
@@ -3837,13 +3869,29 @@ on("responsibleCharacterForm","submit",async event=>{
     };
 
     if(supabasePrimaryMode()){
-      const linkedProfile=state.users.find(user=>user.id===target.id);
+      const linkedProfile=linkedProfileForCharacter(target);
+
+      // O cargo do Personagem é sempre salvo primeiro em characters.role.
+      // Se houver uma conta vinculada e o editor for DEV, o cargo de acesso
+      // (DEV/Liderança/Staff/Membro) também é atualizado em profiles.
+      const updated=await shadowCharacter({
+        id:target.id,
+        name:nickname,
+        role,
+        memberRole:role,
+        accessRole:nextAccess,
+        clan,
+        active:true,
+        character
+      });
+      if(!updated)throw new Error("Supabase não confirmou a edição do personagem.");
+
       if(linkedProfile&&owner()){
         await devSetAccountRole(linkedProfile.id,nextAccess);
-        Object.assign(linkedProfile,{role:nextAccess,accessRole:nextAccess,resolvedAccessRole:nextAccess,memberRole:role});
+        Object.assign(linkedProfile,{
+          role:nextAccess,accessRole:nextAccess,resolvedAccessRole:nextAccess,memberRole:role
+        });
       }
-      const updated=await shadowCharacter({id:target.id,name:nickname,role,memberRole:role,clan,active:true,character});
-      if(!updated)throw new Error("Supabase não confirmou a edição.");
       updateDoc(doc(db,"members",target.id),payload).catch(error=>console.warn("Backup Firebase da edição não gravado:",error));
       await loadSupabasePrimaryCore();
     }else{
@@ -3873,13 +3921,15 @@ on("responsibleCharacterForm","submit",async event=>{
 
     byId("characterEditDrawer")?.classList.add("hidden");
     state.editingCharacterUserId="";
-    toast("Personagem atualizado com sucesso.");
+    const accessLabel=nextAccess==="member"?role:accessRoleLabel(nextAccess);
+    toast(`Personagem salvo · cargo: ${accessLabel}.`);
   }catch(error){
     console.error("Falha ao editar personagem:",error);
-    if(error?.code==="permission-denied"){
-      toast("Firebase negou a edição. Confirme character_edit para Staff e publique o firestore.rules desta versão.");
+    const message=String(error?.message||"");
+    if(error?.code==="permission-denied"||message.includes("42501")||message.toLowerCase().includes("permission")){
+      toast("Supabase negou a alteração. Execute o SQL V6.2 de cargos e confirme que a conta atual é DEV.");
     }else{
-      toast(error.message||"Não foi possível atualizar o personagem.");
+      toast(message||"Não foi possível atualizar o personagem.");
     }
   }
 });

@@ -1,0 +1,13 @@
+V6.3 - CORREÇÃO PERSONAGEM / CARGO
+
+Corrigido:
+- Salvar edição do Personagem com troca de cargo.
+- Cargo do personagem é salvo em public.characters.role.
+- Cargo de acesso da conta vinculada é salvo em public.profiles.access_role.
+- Vínculo Personagem/Conta aceita userId, ID legado ou nickname já existente.
+- O recarregamento do Supabase não volta visualmente o cargo para "Membro".
+- O status/cargo administrativo passa a aparecer após salvar.
+- Mensagens de erro agora indicam Supabase em vez de Firebase.
+
+IMPORTANTE:
+Se ainda não executou, execute SUPABASE-V6.2-DEV-CARGOS.sql antes de publicar.
