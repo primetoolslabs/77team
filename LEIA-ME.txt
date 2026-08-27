@@ -1,24 +1,24 @@
-77 TEAM MANAGER - V6.4 AUDITORIA DE CARGOS
+77 TEAM MANAGER - V7.1 RECUPERAÇÃO DE PERSONAGENS
 
-ANTES DE PUBLICAR:
+CAUSA CORRIGIDA:
+A V7 carregava characters + attendance + payments + events usando Promise.all().
+Se qualquer uma das 4 tabelas falhasse por RLS, TODO o carregamento era cancelado.
+Por isso os Personagens podiam sumir mesmo continuando no Supabase.
+
+AGORA:
+- cada tabela carrega de forma independente;
+- falha em Presenças não apaga Personagens;
+- falha em Pagamentos não apaga Personagens;
+- falha em Eventos não apaga Personagens;
+- última lista válida de Personagens é preservada se houver erro temporário;
+- RLS de characters é reparado.
+
+PASSOS:
 1. Supabase > SQL Editor.
-2. Execute SUPABASE-V6.4-AUDITORIA-CARGOS.sql.
-3. Publique esta versão.
-4. CTRL+F5.
+2. Execute SUPABASE-V7.1-RECUPERAR-PERSONAGENS.sql.
+3. Confira o resultado characters_total.
+4. Publique esta versão.
+5. CTRL+F5.
 
-DEV:
-- pode atribuir DEV;
-- pode atribuir Liderança / Administrador;
-- pode atribuir Staff;
-- pode remover cargo administrativo e deixar Membro;
-- pode definir PT TIME, PT BOOST e PT CORE na edição do Personagem;
-- pode alterar inclusive o próprio cargo.
-
-VISUAL:
-DEV = vermelho forte
-Liderança/Administrador = vermelho
-Staff = amarelo
-Membro = azul
-PT TIME / BOOST / CORE mantêm as cores próprias de personagem.
-
-As mudanças de cargo de acesso ficam registradas em public.audit.
+Para diagnóstico no Console:
+await TeamManagerDiagnoseSupabaseCore()

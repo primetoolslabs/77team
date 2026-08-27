@@ -21,7 +21,7 @@ function finalizePrintWindow(printWindow,autoPrint=true){
 }
 
 import {firebaseConfig,FIREBASE_VERSION} from "./firebase-config.js";
-import {SupabaseShadow} from "./supabase-client.js?v=22.10.0-v7-total-audit";
+import {SupabaseShadow} from "./supabase-client.js?v=22.9.42-v7.1-character-recovery";
 import {asciiPdfText,createTextPdf} from "./pdf-generator.js";
 const SDK=`https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}`;
 const {initializeApp,deleteApp}=await import(`${SDK}/firebase-app.js`);
@@ -230,16 +230,25 @@ function mapSupabaseEvent(row){
 }
 async function loadSupabasePrimaryCore(){
   if(!supabasePrimaryMode())return false;
-  try{
-    const [characters,attendance,payments,events]=await Promise.all([
-      SupabaseShadow.query("characters","select=*&order=nickname.asc"),
-      SupabaseShadow.query("attendance","select=*&order=attendance_date.desc"),
-      SupabaseShadow.query("payments","select=*&order=created_at.desc"),
-      SupabaseShadow.query("events","select=*&order=event_date.asc")
-    ]);
-    state.members=(characters||[]).map(mapSupabaseCharacter).map(member=>{
+
+  // Cada módulo carrega isoladamente. Uma falha em Presenças/Pagamentos/Eventos
+  // nunca mais pode apagar Personagens da interface.
+  const results=await Promise.allSettled([
+    SupabaseShadow.query("characters","select=*&order=nickname.asc"),
+    SupabaseShadow.query("attendance","select=*&order=attendance_date.desc"),
+    SupabaseShadow.query("payments","select=*&order=created_at.desc"),
+    SupabaseShadow.query("events","select=*&order=event_date.asc")
+  ]);
+
+  const [charactersResult,attendanceResult,paymentsResult,eventsResult]=results;
+  let anySuccess=false;
+
+  if(charactersResult.status==="fulfilled"){
+    const characters=charactersResult.value||[];
+    state.members=characters.map(mapSupabaseCharacter).map(member=>{
       const linked=state.users.find(user=>
         user.id===member.id||
+        user.id===member.userId||
         String(user.name||"").trim().toLowerCase()===String(member.name||"").trim().toLowerCase()
       );
       if(linked){
@@ -250,20 +259,64 @@ async function loadSupabasePrimaryCore(){
       return member;
     });
     state.membersLoaded=true;
-    state.attendance=(attendance||[]).map(mapSupabaseAttendance);
-    state.attendanceLoaded=true;
-    state.payments=(payments||[]).map(mapSupabasePayment);
-    state.events=(events||[]).map(mapSupabaseEvent);
-    state.eventsLoaded=true;
-    render();
-    renderPayments();
-    return true;
-  }catch(error){
-    console.error("Falha ao carregar Supabase principal:",error);
-    toast(`Supabase principal indisponível: ${error.message}`);
-    return false;
+    anySuccess=true;
+  }else{
+    console.error("Falha isolada ao carregar characters:",charactersResult.reason);
+    // Não limpa state.members. Mantém a última lista válida na tela.
   }
+
+  if(attendanceResult.status==="fulfilled"){
+    state.attendance=(attendanceResult.value||[]).map(mapSupabaseAttendance);
+    state.attendanceLoaded=true;
+    anySuccess=true;
+  }else{
+    console.error("Falha isolada ao carregar attendance:",attendanceResult.reason);
+    state.attendanceLoaded=true;
+  }
+
+  if(paymentsResult.status==="fulfilled"){
+    state.payments=(paymentsResult.value||[]).map(mapSupabasePayment);
+    anySuccess=true;
+  }else{
+    console.error("Falha isolada ao carregar payments:",paymentsResult.reason);
+  }
+
+  if(eventsResult.status==="fulfilled"){
+    state.events=(eventsResult.value||[]).map(mapSupabaseEvent);
+    state.eventsLoaded=true;
+    anySuccess=true;
+  }else{
+    console.error("Falha isolada ao carregar events:",eventsResult.reason);
+    state.eventsLoaded=true;
+  }
+
+  render();
+  renderPayments();
+
+  const failures=results.filter(result=>result.status==="rejected");
+  if(failures.length){
+    console.warn(`Supabase: ${failures.length} módulo(s) com falha isolada. Os demais continuam funcionando.`);
+  }
+
+  return anySuccess;
 }
+
+async function diagnoseSupabaseCoreTables(){
+  const tables=["characters","attendance","payments","events"];
+  const report={};
+  for(const table of tables){
+    try{
+      const rows=await SupabaseShadow.query(table,"select=id&limit=5000");
+      report[table]={ok:true,count:Array.isArray(rows)?rows.length:0};
+    }catch(error){
+      report[table]={ok:false,error:String(error?.message||error)};
+    }
+  }
+  console.table(report);
+  return report;
+}
+window.TeamManagerDiagnoseSupabaseCore=diagnoseSupabaseCoreTables;
+
 function startSupabasePrimaryRefresh(){
   clearInterval(supabasePrimaryRefreshTimer);
   if(!supabasePrimaryMode())return;
