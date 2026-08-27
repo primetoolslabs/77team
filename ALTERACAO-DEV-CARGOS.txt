@@ -1,0 +1,17 @@
+V6.1 - DEV CARGOS
+
+DEV agora pode atribuir:
+- DEV
+- Liderança / Administrador
+- Staff
+- Membros
+- PT TIME
+- PT BOOST
+- PT CORE
+
+A alteração do cargo de acesso é salva em public.profiles.access_role no Supabase.
+O cargo de clã/personagem continua separado em public.characters.role.
+
+Observação: atribuir DEV/Staff/Liderança a um personagem sem conta Supabase Auth
+não cria automaticamente uma conta de login. O cargo de acesso passa a valer
+para contas existentes vinculadas ao personagem.

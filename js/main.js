@@ -21,7 +21,7 @@ function finalizePrintWindow(printWindow,autoPrint=true){
 }
 
 import {firebaseConfig,FIREBASE_VERSION} from "./firebase-config.js";
-import {SupabaseShadow} from "./supabase-client.js?v=22.9.37-supabase-audit-v6";
+import {SupabaseShadow} from "./supabase-client.js?v=22.9.38-dev-any-role";
 import {asciiPdfText,createTextPdf} from "./pdf-generator.js";
 const SDK=`https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}`;
 const {initializeApp,deleteApp}=await import(`${SDK}/firebase-app.js`);
@@ -431,9 +431,11 @@ window.TeamManagerProgressionForCurrentUser=()=>progressionForCurrentUser();
 function hasRoleLevel(level){return (ROLE_CONFIG[currentAccessRole()]?.level||0)>=level}
 function canManageAcceptedMember(member,user){
   if(!permissionEnabled("roles_change")||!member||!user||user.status!=="approved"||user.active===false)return false;
+  // DEV pode atribuir qualquer cargo a qualquer conta, inclusive à própria.
+  // Para os demais cargos, continua proibida a autoalteração.
+  if(owner())return true;
   if(user.id===state.user?.uid)return false;
   const target=resolveAccessRole(user);
-  if(owner())return true;
   if(leadership())return target==="staff"||target==="member";
   return false;
 }
@@ -783,7 +785,12 @@ function fillSelects(){
   $("#memberRole").innerHTML=ALL_ROLES.map(x=>`<option>${x}</option>`).join("");
   $("#memberClan").innerHTML='<option value="">Selecione o clã</option>'+CLANS.map(x=>`<option>${x}</option>`).join("");
   const characterRole=byId("newCharacterRole");
-  if(characterRole)characterRole.innerHTML=MEMBER_ROLES.map(role=>`<option value="${escapeHtml(role)}">${escapeHtml(role)}</option>`).join("");
+  if(characterRole){
+    const options=owner()
+      ?[{value:"dev",label:"DEV"},{value:"leadership",label:"Liderança"},{value:"staff",label:"Staff"},...MEMBER_ROLES.map(role=>({value:`member:${role}`,label:role}))]
+      :MEMBER_ROLES.map(role=>({value:`member:${role}`,label:role}));
+    characterRole.innerHTML=options.map(option=>`<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`).join("");
+  }
   const characterClan=byId("newCharacterClan");
   if(characterClan)characterClan.innerHTML='<option value="">Sem clã</option>'+CLANS.map(clan=>`<option value="${escapeHtml(clan)}">${escapeHtml(clan)}</option>`).join("");
 }
@@ -2269,22 +2276,47 @@ Um registro será salvo em Gestão → RT Presença.`))return;
     if(!confirm(`Alterar o cargo de ${member.name} de ${currentLabel} para ${nextLabel}?`))return;
 
     try{
-      const batch=writeBatch(db);
-      batch.update(doc(db,"users",user.id),{
-        role:nextAccess,
-        accessRole:nextAccess,
-        memberRole:nextMemberRole,
-        roleUpdatedAt:serverTimestamp(),
-        roleUpdatedBy:state.user.uid,
-        updatedAt:serverTimestamp()
-      });
-      batch.set(doc(db,"members",member.id),{
-        role:nextMemberRole,
-        accessRole:nextAccess,
-        userId:user.id,
-        updatedAt:serverTimestamp()
-      },{merge:true});
-      await batch.commit();
+      if(SupabaseShadow.isConnected()){
+        // Fonte de verdade dos cargos de acesso na V6: public.profiles.
+        await SupabaseShadow.update(
+          "profiles",
+          `id=eq.${encodeURIComponent(user.id)}`,
+          {access_role:nextAccess,updated_at:new Date().toISOString()}
+        );
+        // Personagem/cargo de clã continua separado do cargo de acesso.
+        if(member?.id)await SupabaseShadow.update(
+          "characters",
+          `id=eq.${encodeURIComponent(member.id)}`,
+          {role:nextMemberRole,updated_at:new Date().toISOString()}
+        );
+        // Firebase é somente backup temporário e não bloqueia a alteração principal.
+        const batch=writeBatch(db);
+        batch.update(doc(db,"users",user.id),{
+          role:nextAccess,accessRole:nextAccess,memberRole:nextMemberRole,
+          roleUpdatedAt:serverTimestamp(),roleUpdatedBy:state.user.uid,updatedAt:serverTimestamp()
+        });
+        batch.set(doc(db,"members",member.id),{
+          role:nextMemberRole,accessRole:nextAccess,userId:user.id,updatedAt:serverTimestamp()
+        },{merge:true});
+        batch.commit().catch(error=>console.warn("Backup Firebase do cargo não gravado:",error));
+      }else{
+        const batch=writeBatch(db);
+        batch.update(doc(db,"users",user.id),{
+          role:nextAccess,
+          accessRole:nextAccess,
+          memberRole:nextMemberRole,
+          roleUpdatedAt:serverTimestamp(),
+          roleUpdatedBy:state.user.uid,
+          updatedAt:serverTimestamp()
+        });
+        batch.set(doc(db,"members",member.id),{
+          role:nextMemberRole,
+          accessRole:nextAccess,
+          userId:user.id,
+          updatedAt:serverTimestamp()
+        },{merge:true});
+        await batch.commit();
+      }
 
       // Atualização otimista: aplica cor, etiqueta e permissões sem aguardar
       // o próximo snapshot do Firestore.
@@ -3240,7 +3272,9 @@ on("newCharacterForm","submit",async event=>{
   event.preventDefault();
   if(!state.user||!editor()||!permissionEnabled("character_edit"))return toast("Sem permissão para cadastrar personagens.");
   const name=String(byId("newCharacterName")?.value||"").trim();
-  const role=String(byId("newCharacterRole")?.value||"Membros");
+  const chosenRole=String(byId("newCharacterRole")?.value||"member:Membros");
+  const accessRole=chosenRole.startsWith("member:")?"member":normalizeAccessRole(chosenRole);
+  const role=chosenRole.startsWith("member:")?chosenRole.slice(7):memberRoleFromAccessRole(accessRole,"Membros");
   const clan=String(byId("newCharacterClan")?.value||"");
   const character={
     className:String(byId("newCharacterClass")?.value||"").trim(),
@@ -3257,7 +3291,9 @@ on("newCharacterForm","submit",async event=>{
   };
   if(name.length<2)return toast("Informe o nickname do personagem.");
   if(state.members.some(member=>member.active!==false&&String(member.name||"").trim().toLowerCase()===name.toLowerCase()))return toast("Já existe um personagem ativo com esse nickname.");
-  if(!MEMBER_ROLES.includes(role))return toast("Cargo inválido.");
+  if(owner()){
+    if(!["dev","leadership","staff","member"].includes(accessRole)||!MEMBER_ROLES.includes(role))return toast("Cargo inválido.");
+  }else if(accessRole!=="member"||!MEMBER_ROLES.includes(role))return toast("Cargo inválido.");
   if(clan&&!CLANS.includes(clan))return toast("Clã inválido.");
   if(!character.className)return toast("Informe a classe.");
   const characterError=validateConfiguredCharacter(character);if(characterError)return toast(characterError);
@@ -3268,7 +3304,7 @@ on("newCharacterForm","submit",async event=>{
       if(!created)throw new Error("Supabase não confirmou o cadastro.");
       // Firebase permanece somente como backup; falha nele não bloqueia a operação principal.
       setDoc(doc(db,"members",legacyId),{
-        name,role,clan,userId:legacyId,accessRole:"member",memberRole:role,active:true,
+        name,role,clan,userId:legacyId,accessRole,memberRole:role,active:true,
         character,characterUpdatedBy:state.user.uid,createdAt:serverTimestamp(),updatedAt:serverTimestamp()
       }).catch(error=>console.warn("Backup Firebase do personagem não gravado:",error));
       await loadSupabasePrimaryCore();
@@ -3676,8 +3712,13 @@ function openResponsibleCharacterEditor(item){
   setValue("responsibleCharacterNickname",item.nickname||"");
   const roleSelect=byId("responsibleCharacterRole");
   if(roleSelect){
-    roleSelect.innerHTML=MEMBER_ROLES.map(role=>`<option value="${escapeHtml(role)}">${escapeHtml(role)}</option>`).join("");
-    roleSelect.value=MEMBER_ROLES.includes(item.role)?item.role:"Membros";
+    const options=owner()
+      ?[{value:"dev",label:"DEV"},{value:"leadership",label:"Liderança"},{value:"staff",label:"Staff"},...MEMBER_ROLES.map(role=>({value:`member:${role}`,label:role}))]
+      :MEMBER_ROLES.map(role=>({value:`member:${role}`,label:role}));
+    roleSelect.innerHTML=options.map(option=>`<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`).join("");
+    const linked=state.users.find(user=>user.id===item.id);
+    const currentAccess=linked?resolveAccessRole(linked):"member";
+    roleSelect.value=currentAccess==="member"?`member:${MEMBER_ROLES.includes(item.role)?item.role:"Membros"}`:currentAccess;
     roleSelect.disabled=false;
   }
   const clanSelect=byId("responsibleCharacterClan");
@@ -3717,7 +3758,9 @@ on("responsibleCharacterForm","submit",async event=>{
   if(!target)return toast("Personagem não encontrado.");
 
   const nickname=String(byId("responsibleCharacterNickname")?.value||"").trim();
-  const role=String(byId("responsibleCharacterRole")?.value||"Membros").trim();
+  const chosenRole=String(byId("responsibleCharacterRole")?.value||"member:Membros").trim();
+  const nextAccess=chosenRole.startsWith("member:")?"member":normalizeAccessRole(chosenRole);
+  const role=chosenRole.startsWith("member:")?chosenRole.slice(7):memberRoleFromAccessRole(nextAccess,target.role);
   const clan=String(byId("responsibleCharacterClan")?.value||"").trim();
 
   const character={
@@ -3741,7 +3784,9 @@ on("responsibleCharacterForm","submit",async event=>{
     String(member.name||"").trim().toLowerCase()===nickname.toLowerCase()
   );
   if(duplicate)return toast("Já existe outro personagem ativo com esse nickname.");
-  if(!MEMBER_ROLES.includes(role))return toast("Cargo inválido.");
+  if(owner()){
+    if(!["dev","leadership","staff","member"].includes(nextAccess)||!MEMBER_ROLES.includes(role))return toast("Cargo inválido.");
+  }else if(nextAccess!=="member"||!MEMBER_ROLES.includes(role))return toast("Cargo inválido.");
   if(clan&&!CLANS.includes(clan))return toast("Clã inválido.");
   if(!character.className)return toast("Informe a classe do personagem.");
 
@@ -3766,6 +3811,13 @@ on("responsibleCharacterForm","submit",async event=>{
     };
 
     if(supabasePrimaryMode()){
+      const linkedProfile=state.users.find(user=>user.id===target.id);
+      if(linkedProfile&&owner()){
+        await SupabaseShadow.update("profiles",`id=eq.${encodeURIComponent(linkedProfile.id)}`,{
+          access_role:nextAccess,updated_at:new Date().toISOString()
+        });
+        Object.assign(linkedProfile,{role:nextAccess,accessRole:nextAccess,resolvedAccessRole:nextAccess,memberRole:role});
+      }
       const updated=await shadowCharacter({id:target.id,name:nickname,role,memberRole:role,clan,active:true,character});
       if(!updated)throw new Error("Supabase não confirmou a edição.");
       updateDoc(doc(db,"members",target.id),payload).catch(error=>console.warn("Backup Firebase da edição não gravado:",error));
@@ -3781,7 +3833,7 @@ on("responsibleCharacterForm","submit",async event=>{
         name:nickname,
         role,
         memberRole:role,
-        accessRole:"member",
+        accessRole:nextAccess,
         clan,
         character
       });
