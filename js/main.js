@@ -21,7 +21,7 @@ function finalizePrintWindow(printWindow,autoPrint=true){
 }
 
 import {firebaseConfig,FIREBASE_VERSION} from "./firebase-config.js";
-import {SupabaseShadow} from "./supabase-client.js?v=22.9.38-dev-any-role";
+import {SupabaseShadow} from "./supabase-client.js?v=22.9.39-dev-role-rpc";
 import {asciiPdfText,createTextPdf} from "./pdf-generator.js";
 const SDK=`https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}`;
 const {initializeApp,deleteApp}=await import(`${SDK}/firebase-app.js`);
@@ -439,6 +439,36 @@ function canManageAcceptedMember(member,user){
   if(leadership())return target==="staff"||target==="member";
   return false;
 }
+
+const DEV_ACCOUNT_ROLE_OPTIONS=Object.freeze([
+  {value:"dev",label:"DEV"},
+  {value:"leadership",label:"Liderança / Administrador"},
+  {value:"staff",label:"Staff"},
+  {value:"member",label:"Membro sem acesso administrativo"}
+]);
+
+async function devSetAccountRole(userId,nextAccess){
+  if(!owner())throw new Error("Somente DEV pode alterar cargos de acesso.");
+  if(!DEV_ACCOUNT_ROLE_OPTIONS.some(option=>option.value===nextAccess))throw new Error("Cargo de acesso inválido.");
+  if(!SupabaseShadow.isConnected())throw new Error("Supabase não conectado.");
+
+  await SupabaseShadow.rpc("dev_set_access_role",{
+    target_user_id:userId,
+    new_access_role:nextAccess
+  });
+
+  await loadSupabaseSecurityRuntime();
+
+  // Se o DEV alterou o próprio cargo, o estado local deve refletir imediatamente.
+  if(userId===state.user?.uid){
+    state.profile.role=nextAccess;
+    state.profile.accessRole=nextAccess;
+    state.profile.resolvedAccessRole=nextAccess;
+    applyPermissions();
+    render();
+  }
+}
+
 function allowedCargoOptions(member,user){
   if(!canManageAcceptedMember(member,user))return [];
   if(owner())return [
@@ -2278,11 +2308,7 @@ Um registro será salvo em Gestão → RT Presença.`))return;
     try{
       if(SupabaseShadow.isConnected()){
         // Fonte de verdade dos cargos de acesso na V6: public.profiles.
-        await SupabaseShadow.update(
-          "profiles",
-          `id=eq.${encodeURIComponent(user.id)}`,
-          {access_role:nextAccess,updated_at:new Date().toISOString()}
-        );
+        await devSetAccountRole(user.id,nextAccess);
         // Personagem/cargo de clã continua separado do cargo de acesso.
         if(member?.id)await SupabaseShadow.update(
           "characters",
@@ -3813,9 +3839,7 @@ on("responsibleCharacterForm","submit",async event=>{
     if(supabasePrimaryMode()){
       const linkedProfile=state.users.find(user=>user.id===target.id);
       if(linkedProfile&&owner()){
-        await SupabaseShadow.update("profiles",`id=eq.${encodeURIComponent(linkedProfile.id)}`,{
-          access_role:nextAccess,updated_at:new Date().toISOString()
-        });
+        await devSetAccountRole(linkedProfile.id,nextAccess);
         Object.assign(linkedProfile,{role:nextAccess,accessRole:nextAccess,resolvedAccessRole:nextAccess,memberRole:role});
       }
       const updated=await shadowCharacter({id:target.id,name:nickname,role,memberRole:role,clan,active:true,character});
@@ -4990,7 +5014,7 @@ document.addEventListener("change",event=>{if(event.target.closest("#configuraco
 
 function staffRows(){
   return state.users
-    .filter(user=>["dev","leadership","staff"].includes(resolveAccessRole(user))&&user.status!=="pending"&&user.active!==false)
+    .filter(user=>(owner()||["dev","leadership","staff"].includes(resolveAccessRole(user)))&&user.status!=="pending"&&user.active!==false)
     .map(user=>{
       const member=state.members.find(item=>
         item.userId===user.id||
@@ -5061,6 +5085,13 @@ function renderStaffCards(){
         <div><span>Taxa</span><strong>${item.stat.rate}%</strong></div>
         <div><span>Level</span><strong>${progressionFor(state.members.find(member=>member.name===item.name)).level}</strong></div>
       </div>
+      ${owner()?`
+      <div class="staff-role-admin">
+        <select class="role-change-select" data-account-role-select="${escapeHtml(item.id)}" aria-label="Cargo de acesso de ${escapeHtml(item.name)}">
+          ${DEV_ACCOUNT_ROLE_OPTIONS.map(option=>`<option value="${option.value}" ${option.value===item.role?"selected":""}>${option.label}</option>`).join("")}
+        </select>
+        <button class="btn" data-account-role-save="${escapeHtml(item.id)}" type="button">Salvar cargo</button>
+      </div>`:""}
       <button class="btn primary full" data-staff-details="${escapeHtml(item.id)}" type="button">Ver perfil</button>
     </article>
   `).join("")||'<p class="empty-state">Nenhum membro da Staff encontrado.</p>';
@@ -5188,6 +5219,37 @@ function openStaffDetails(item){
   `);
   byId("staffDetailsDrawer")?.classList.remove("hidden");
 }
+
+
+document.addEventListener("click",async event=>{
+  const button=event.target.closest("[data-account-role-save]");
+  if(!button)return;
+  if(!owner())return toast("Somente DEV pode alterar cargos.");
+  const userId=button.dataset.accountRoleSave;
+  const user=state.users.find(row=>row.id===userId);
+  if(!user)return toast("Conta não encontrada.");
+  const select=document.querySelector(`[data-account-role-select="${CSS.escape(userId)}"]`);
+  const nextAccess=String(select?.value||"");
+  const currentAccess=resolveAccessRole(user);
+  if(nextAccess===currentAccess)return toast("Essa conta já possui esse cargo.");
+  if(!DEV_ACCOUNT_ROLE_OPTIONS.some(option=>option.value===nextAccess))return toast("Cargo inválido.");
+  const label=DEV_ACCOUNT_ROLE_OPTIONS.find(option=>option.value===nextAccess)?.label||nextAccess;
+  if(!confirm(`Alterar ${user.name||user.email} de ${accessRoleLabel(currentAccess)} para ${label}?`))return;
+
+  button.disabled=true;
+  try{
+    await devSetAccountRole(userId,nextAccess);
+    Object.assign(user,{role:nextAccess,accessRole:nextAccess,resolvedAccessRole:nextAccess});
+    await audit("cargo de acesso alterado",`${user.email||user.name} → ${label}`);
+    renderStaffCommandCenter();
+    toast(`Cargo alterado para ${label}.`);
+  }catch(error){
+    console.error("Falha ao alterar cargo Supabase:",error);
+    toast(error.message||"Não foi possível alterar o cargo.");
+  }finally{
+    button.disabled=false;
+  }
+});
 
 function printStaffReport(){
   const rows=staffRows();

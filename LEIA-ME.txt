@@ -1,13 +1,16 @@
-77 TEAM MANAGER - V6 SUPABASE (PACOTE ESSENCIAL)
+77 TEAM MANAGER - V6.2 DEV CARGOS
 
-1. No Supabase > SQL Editor, execute:
-   SUPABASE-V6-AUDITORIA-CARGOS.sql
+ANTES DE PUBLICAR:
+1. Supabase > SQL Editor
+2. Execute: SUPABASE-V6.2-DEV-CARGOS.sql
+3. Publique esta versão
+4. CTRL+F5
 
-2. Publique os demais arquivos mantendo a estrutura de pastas.
+CORREÇÃO:
+- DEV altera cargo diretamente em public.profiles.
+- Não depende de Personagem estar vinculado à conta.
+- DEV pode alterar inclusive o próprio cargo.
+- Cargos de acesso: DEV, Liderança/Administrador, Staff, Membro sem acesso administrativo.
+- Os cargos de personagem/clã (Membros, PT TIME, PT BOOST, PT CORE) continuam em characters.role.
 
-3. Pressione CTRL+F5 no navegador.
-
-4. Teste primeiro DEV e depois Staff.
-
-Este ZIP remove arquivos antigos de migração, diagnóstico, documentação e backup
-que não são necessários para publicar esta versão.
+Na aba Staff, o DEV verá seletor "Salvar cargo" em cada conta ativa.

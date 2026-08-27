@@ -118,6 +118,11 @@ export const SupabaseShadow={
     return request(`/rest/v1/${table}?${filter}`,{
       method:"DELETE",prefer:"return=representation"
     });
+  },
+  async rpc(name,body={}){
+    return request(`/rest/v1/rpc/${encodeURIComponent(name)}`,{
+      method:"POST",body
+    });
   }
 };
 
