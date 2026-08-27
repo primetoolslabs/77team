@@ -1,0 +1,11 @@
+77 TEAM MANAGER — V7 AUDITORIA TOTAL
+
+1. No Supabase, abra SQL Editor.
+2. Execute TODO o conteúdo de SUPABASE-V7-COMPLETO.sql.
+3. Publique os arquivos do site mantendo as pastas js, css, assets e icons.
+4. Abra o site e pressione CTRL+F5.
+5. Entre primeiro com a conta DEV.
+6. Teste Personagens, Presenças, Pagamentos, Eventos, Configurações e Cargos.
+7. Entre com uma conta Staff e teste somente as ações permitidas.
+
+O arquivo AUDITORIA-V7-ABA-POR-ABA.txt contém o relatório completo.

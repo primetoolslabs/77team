@@ -60,6 +60,32 @@ export const SupabaseShadow={
   async resetPassword(email){
     return request("/auth/v1/recover",{method:"POST",body:{email},auth:true});
   },
+  async updateUser(body){
+    const data=await request("/auth/v1/user",{method:"PUT",body});
+    const session=loadSession();
+    if(session?.user&&data){session.user={...session.user,...data};saveSession(session)}
+    return data;
+  },
+  async uploadFile(bucket,path,file,contentType){
+    const session=loadSession();
+    if(!session?.access_token)throw new Error("Sessão Supabase necessária para upload.");
+    const response=await fetch(`${SUPABASE_URL}/storage/v1/object/${encodeURIComponent(bucket)}/${path.split("/").map(encodeURIComponent).join("/")}`,{
+      method:"POST",
+      headers:{apikey:SUPABASE_PUBLISHABLE_KEY,Authorization:`Bearer ${session.access_token}`,"Content-Type":contentType||file.type||"application/octet-stream",x-upsert:"true"},
+      body:file
+    });
+    const text=await response.text();
+    if(!response.ok)throw new Error(text||`Upload falhou: HTTP ${response.status}`);
+    return {path,url:`${SUPABASE_URL}/storage/v1/object/public/${encodeURIComponent(bucket)}/${path.split("/").map(encodeURIComponent).join("/")}`};
+  },
+  async deleteFile(bucket,path){
+    const session=loadSession();
+    if(!session?.access_token)return;
+    const response=await fetch(`${SUPABASE_URL}/storage/v1/object/${encodeURIComponent(bucket)}/${path.split("/").map(encodeURIComponent).join("/")}`,{
+      method:"DELETE",headers:{apikey:SUPABASE_PUBLISHABLE_KEY,Authorization:`Bearer ${session.access_token}`}
+    });
+    if(!response.ok&&response.status!==404)throw new Error(`Falha ao remover arquivo: HTTP ${response.status}`);
+  },
   async refresh(){
     const session=loadSession();
     if(!session?.refresh_token)return null;

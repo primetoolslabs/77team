@@ -21,7 +21,7 @@ function finalizePrintWindow(printWindow,autoPrint=true){
 }
 
 import {firebaseConfig,FIREBASE_VERSION} from "./firebase-config.js";
-import {SupabaseShadow} from "./supabase-client.js?v=22.9.41-role-audit-highlight";
+import {SupabaseShadow} from "./supabase-client.js?v=22.10.0-v7-total-audit";
 import {asciiPdfText,createTextPdf} from "./pdf-generator.js";
 const SDK=`https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}`;
 const {initializeApp,deleteApp}=await import(`${SDK}/firebase-app.js`);
@@ -40,10 +40,9 @@ const MEMBER_ROLES=["Membros","PT TIME","PT BOOST","PT CORE"];
 const ALL_ROLES=["Staff",...MEMBER_ROLES];
 
 /* ============================================================
-   SUPABASE MIGRATION SHADOW V1
-   Firebase continua como fonte principal.
-   O Supabase recebe cópias apenas quando uma sessão Supabase
-   administrativa estiver conectada neste navegador.
+   SUPABASE CORE
+   Funções de compatibilidade preservam IDs legados, mas o
+   Supabase é a fonte oficial de dados desta versão.
    ============================================================ */
 function supabaseShadowEnabled(){
   return SupabaseShadow.mode==="shadow" && SupabaseShadow.isConnected();
@@ -151,40 +150,7 @@ async function shadowEvent(item){
     updated_at:new Date().toISOString()
   },"legacy_id");
 }
-async function migrateCurrentFirebaseDataToSupabase(){
-  if(!owner())return toast("Somente DEV pode executar a migração inicial.");
-  if(!supabaseShadowEnabled())return toast("Conecte sua conta Supabase primeiro.");
-  const button=byId("supabaseMigrateNow");
-  if(button)button.disabled=true;
-  supabaseMigrationErrors.length=0;
-  try{
-    let chars=0,attendanceCount=0,paymentsCount=0,eventsCount=0;
-    for(const member of state.members){
-      if(await supabaseShadowSafe(`personagem ${member.name||member.id}`,()=>shadowCharacter(member)))chars++;
-    }
-    for(const item of state.attendance){
-      if(await supabaseShadowSafe(`presença ${item.id||""}`,()=>shadowAttendance(item)))attendanceCount++;
-    }
-    for(const item of state.payments){
-      if(await supabaseShadowSafe(`pagamento ${item.id||""}`,()=>shadowPayment(item)))paymentsCount++;
-    }
-    for(const item of state.events){
-      if(await supabaseShadowSafe(`evento ${item.id||""}`,()=>shadowEvent(item)))eventsCount++;
-    }
-    const failures=supabaseMigrationErrors.length;
-    const summary=`Personagens ${chars}/${state.members.length} · Presenças ${attendanceCount}/${state.attendance.length} · Pagamentos ${paymentsCount}/${state.payments.length} · Eventos ${eventsCount}/${state.events.length} · Falhas ${failures}`;
-    setText("supabaseMigrationResult",summary);
-    if(failures){
-      const first=supabaseMigrationErrors[0];
-      toast(`Migração parcial: ${failures} falha(s). Primeira: ${first?.label||""}: ${first?.message||""}`);
-      console.error("Erros da migração Supabase:",supabaseMigrationErrors);
-    }else{
-      toast("Migração Supabase concluída sem falhas. Firebase permaneceu intacto.");
-    }
-  }finally{
-    if(button)button.disabled=false;
-  }
-}
+
 
 
 const SUPABASE_PRIMARY_KEY="77team-supabase-primary-v1";
@@ -321,6 +287,126 @@ async function repairSupabasePaymentLinks(){
   return{linked,unmatched};
 }
 
+
+/* ============================================================
+   V7 - BACKEND ÚNICO SUPABASE PARA MÓDULOS LEGADOS
+   ============================================================ */
+function compatTimestamp(value){
+  if(!value)return null;
+  const date=value instanceof Date?value:new Date(value);
+  if(Number.isNaN(date.getTime()))return value;
+  return {toDate:()=>date,toMillis:()=>date.getTime(),toJSON:()=>date.toISOString()};
+}
+function normalizeRecordPayload(row){
+  const payload={...(row?.payload||{})};
+  const timestampKeys=["createdAt","updatedAt","lastSeen","finalizedAt","completedAt","statusUpdatedAt","readAt","restoredAt"];
+  timestampKeys.forEach(key=>{if(payload[key]&&typeof payload[key]==="string")payload[key]=compatTimestamp(payload[key])});
+  return {id:String(row?.legacy_id||row?.record_key||""),...payload};
+}
+function cleanPayloadForSupabase(value){
+  if(value===undefined)return null;
+  if(value===null||typeof value!=="object")return value;
+  if(value instanceof Date)return value.toISOString();
+  if(typeof value?.toDate==="function")return value.toDate().toISOString();
+  if(Array.isArray(value))return value.map(cleanPayloadForSupabase);
+  return Object.fromEntries(Object.entries(value).filter(([,v])=>v!==undefined).map(([k,v])=>[k,cleanPayloadForSupabase(v)]));
+}
+function recordKey(kind,id){return `${String(kind)}:${String(id)}`}
+async function sbRecordPut(kind,id,payload,{ownerUid=null}={}){
+  if(!SupabaseShadow.isConnected())throw new Error("Supabase não conectado.");
+  const session=SupabaseShadow.getSession();
+  const clean=cleanPayloadForSupabase(payload||{});
+  if(!clean.createdAt)clean.createdAt=new Date().toISOString();
+  clean.updatedAt=new Date().toISOString();
+  const result=await SupabaseShadow.upsert("app_records",{
+    record_key:recordKey(kind,id),kind:String(kind),legacy_id:String(id),
+    owner_uid:ownerUid||clean.ownerUid||clean.userId||null,
+    payload:clean,created_by:session?.user?.id||null,updated_at:new Date().toISOString()
+  },"record_key");
+  return result?.[0]||null;
+}
+async function sbRecordAdd(kind,payload,options={}){
+  const id=crypto.randomUUID?.()||`${Date.now()}-${Math.random()}`;
+  await sbRecordPut(kind,id,payload,options);
+  return {id,...payload};
+}
+async function sbRecordDelete(kind,id){
+  return SupabaseShadow.delete("app_records",`record_key=eq.${encodeURIComponent(recordKey(kind,id))}`);
+}
+async function sbRecordPatch(kind,id,patch){
+  const rows=await SupabaseShadow.query("app_records",`record_key=eq.${encodeURIComponent(recordKey(kind,id))}&select=*&limit=1`);
+  const current=rows?.[0]?normalizeRecordPayload(rows[0]):{id};
+  return sbRecordPut(kind,id,{...current,...patch},{ownerUid:current.ownerUid||patch.ownerUid||null});
+}
+async function sbLoadRecords(kind){
+  const rows=await SupabaseShadow.query("app_records",`kind=eq.${encodeURIComponent(kind)}&select=*&order=updated_at.desc`);
+  return (rows||[]).map(normalizeRecordPayload);
+}
+async function sbLoadSettings(){
+  const rows=await SupabaseShadow.query("app_settings","id=eq.app&select=payload&limit=1");
+  return rows?.[0]?.payload||{};
+}
+async function sbSaveSettingsPatch(patch){
+  const current={...(state.settings||{}),...(await sbLoadSettings())};
+  const next={...current,...cleanPayloadForSupabase(patch),updatedAt:new Date().toISOString()};
+  await SupabaseShadow.upsert("app_settings",{id:"app",payload:next,updated_by:state.user?.uid||null,updated_at:new Date().toISOString()},"id");
+  state.settings=next;
+  await sbPublishPublicSettings();
+  return next;
+}
+function publicSettingsPayload(){
+  const copy=JSON.parse(JSON.stringify(cleanPayloadForSupabase(state.settings||{})));
+  if(copy.notifications)delete copy.notifications.discordWebhook;
+  delete copy.notificationsPrivate;
+  return copy;
+}
+async function sbPublishPublicSettings(){
+  if(!SupabaseShadow.isConnected())return;
+  await SupabaseShadow.upsert("public_settings",{id:"app",payload:publicSettingsPayload(),updated_at:new Date().toISOString()},"id");
+}
+async function loadSupabasePublicSettings(){
+  try{
+    const rows=await SupabaseShadow.query("public_settings","id=eq.app&select=payload&limit=1");
+    const settings=rows?.[0]?.payload||{};
+    state.settings={...state.settings,...settings};
+    applyMaintenanceNotice();applyLoginCustomization();
+  }catch(error){console.warn("Configurações públicas Supabase indisponíveis:",error)}
+}
+async function loadSupabaseLegacyRuntime(){
+  if(!SupabaseShadow.isConnected())return false;
+  try{
+    const [settings,rt,backups,xp,notifications,reads,support,chat,sessions]=await Promise.all([
+      sbLoadSettings(),sbLoadRecords("rt_presence"),sbLoadRecords("presence_backup"),sbLoadRecords("xp_log"),
+      sbLoadRecords("notification"),sbLoadRecords("notification_read"),sbLoadRecords("support_message"),
+      sbLoadRecords("chat_message"),sbLoadRecords("session")
+    ]);
+    state.settings={...state.settings,...settings};
+    state.rtPresence=rt;
+    state.presenceBackups=backups.filter(item=>!item.status||item.status==="completed");
+    state.xpLogs=xp;
+    state.sentNotifications=permissionEnabled("notifications_send")?notifications:[];
+    state.notificationReads=reads.filter(item=>item.userId===state.user?.uid);
+    state.notifications=notifications.filter(notificationVisibleToCurrentUser);
+    const canSupport=permissionEnabled("support_manage");
+    state.supportMessages=canSupport?support:support.filter(item=>item.ownerUid===state.user?.uid);
+    state.chatMessages=canSupport?chat:chat.filter(item=>item.ownerUid===state.user?.uid);
+    state.sessions=owner()?sessions:[];
+    loadSettingsForm();applyLoginCustomization();loadLoginCustomizationForm();renderGoals();
+    renderRtPresence();renderPresenceBackups();renderBackupCenter();renderSupport();renderPrivateChat();renderAdvancedCenter();render();
+    return true;
+  }catch(error){
+    console.error("Falha ao carregar módulos Supabase:",error);
+    return false;
+  }
+}
+async function publishSupabasePublicHome(payload){
+  await SupabaseShadow.upsert("public_snapshots",{id:"home",payload:cleanPayloadForSupabase(payload),updated_at:new Date().toISOString()},"id");
+}
+async function loadSupabasePublicHome(){
+  const rows=await SupabaseShadow.query("public_snapshots","id=eq.home&select=payload,updated_at&limit=1");
+  return rows?.[0]?{...rows[0].payload,generatedAt:rows[0].updated_at}:null;
+}
+
 const REQUEST_ACCESS_OPTIONS={
   dev:[
     {value:"dev",label:"DEV"},{value:"leadership",label:"Liderança"},{value:"staff",label:"Staff"},
@@ -346,7 +432,7 @@ let subscribedPermissionSignature="";
 let permissionResubscribeTimer=null;
 
 function toast(msg){const el=$("#toast");el.textContent=msg;el.classList.add("show");clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.remove("show"),3000)}
-function errMsg(e){return ({'auth/invalid-credential':'E-mail ou senha incorretos.','auth/user-disabled':'Esta conta foi desativada.','auth/too-many-requests':'Muitas tentativas. Aguarde alguns minutos e tente novamente.','auth/network-request-failed':'Falha de conexão. Verifique sua internet.','auth/email-already-in-use':'Este e-mail já possui uma conta. Use a mesma senha para recuperar o cadastro pendente.','auth/operation-not-allowed':'Ative o provedor E-mail/Senha em Firebase Authentication.','auth/invalid-email':'Informe um endereço de e-mail válido.','auth/weak-password':'A senha precisa ter pelo menos 8 caracteres.','permission-denied':'Permissão negada. Confira Cargos e Permissões e o perfil ativo no Supabase.'})[e?.code]||`${e?.code||'erro'}: ${e?.message||'Falha inesperada'}`}
+function errMsg(e){return ({'auth/invalid-credential':'E-mail ou senha incorretos.','auth/user-disabled':'Esta conta foi desativada.','auth/too-many-requests':'Muitas tentativas. Aguarde alguns minutos e tente novamente.','auth/network-request-failed':'Falha de conexão. Verifique sua internet.','auth/email-already-in-use':'Este e-mail já possui uma conta. Use a mesma senha para recuperar o cadastro pendente.','auth/operation-not-allowed':'Ative o provedor E-mail/Senha no Supabase Authentication.','auth/invalid-email':'Informe um endereço de e-mail válido.','auth/weak-password':'A senha precisa ter pelo menos 8 caracteres.','permission-denied':'Permissão negada. Confira Cargos e Permissões e o perfil ativo no Supabase.'})[e?.code]||`${e?.code||'erro'}: ${e?.message||'Falha inesperada'}`}
 function showOnly(id){document.body.dataset.screen=id;["loading","authScreen","app"].forEach(x=>$("#"+x).classList.toggle("hidden",x!==id))}
 
 function accessRoleFromMemberRole(memberRole, explicitAccessRole=""){
@@ -597,7 +683,7 @@ const ROLE_PERMISSION_DEFINITIONS=Object.freeze([
   ,{group:"Abas · AVANÇADO",key:"page_atualizacoes",label:"Abrir Atualizações",defaults:{dev:true,leadership:false,staff:false,member:false}}
   ,{group:"Abas · AVANÇADO",key:"page_backup",label:"Abrir Backup avançado",defaults:{dev:true,leadership:false,staff:false,member:false}}
   ,{group:"Abas · AVANÇADO",key:"page_logs_sistema",label:"Abrir Logs do Sistema",defaults:{dev:true,leadership:false,staff:false,member:false}}
-  ,{group:"Abas · AVANÇADO",key:"page_status_firebase",label:"Abrir Status Firebase",defaults:{dev:true,leadership:false,staff:false,member:false}}
+  ,{group:"Abas · AVANÇADO",key:"page_status_firebase",label:"Abrir Status Supabase",defaults:{dev:true,leadership:false,staff:false,member:false}}
   ,{group:"Abas · AVANÇADO",key:"page_status_github",label:"Abrir Status GitHub",defaults:{dev:true,leadership:false,staff:false,member:false}}
   ,{group:"Abas · AVANÇADO",key:"page_sessoes",label:"Abrir Sessões",defaults:{dev:true,leadership:false,staff:false,member:false}}
   ,{group:"Abas · AVANÇADO",key:"page_manutencao",label:"Abrir Manutenção",defaults:{dev:true,leadership:false,staff:false,member:false}}
@@ -669,7 +755,7 @@ async function loadSupabaseSecurityRuntime(){
   if(!SupabaseShadow.isConnected())return false;
   const [permissionRows,profileRows]=await Promise.all([
     SupabaseShadow.query("role_permissions","select=role,permission_key,enabled"),
-    SupabaseShadow.query("profiles","select=id,name,email,access_role,active,status")
+    SupabaseShadow.query("profiles","select=id,name,email,access_role,active,status,display_name,discord,whatsapp,birth_date,bio,avatar_data_url,progression")
   ]);
   state.supabaseRolePermissions=rolePermissionRowsToMatrix(permissionRows);
   state.users=(profileRows||[]).map(row=>({
@@ -681,9 +767,11 @@ async function loadSupabaseSecurityRuntime(){
     accessRole:row.access_role,
     resolvedAccessRole:row.access_role,
     active:row.active===true,
-    status:row.status||"approved"
+    status:row.status||"approved",displayName:row.display_name||row.name||"",discord:row.discord||"",whatsapp:row.whatsapp||"",birthDate:row.birth_date||"",bio:row.bio||"",avatarDataUrl:row.avatar_data_url||"",progression:row.progression||{}
   }));
   state.usersLoaded=true;
+  const own=state.users.find(user=>user.id===state.user?.uid);
+  if(own&&state.profile){Object.assign(state.profile,own);state.profile.resolvedAccessRole=resolveAccessRole(state.profile)}
 
   if(permissionEnabled("audit_view")){
     try{
@@ -878,7 +966,7 @@ decideInitialScreen();
 restoreSupabaseSession();
 
 // Aviso público informativo; nunca bloqueia a autenticação.
-onSnapshot(doc(db,"settings","app"),snapshot=>{const publicSettings=snapshot.exists()?snapshot.data():{};state.settings={...state.settings,...publicSettings};applyMaintenanceNotice();applyLoginCustomization()},error=>console.warn("Aviso de manutenção indisponível:",error));
+loadSupabasePublicSettings();
 
 $("#loginForm").onsubmit=async e=>{
   e.preventDefault();
@@ -950,9 +1038,8 @@ async function startSupabaseAuthenticatedApp(session,profile){
     displayName:profile.name||user.email||"Usuário",
     email:user.email||profile.email||"",
     role,accessRole:role,resolvedAccessRole:role,
-    memberRole:"Membros",clan:"",
-    active:profile.active===true,status:profile.status||"approved",
-    firstLogin:false,profileCompleted:true
+    memberRole:"Membros",clan:"",displayName:profile.display_name||profile.name||user.email||"Usuário",discord:profile.discord||"",whatsapp:profile.whatsapp||"",birthDate:profile.birth_date||"",bio:profile.bio||"",avatarDataUrl:profile.avatar_data_url||"",progression:profile.progression||{},
+    active:profile.active===true,status:profile.status||"approved",firstLogin:false,profileCompleted:true
   };
   state.onboardingRequired=false;
   setSupabasePrimaryMode(true);
@@ -1180,6 +1267,12 @@ async function migrateLegacyUserCharactersToPlayers(){
 function subscribeAll(){
   subscribePublic();
   subscribedPermissionSignature=permissionRuntimeSignature();
+  if(SupabaseShadow.isConnected()){
+    loadSupabaseSecurityRuntime().then(()=>loadSupabaseLegacyRuntime()).catch(error=>console.error("Falha ao iniciar runtime Supabase:",error));
+    const legacyTimer=setInterval(()=>loadSupabaseLegacyRuntime(),15000);
+    state.unsubs.push(()=>clearInterval(legacyTimer));
+    return;
+  }
   if(state.user&&!SupabaseShadow.isConnected()){
     state.unsubs.push(onSnapshot(doc(db,"users",state.user.uid),snapshot=>{
       if(!snapshot.exists())return;
@@ -1281,8 +1374,9 @@ async function audit(action,details=""){
       },{returning:false});
     }catch(error){console.warn("Auditoria Supabase indisponível:",error)}
   }
-  // Firebase permanece somente como backup temporário.
-  try{return await firebaseAuditLegacy(action,details)}catch(error){console.warn("Backup Firebase da auditoria indisponível:",error)}
+  if(!SupabaseShadow.isConnected()){
+    try{return await firebaseAuditLegacy(action,details)}catch(error){console.warn("Auditoria legada indisponível:",error)}
+  }
 }
 async function firebaseAuditLegacy(action,details){if(!state.user||!editor())return;const label=String(action||"");const critical=/dev|cargo|permiss|restaur|rollback|exclu|senha|seguran|login|sessão|backup/i.test(label);if(state.settings?.security?.auditChanges===false&&!critical)return;try{await addDoc(collection(db,"audit"),{userId:state.user.uid,userName:state.profile?.name||state.profile?.email||"Usuário",action:label.slice(0,160),details:String(details||"").slice(0,2000),createdAt:serverTimestamp()})}catch{}}
 
@@ -1360,7 +1454,6 @@ on("paymentForm","submit",async event=>{
       const legacyId=(crypto.randomUUID?.()||`${Date.now()}-${Math.random()}`).replace(/[^A-Za-z0-9_-]/g,"");
       const saved=await shadowPayment({id:legacyId,nickname,paymentType,quantity,observation,responsibleUid:state.user.uid,responsibleNick});
       if(!saved)throw new Error("Supabase não confirmou o pagamento.");
-      addDoc(collection(db,"payments"),{nickname,paymentType,quantity,observation,responsibleUid:state.user.uid,responsibleNick,createdAt:serverTimestamp()}).catch(error=>console.warn("Backup Firebase do pagamento não gravado:",error));
       await repairSupabasePaymentLinks();
       await loadSupabasePrimaryCore();
     }else{
@@ -1371,8 +1464,8 @@ on("paymentForm","submit",async event=>{
   }catch(error){
     if(error?.code==="permission-denied"){
       const role=currentAccessRole(), open=pagePermissionEnabled("pagamentos"), area=permissionEnabled("access_staff"), manage=permissionEnabled("payments_manage");
-      console.error("Pagamento negado pelo Firestore",{role,page_pagamentos:open,access_staff:area,payments_manage:manage,profile:state.profile});
-      toast(`Pagamento negado pelo Firebase · cargo=${accessRoleLabel(role)} · abrir aba=${open?"SIM":"NÃO"} · acesso STAFF=${area?"SIM":"NÃO"} · registrar=${manage?"SIM":"NÃO"} · regra esperada=paymentsMatrixPermission direta.`);
+      console.error("Pagamento negado",{role,page_pagamentos:open,access_staff:area,payments_manage:manage,profile:state.profile});
+      toast(`Pagamento negado · cargo=${accessRoleLabel(role)} · abrir aba=${open?"SIM":"NÃO"} · acesso STAFF=${area?"SIM":"NÃO"} · registrar=${manage?"SIM":"NÃO"} · regra esperada=paymentsMatrixPermission direta.`);
     }else toast(errMsg(error));
   }finally{if(button)button.disabled=false}
 });
@@ -1381,14 +1474,14 @@ document.addEventListener("click",async event=>{
   const item=state.payments.find(row=>row.id===button.dataset.deletePayment);if(!item)return;
   if(!confirm(`Excluir o pagamento de ${item.nickname}?`))return;
   button.disabled=true;
-  try{await deleteDoc(doc(db,"payments",item.id));await audit("pagamento excluído",`${item.nickname} · ${item.paymentType} · quantidade ${item.quantity||"não informada"}`);toast("Registro de pagamento excluído.")}catch(error){button.disabled=false;toast(errMsg(error))}
+  try{if(SupabaseShadow.isConnected()){await SupabaseShadow.delete("payments",`legacy_id=eq.${encodeURIComponent(item.id)}`);await loadSupabasePrimaryCore()}else await deleteDoc(doc(db,"payments",item.id));await audit("pagamento excluído",`${item.nickname} · ${item.paymentType} · quantidade ${item.quantity||"não informada"}`);toast("Registro de pagamento excluído.")}catch(error){button.disabled=false;toast(errMsg(error))}
 });
 on("clearPaymentHistory","click",async()=>{
   if(!owner()||!state.payments.length)return;
   if(!confirm(`Apagar definitivamente todo o histórico com ${state.payments.length} pagamento(s)?`))return;
   const button=byId("clearPaymentHistory");if(button)button.disabled=true;
   try{
-    const rows=state.payments.slice();for(let index=0;index<rows.length;index+=400){const batch=writeBatch(db);rows.slice(index,index+400).forEach(item=>batch.delete(doc(db,"payments",item.id)));await batch.commit()}
+    const rows=state.payments.slice();if(SupabaseShadow.isConnected()){for(const item of rows)await SupabaseShadow.delete("payments",`legacy_id=eq.${encodeURIComponent(item.id)}`);await loadSupabasePrimaryCore()}else for(let index=0;index<rows.length;index+=400){const batch=writeBatch(db);rows.slice(index,index+400).forEach(item=>batch.delete(doc(db,"payments",item.id)));await batch.commit()}
     await audit("histórico de pagamentos apagado",`${rows.length} registro(s) removido(s)`);toast("Todo o histórico de pagamentos foi apagado.");
   }catch(error){toast(errMsg(error))}finally{if(button)button.disabled=false}
 });
@@ -1403,17 +1496,35 @@ function browserSessionId(){
 }
 async function writeSessionHeartbeat(online=true){
   if(!state.user||!state.profile)return;
-  const sessionId=browserSessionId(),ref=doc(db,"sessions",`${state.user.uid}_${sessionId}`);
-  const payload={userId:state.user.uid,userName:String(state.profile.name||state.profile.email||"Usuário").slice(0,120),email:String(state.user.email||"").slice(0,254),accessRole:currentAccessRole(),sessionId,online,device:String(navigator.userAgent||"Navegador").slice(0,300),lastSeen:serverTimestamp(),updatedAt:serverTimestamp()};
-  if(!sessionHeartbeatCreated)payload.createdAt=serverTimestamp();
-  try{await setDoc(ref,payload,{merge:true});sessionHeartbeatCreated=true}catch(error){console.warn("Sessão não registrada:",error)}
+  const sessionId=browserSessionId();
+  const id=`${state.user.uid}_${sessionId}`;
+  const payload={userId:state.user.uid,userName:String(state.profile.name||state.profile.email||"Usuário").slice(0,120),email:String(state.user.email||"").slice(0,254),accessRole:currentAccessRole(),sessionId,online,device:String(navigator.userAgent||"Navegador").slice(0,300),lastSeen:new Date().toISOString()};
+  try{
+    if(SupabaseShadow.isConnected())await sbRecordPut("session",id,payload,{ownerUid:state.user.uid});
+    else await setDoc(doc(db,"sessions",id),{...payload,lastSeen:serverTimestamp(),updatedAt:serverTimestamp()},{merge:true});
+    sessionHeartbeatCreated=true;
+  }catch(error){console.warn("Sessão não registrada:",error)}
 }
 function startSessionHeartbeat(){
   clearInterval(sessionHeartbeatTimer);writeSessionHeartbeat(true);
-  sessionHeartbeatTimer=setInterval(async()=>{const limit=Math.max(15,Math.min(1440,Number(state.settings?.security?.sessionMinutes||480)))*60000;if(Date.now()-lastUserActivity>limit){toast("Sessão encerrada por inatividade.");await writeSessionHeartbeat(false);clearSubs();await signOut(auth);return}writeSessionHeartbeat(document.visibilityState!=="hidden")},45000);
+  sessionHeartbeatTimer=setInterval(async()=>{const limit=Math.max(15,Math.min(1440,Number(state.settings?.security?.sessionMinutes||480)))*60000;if(Date.now()-lastUserActivity>limit){toast("Sessão encerrada por inatividade.");await writeSessionHeartbeat(false);clearSubs();if(SupabaseShadow.isConnected())await SupabaseShadow.logout();else await signOut(auth);state.user=null;state.profile=null;showPublicHome();return}writeSessionHeartbeat(document.visibilityState!=="hidden")},45000);
 }
 ['pointerdown','keydown','touchstart','scroll'].forEach(name=>window.addEventListener(name,()=>{lastUserActivity=Date.now()},{passive:true}));
 document.addEventListener("visibilitychange",()=>{if(state.user)writeSessionHeartbeat(document.visibilityState!=="hidden")});
+
+
+async function saveAttendanceRecord(id,data){
+  if(SupabaseShadow.isConnected()){
+    await shadowAttendance({id,...cleanPayloadForSupabase(data)});
+    await loadSupabasePrimaryCore();
+  }else await setDoc(doc(db,"attendance",id),{...data,updatedAt:serverTimestamp()},{merge:true});
+}
+async function deleteAttendanceRecord(id){
+  if(SupabaseShadow.isConnected()){
+    await SupabaseShadow.delete("attendance",`legacy_id=eq.${encodeURIComponent(id)}`);
+    await loadSupabasePrimaryCore();
+  }else await deleteDoc(doc(db,"attendance",id));
+}
 
 function memberIdentityIds(member){return new Set([member?.id,member?.userId].filter(Boolean).map(String))}
 function attendanceMatchesMember(item,member){
@@ -1522,6 +1633,16 @@ async function loadPresenceBackupData(item){
 }
 async function createPresenceBackup({automatic=false}={}){
   if(!permissionEnabled("presence_register"))return toast("Sem permissão para criar backup.");
+  const records=state.attendance.filter(item=>[-1,1,3].includes(Number(item.status))).map(item=>({...cleanPayloadForSupabase(item),originalId:item.id}));
+  const rtRecords=state.rtPresence.map(item=>({...cleanPayloadForSupabase(item),originalId:item.id}));
+  if(!records.length&&!rtRecords.length){toast("Não existem dados de presença para salvar.");return null}
+  const now=new Date(),week=isoWeek(todayIso()),counts=presenceBackupCounts(records),id=`${week}__${now.toISOString().replace(/[^0-9]/g,"").slice(0,14)}`;
+  const payload={week,counts,total:records.length,rtTotal:rtRecords.length,automatic,backupSchema:3,status:"completed",createdBy:state.user.uid,createdByName:state.profile?.name||state.user.email,createdAt:now.toISOString(),createdAtText:now.toISOString(),sourceVersion:"22.10.0",records,rtRecords};
+  if(SupabaseShadow.isConnected()){await sbRecordPut("presence_backup",id,payload);await loadSupabaseLegacyRuntime()}else{const backupRef=doc(db,"presenceBackups",id);await setDoc(backupRef,{...payload,records:deleteField(),rtRecords:deleteField(),createdAt:serverTimestamp()});await writeBackupSubcollection(id,"attendance",records);await writeBackupSubcollection(id,"rt",rtRecords)}
+  await audit(automatic?"backup automático da presença":"backup da presença",`${week} · ${records.length} presenças · ${rtRecords.length} RTs`);
+  toast(`Backup salvo: ${records.length} presenças e ${rtRecords.length} RTs.`);return{id,...payload};
+}={}){
+  if(!permissionEnabled("presence_register"))return toast("Sem permissão para criar backup.");
   const records=state.attendance.filter(item=>[-1,1,3].includes(Number(item.status))).map(item=>({...item,originalId:item.id}));
   const rtRecords=state.rtPresence.map(item=>({...item,originalId:item.id}));
   if(!records.length&&!rtRecords.length){toast("Não existem dados de presença para salvar.");return null}
@@ -1560,40 +1681,22 @@ async function deleteDocsInChunks(collectionName,rows){
 }
 async function resetPresenceWithBackup(){
   if(!permissionEnabled("presence_reset"))return toast("Sem permissão para resetar a presença.");
-  const attendanceRows=state.attendance.filter(item=>[-1,1,3].includes(Number(item.status)));
-  const rtRows=[...state.rtPresence];
+  const attendanceRows=state.attendance.filter(item=>[-1,1,3].includes(Number(item.status))),rtRows=[...state.rtPresence];
   if(!attendanceRows.length&&!rtRows.length)return toast("Não existem dados de presença para resetar.");
-  const confirmation=prompt(`ATENÇÃO: o reset encerrará a semana atual e limpará Presenças, RT Presença, Consultar Registros, indicadores, ranking e estatísticas derivados desses dados.\n\nSerá criado um backup automático com ${attendanceRows.length} presenças e ${rtRows.length} RTs.\n\nDigite RESET para confirmar:`);
+  const confirmation=prompt(`ATENÇÃO: será criado um backup antes de limpar ${attendanceRows.length} presenças e ${rtRows.length} RTs.\n\nDigite RESET para confirmar:`);
   if(String(confirmation||"").trim().toUpperCase()!=="RESET")return toast("Reset cancelado.");
-  const jobId=`reset__${Date.now()}__${state.user.uid.slice(0,8)}`;
   let backup=null;
   try{
-    await setDoc(doc(db,"resetJobs",jobId),{status:"preparing",week:isoWeek(todayIso()),createdBy:state.user.uid,createdByName:state.profile?.name||state.user.email,attendanceTotal:attendanceRows.length,rtTotal:rtRows.length,createdAt:serverTimestamp(),updatedAt:serverTimestamp()});
     backup=await createPresenceBackup({automatic:true});if(!backup)return;
-    await updateDoc(doc(db,"resetJobs",jobId),{status:"backup_created",backupId:backup.id,updatedAt:serverTimestamp()});
-    await updateDoc(doc(db,"resetJobs",jobId),{status:"deleting_attendance",updatedAt:serverTimestamp()});
-    await deleteDocsInChunks("attendance",attendanceRows);
-    await updateDoc(doc(db,"resetJobs",jobId),{status:"deleting_rt",updatedAt:serverTimestamp()});
-    await deleteDocsInChunks("rtPresence",rtRows);
-    clearPresenceClientCache();
-    await updateDoc(doc(db,"resetJobs",jobId),{status:"completed",completedAt:serverTimestamp(),updatedAt:serverTimestamp()});
-    await audit("reset global de presença",`${backup.week} · ${attendanceRows.length} presenças · ${rtRows.length} RTs removidos · backup ${backup.id} · job ${jobId}`);
-    toast("Reset global concluído. Todas as abas de presença foram reiniciadas.");
-  }catch(error){
-    console.error(error);
-    try{
-      if(backup){
-        await updateDoc(doc(db,"resetJobs",jobId),{status:"rolling_back",updatedAt:serverTimestamp()});
-        await restorePresenceRows(backup.records,backup.rtRecords);
-        await updateDoc(doc(db,"resetJobs",jobId),{status:"rolled_back",rolledBackAt:serverTimestamp(),errorCode:error?.code||"error",errorMessage:String(error?.message||error).slice(0,500),updatedAt:serverTimestamp()});
-        return toast("Reset interrompido e revertido automaticamente. Nenhum registro foi perdido.");
-      }
-      await setDoc(doc(db,"resetJobs",jobId),{status:"failed",errorCode:error?.code||"error",errorMessage:String(error?.message||error).slice(0,500),updatedAt:serverTimestamp()},{merge:true});
-    }catch(rollbackError){
-      try{await setDoc(doc(db,"resetJobs",jobId),{status:"rollback_failed",errorCode:error?.code||"error",errorMessage:String(error?.message||error).slice(0,500),rollbackError:String(rollbackError?.message||rollbackError).slice(0,500),updatedAt:serverTimestamp()},{merge:true})}catch{}
+    if(SupabaseShadow.isConnected()){
+      for(const row of attendanceRows)await SupabaseShadow.delete("attendance",`legacy_id=eq.${encodeURIComponent(row.id)}`);
+      for(const row of rtRows)await sbRecordDelete("rt_presence",row.id);
+      await loadSupabasePrimaryCore();await loadSupabaseLegacyRuntime();
+    }else{
+      await deleteDocsInChunks("attendance",attendanceRows);await deleteDocsInChunks("rtPresence",rtRows);
     }
-    toast("Reset interrompido. O backup e o registro de recuperação foram preservados.");
-  }
+    clearPresenceClientCache();await audit("reset global de presença",`${backup.week} · ${attendanceRows.length} presenças · ${rtRows.length} RTs removidos · backup ${backup.id}`);toast("Reset global concluído com backup preservado.");
+  }catch(error){console.error(error);if(backup){try{await restorePresenceRows(backup.records,backup.rtRecords);return toast("Reset interrompido e revertido automaticamente.")}catch(rollbackError){console.error("Rollback falhou:",rollbackError)}}toast("Reset interrompido. O backup foi preservado.")}
 }
 async function downloadPresenceBackup(id){const item=state.presenceBackups.find(row=>row.id===id);if(!item)return toast("Backup não encontrado.");const data=await loadPresenceBackupData(item);downloadJson(`presenca-${item.week||id}.json`,{version:"22.9.32",exportedAt:new Date().toISOString(),backup:{...item,...data}});}
 
@@ -1643,12 +1746,17 @@ async function restoreCenterBackup(id){
 }
 
 async function restorePresenceRows(records=[],rtRecords=[]){
-  for(const [name,rows] of [["attendance",records],["rtPresence",rtRecords]])for(let start=0;start<rows.length;start+=400){
-    const batch=writeBatch(db);rows.slice(start,start+400).forEach(record=>{const {id:legacyId,originalId,...data}=record;const targetId=originalId||legacyId;delete data.restoredFromBackup;delete data.restoredAt;delete data.restoredBy;delete data.restoredByName;if(targetId)batch.set(doc(db,name,String(targetId)),data)});await batch.commit();
+  if(SupabaseShadow.isConnected()){
+    for(const record of records){const id=record.originalId||record.id;if(id)await shadowAttendance({...record,id})}
+    for(const record of rtRecords){const id=record.originalId||record.id;if(id)await sbRecordPut("rt_presence",id,{...record,id:undefined})}
+    await loadSupabasePrimaryCore();await loadSupabaseLegacyRuntime();return;
   }
+  for(const [name,rows] of [["attendance",records],["rtPresence",rtRecords]])for(let start=0;start<rows.length;start+=400){const batch=writeBatch(db);rows.slice(start,start+400).forEach(record=>{const {id:legacyId,originalId,...data}=record;const targetId=originalId||legacyId;if(targetId)batch.set(doc(db,name,String(targetId)),data)});await batch.commit()}
 }
 
 async function controlledPresenceRestore(backupId,records=[],rtRecords=[]){
+  if(SupabaseShadow.isConnected()){await restorePresenceRows(records,rtRecords);return `supabase_restore_${Date.now()}`}
+
   const jobId=`restore_presence__${Date.now()}__${state.user.uid.slice(0,8)}`,jobRef=doc(db,"restoreJobs",jobId);let sequence=0;
   await setDoc(jobRef,{status:"validated",restoreType:"presence",backupId,createdBy:state.user.uid,createdAt:serverTimestamp(),updatedAt:serverTimestamp()});
   try{
@@ -1664,7 +1772,7 @@ async function deleteCenterBackup(id){
   if(!owner())return toast("Somente DEV pode excluir backups.");
   const item=state.presenceBackups.find(row=>row.id===id);if(!item)return toast("Backup não encontrado.");
   if(!confirm(`Excluir permanentemente o backup ${item.week||id}?`))return;
-  try{const data=await loadPresenceBackupData(item);await deleteDocsInChunks(`presenceBackups/${id}/attendance`,data.records);await deleteDocsInChunks(`presenceBackups/${id}/rt`,data.rtRecords);await deleteDoc(doc(db,"presenceBackups",id));await audit("backup excluído",`${item.week||id} · ${item.total||item.records?.length||0} registros`);toast("Backup excluído.")}catch(error){console.error(error);toast(errMsg(error))}
+  try{const data=await loadPresenceBackupData(item);if(SupabaseShadow.isConnected()){await sbRecordDelete("presence_backup",id);await loadSupabaseLegacyRuntime()}else{await deleteDocsInChunks(`presenceBackups/${id}/attendance`,data.records);await deleteDocsInChunks(`presenceBackups/${id}/rt`,data.rtRecords);await deleteDoc(doc(db,"presenceBackups",id))}await audit("backup excluído",`${item.week||id} · ${item.total||item.records?.length||0} registros`);toast("Backup excluído.")}catch(error){console.error(error);toast(errMsg(error))}
 }
 on("backupCenterSearch","input",renderBackupCenter);
 on("backupCenterType","change",renderBackupCenter);
@@ -1697,7 +1805,6 @@ async function savePresenceFromModal(){
     if(supabasePrimaryMode()){
       const saved=await shadowAttendance({id,...payload,createdAt:null,updatedAt:null});
       if(!saved)throw new Error("Supabase não confirmou a presença.");
-      setDoc(doc(db,"attendance",id),payload,{merge:true}).catch(error=>console.warn("Backup Firebase da presença não gravado:",error));
       await loadSupabasePrimaryCore();
     }else{
       await setDoc(doc(db,"attendance",id),payload,{merge:true});
@@ -1708,7 +1815,8 @@ async function savePresenceFromModal(){
     const records=[...(current.records||[])].filter(r=>r.memberId!==member.id);
     records.push({memberId:member.id,userId:member.userId||member.id,memberName:member.name||"",clan:member.clan||"",role:member.role||"Membros",slot,status,note,updatedBy:state.user.uid,updatedByName:state.profile?.name||state.user.email,updatedAtText:new Date().toISOString()});
     const counts={present:records.filter(x=>x.status===1).length,justified:records.filter(x=>x.status===3).length,absent:records.filter(x=>x.status===-1).length};
-    await setDoc(doc(db,"rtPresence",rtId),{kind,typeLabel:presenceTypeLabel(kind),date,week:isoWeek(date),slot,slotLabel:slot,clan:"Todos",records,counts,total:records.length,status:current.status==="finalized"?"finalized":"open",updatedBy:state.user.uid,updatedByName:state.profile?.name||state.user.email,updatedAt:serverTimestamp(),createdAt:current.createdAt||serverTimestamp()},{merge:true});
+    const rtPayload={kind,typeLabel:presenceTypeLabel(kind),date,week:isoWeek(date),slot,slotLabel:slot,clan:"Todos",records,counts,total:records.length,status:current.status==="finalized"?"finalized":"open",updatedBy:state.user.uid,updatedByName:state.profile?.name||state.user.email,updatedAt:new Date().toISOString(),createdAt:current.createdAt||new Date().toISOString()};
+    if(SupabaseShadow.isConnected()){await sbRecordPut("rt_presence",rtId,rtPayload);await loadSupabaseLegacyRuntime()}else await setDoc(doc(db,"rtPresence",rtId),{...rtPayload,updatedAt:serverTimestamp(),createdAt:current.createdAt||serverTimestamp()},{merge:true});
     await audit(existing?"presença atualizada":"presença registrada",`${member.name} · ${presenceTypeLabel(kind)} · ${slot} · ${presenceStatus(status).label}`);
     closePresenceModal();toast("Presença salva no Histórico e no RT Presença.");
   }catch(error){toast(errMsg(error))}
@@ -1757,7 +1865,11 @@ function notificationDate(n){const d=n.createdAt?.toDate?n.createdAt.toDate():n.
 function unreadNotifications(){return state.notifications.filter(n=>!notificationRead(n)).sort((a,b)=>{const av=a.createdAt?.toMillis?.()||Date.parse(a.createdAt||0)||0;const bv=b.createdAt?.toMillis?.()||Date.parse(b.createdAt||0)||0;return bv-av})}
 async function markNotificationRead(notificationId){
   if(!state.user||!notificationId)return;
-  await setDoc(doc(db,"notificationReads",`${notificationId}_${state.user.uid}`),{notificationId,userId:state.user.uid,readAt:serverTimestamp()},{merge:true});
+  const id=`${notificationId}_${state.user.uid}`;
+  if(SupabaseShadow.isConnected()){
+    await sbRecordPut("notification_read",id,{notificationId,userId:state.user.uid,readAt:new Date().toISOString()},{ownerUid:state.user.uid});
+    await loadSupabaseLegacyRuntime();
+  }else await setDoc(doc(db,"notificationReads",id),{notificationId,userId:state.user.uid,readAt:serverTimestamp()},{merge:true});
 }
 let activePopupNotificationId="";
 function maybeShowNotificationPopup(){
@@ -2183,8 +2295,8 @@ function renderAdvancedCenter(){
   if(!owner())return;
   const logs=state.audit.slice().sort((a,b)=>(b.createdAt?.toMillis?.()||0)-(a.createdAt?.toMillis?.()||0));
   setHtml("advancedLogsRows",logs.map(a=>`<tr><td>${a.createdAt?.toDate?a.createdAt.toDate().toLocaleString("pt-BR"):"—"}</td><td>${escapeHtml(a.userName||"—")}</td><td>${escapeHtml(a.action||"—")}</td><td>${escapeHtml(a.details||"")}</td></tr>`).join("")||'<tr><td colspan="4">Nenhum log disponível.</td></tr>');
-  setHtml("firebaseStatusCards",[diagnosticCard("Autenticação",advancedDiagnostics.auth),diagnosticCard("Cloud Firestore",advancedDiagnostics.firestore),diagnosticCard("Listeners em tempo real",advancedDiagnostics.listeners)].join(""));
-  setHtml("servicesStatusGrid",[diagnosticCard("Aplicação web",{ok:true,text:`V22.9.32 carregada · ${location.protocol==="https:"?"HTTPS":"ambiente local"}`}),diagnosticCard("Firebase Auth",advancedDiagnostics.auth),diagnosticCard("Cloud Firestore",advancedDiagnostics.firestore),diagnosticCard("PWA / Service Worker",advancedDiagnostics.pwa),diagnosticCard("GitHub",{ok:githubDiagnostics.ok,text:githubDiagnostics.text})].join(""));
+  setHtml("firebaseStatusCards",[diagnosticCard("Supabase Auth",advancedDiagnostics.auth),diagnosticCard("Supabase Database",advancedDiagnostics.firestore),diagnosticCard("Sincronização",advancedDiagnostics.listeners)].join(""));
+  setHtml("servicesStatusGrid",[diagnosticCard("Aplicação web",{ok:true,text:`22.10.0-v7-total-audit carregada · ${location.protocol==="https:"?"HTTPS":"ambiente local"}`}),diagnosticCard("Supabase Auth",{ok:SupabaseShadow.isConnected(),text:SupabaseShadow.isConnected()?"Sessão Supabase ativa":"Sem sessão"}),diagnosticCard("Supabase Database",{ok:true,text:"Backend principal Supabase"}),diagnosticCard("PWA / Service Worker",advancedDiagnostics.pwa),diagnosticCard("GitHub",{ok:githubDiagnostics.ok,text:githubDiagnostics.text})].join(""));
   renderSessions();renderGithubStatus();
   setHtml("systemStatsGrid",[
     ["Usuários",state.users.filter(user=>resolveAccessRole(user)!=="dev").length],["Membros",visibleMembers().length],["Presenças",state.attendance.length],["Eventos",state.events.length],["Notificações",state.sentNotifications.length||state.notifications.length],["Logs",state.audit.length]
@@ -2200,9 +2312,13 @@ on("auditSearch","input",renderAuditTable);
 on("exportAuditCsv","click",()=>{const rows=[["Data","Usuário","Ação","Detalhes"],...filteredAuditRows().map(item=>[item.createdAt?.toDate?item.createdAt.toDate().toLocaleString("pt-BR"):"",item.userName||"",item.action||"",item.details||""])],csv=rows.map(row=>row.map(value=>`"${csvSafe(value).replaceAll('"','""')}"`).join(";")).join("\n"),blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}),url=URL.createObjectURL(blob),link=document.createElement("a");link.href=url;link.download=`auditoria-77-team-${todayIso()}.csv`;link.click();URL.revokeObjectURL(url)});
 function downloadJson(filename,data){const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
 async function runFirebaseDiagnostics(){
-  const started=performance.now();advancedDiagnostics.auth={ok:!!auth.currentUser,text:auth.currentUser?`Autenticado como ${auth.currentUser.email||auth.currentUser.uid}`:"Sem usuário autenticado"};
-  try{const snap=await getDoc(doc(db,"settings","app"));advancedDiagnostics.firestore={ok:true,text:`Leitura confirmada em ${Math.round(performance.now()-started)} ms · settings/app ${snap.exists()?"encontrado":"ainda não criado"}`}}catch(error){advancedDiagnostics.firestore={ok:false,text:errMsg(error)}}
-  advancedDiagnostics.listeners={ok:state.unsubs.length>0,text:`${state.unsubs.length} listener(s) registrado(s)`};advancedDiagnostics.pwa={ok:"serviceWorker" in navigator&&!!navigator.serviceWorker.controller,text:"serviceWorker" in navigator?(navigator.serviceWorker.controller?"Service Worker controlando esta página":"Disponível; recarregue para assumir o controle"):"Não suportado pelo navegador"};advancedDiagnostics.testedAt=new Date().toISOString();renderAdvancedCenter();return advancedDiagnostics;
+  const started=performance.now();
+  const session=SupabaseShadow.getSession();
+  advancedDiagnostics.auth={ok:!!session?.access_token,text:session?.user?.email?`Supabase Auth · ${session.user.email}`:"Sem sessão Supabase"};
+  try{await SupabaseShadow.health();advancedDiagnostics.firestore={ok:true,text:`Supabase Database respondeu em ${Math.round(performance.now()-started)} ms`}}catch(error){advancedDiagnostics.firestore={ok:false,text:error.message||"Supabase indisponível"}}
+  advancedDiagnostics.listeners={ok:true,text:`Runtime Supabase ativo · ${state.unsubs.length} rotina(s) registrada(s)`};
+  advancedDiagnostics.pwa={ok:"serviceWorker" in navigator&&!!navigator.serviceWorker.controller,text:"serviceWorker" in navigator?(navigator.serviceWorker.controller?"Service Worker controlando esta página":"Disponível; recarregue para assumir o controle"):"Não suportado pelo navegador"};
+  advancedDiagnostics.testedAt=new Date().toISOString();renderAdvancedCenter();return advancedDiagnostics;
 }
 async function checkGithub(){
   const repository=String(byId("githubRepository")?.value||state.settings?.advanced?.githubRepository||"").trim();
@@ -2211,20 +2327,20 @@ async function checkGithub(){
   try{const [repoResponse,runsResponse,releaseResponse]=await Promise.all([fetch(`https://api.github.com/repos/${repository}`,{headers:{Accept:"application/vnd.github+json"}}),fetch(`https://api.github.com/repos/${repository}/actions/runs?per_page=1`,{headers:{Accept:"application/vnd.github+json"}}),fetch(`https://api.github.com/repos/${repository}/releases/latest`,{headers:{Accept:"application/vnd.github+json"}})]);if(!repoResponse.ok)throw new Error(`Repositório indisponível (${repoResponse.status})`);const repo=await repoResponse.json(),runs=runsResponse.ok?await runsResponse.json():null,release=releaseResponse.ok?await releaseResponse.json():null,lastRun=runs?.workflow_runs?.[0];githubDiagnostics={ok:true,configured:true,repository,text:`${repo.full_name} · branch ${repo.default_branch} · atualizado ${new Date(repo.updated_at).toLocaleString("pt-BR")}`,workflows:lastRun?`${lastRun.name}: ${lastRun.conclusion||lastRun.status}`:"Nenhuma execução pública",release:release?.tag_name||"Nenhuma release publicada",testedAt:new Date().toISOString()};setText("githubUpdateStatus","Consulta concluída com sucesso.");renderAdvancedCenter();return true}catch(error){githubDiagnostics={ok:false,configured:true,repository,text:error.message||"Falha ao consultar GitHub",workflows:"Indisponível",release:"Indisponível"};setText("githubUpdateStatus",githubDiagnostics.text);renderAdvancedCenter();return false}
 }
 on("checkUpdatesButton","click",async()=>{const button=byId("checkUpdatesButton");if(button)button.disabled=true;try{const response=await fetch(`manifest.json?check=${Date.now()}`,{cache:"no-store"});if(!response.ok)throw new Error("Manifesto indisponível");const manifest=await response.json(),repository=state.settings?.advanced?.githubRepository||"";let message=`Versão publicada: ${manifest.version_name||manifest.version||"não informada"}. Versão carregada: 22.9.32.`;if(repository){await checkGithub();if(githubDiagnostics.release!=="Nenhuma release publicada"&&githubDiagnostics.release!=="Indisponível")message+=` GitHub: ${githubDiagnostics.release}.`}setText("updateStatusText",message);toast("Verificação concluída.")}catch(error){setText("updateStatusText",`Falha na verificação: ${error.message}`)}finally{if(button)button.disabled=false}});
-on("createBackupButton","click",async()=>{if(!owner())return;try{downloadJson(`77-team-backup-${localIsoDate()}.json`,await completeBackupPayload());toast("Backup completo do Firestore e seguro gerado.")}catch(error){toast(error.message||errMsg(error))}});
-on("restoreBackupFile","change",async e=>{const file=e.target.files?.[0],button=byId("restoreAdvancedBackup");validatedAdvancedBackup=null;if(button)button.disabled=true;if(!file)return;if(file.size>200*1024*1024)return setText("restoreBackupInfo","Arquivo acima do limite seguro de 200 MB.");try{const data=JSON.parse(await file.text());validateBackupPayload(data);validatedAdvancedBackup=data;if(button)button.disabled=false;setText("restoreBackupInfo",`✓ Backup validado: V${data.version}, projeto ${data.projectId}, schema ${data.backupSchema}, gerado em ${new Date(data.generatedAt).toLocaleString("pt-BR")}.`)}catch(error){setText("restoreBackupInfo",`✕ Backup recusado: ${error.message||"arquivo inválido"}`)}});
-on("restoreAdvancedBackup","click",async()=>{if(!owner()||!validatedAdvancedBackup)return;if(!confirm("Restaurar este backup validado? Um restoreJob persistente fará rollback automático em caso de falha."))return;const button=byId("restoreAdvancedBackup");button.disabled=true;setText("restoreBackupInfo","Restauração controlada em andamento. Não feche esta página...");try{const jobId=await restoreBackupPayload(validatedAdvancedBackup);setText("restoreBackupInfo",`✓ Restauração concluída. restoreJob: ${jobId}`);validatedAdvancedBackup=null;toast("Backup restaurado com rollback protegido.")}catch(error){setText("restoreBackupInfo",`✕ Restauração revertida: ${error.message||error}`);button.disabled=false}});
+on("createBackupButton","click",async()=>{if(!owner())return;try{const data=SupabaseShadow.isConnected()?await supabaseV7BackupPayload():await completeBackupPayload();downloadJson(`77-team-backup-${localIsoDate()}.json`,data);toast("Backup completo do sistema gerado.")}catch(error){toast(error.message||errMsg(error))}});
+on("restoreBackupFile","change",async e=>{const file=e.target.files?.[0],button=byId("restoreAdvancedBackup");validatedAdvancedBackup=null;if(button)button.disabled=true;if(!file)return;if(file.size>200*1024*1024)return setText("restoreBackupInfo","Arquivo acima do limite seguro de 200 MB.");try{const data=JSON.parse(await file.text());if(SupabaseShadow.isConnected()){if(data?.format!=="77-team-manager-supabase-backup"||Number(data?.backupSchema)!==7)throw new Error("Use um backup Supabase V7.")}else validateBackupPayload(data);validatedAdvancedBackup=data;if(button)button.disabled=false;setText("restoreBackupInfo",`✓ Backup validado: V${data.version}, schema ${data.backupSchema}, gerado em ${new Date(data.generatedAt).toLocaleString("pt-BR")}.`)}catch(error){setText("restoreBackupInfo",`✕ Backup recusado: ${error.message||"arquivo inválido"}`)}});
+on("restoreAdvancedBackup","click",async()=>{if(!owner()||!validatedAdvancedBackup)return;if(!confirm("Restaurar este backup validado no Supabase?"))return;const button=byId("restoreAdvancedBackup");button.disabled=true;setText("restoreBackupInfo","Restauração em andamento. Não feche esta página...");try{if(SupabaseShadow.isConnected())await restoreSupabaseV7Backup(validatedAdvancedBackup);else await restoreBackupPayload(validatedAdvancedBackup);setText("restoreBackupInfo","✓ Restauração concluída.");validatedAdvancedBackup=null;toast("Backup restaurado.")}catch(error){setText("restoreBackupInfo",`✕ Falha na restauração: ${error.message||error}`);button.disabled=false}});
 function maintenanceFormData(){const rawImage=byId("maintenanceImageUrl")?.value.trim()||"";return {enabled:byId("maintenanceModeToggle")?.checked===true,title:byId("maintenanceTitle")?.value.trim()||"Sistema em manutenção",message:byId("maintenanceMessage")?.value.trim()||"Estamos realizando melhorias. Algumas funções podem apresentar instabilidade.",imageUrl:rawImage?safeExternalUrl(rawImage):"",expectedEnd:byId("maintenanceExpectedEnd")?.value||"",showLogin:byId("maintenanceShowLogin")?.checked!==false,showApp:byId("maintenanceShowApp")?.checked!==false}}
 function formatMaintenanceEnd(value){if(!value)return "";const d=new Date(value);return Number.isNaN(d.getTime())?"":`Previsão de término: ${d.toLocaleString("pt-BR")}`}
 function setNoticeImage(element,url){if(!element)return;const safe=safeExternalUrl(url);element.classList.toggle("hidden",!safe);if(safe)element.src=safe;else element.removeAttribute("src")}
 function updateMaintenancePreview(){const data=maintenanceFormData();setText("maintenancePreviewTitle",`🚧 ${data.title}`);setText("maintenancePreviewMessage",data.message);const end=formatMaintenanceEnd(data.expectedEnd);setText("maintenancePreviewEnd",end);byId("maintenancePreviewEnd")?.classList.toggle("hidden",!end);setNoticeImage(byId("maintenancePreviewImage"),data.imageUrl);const chip=byId("maintenanceStatusChip");if(chip){chip.textContent=data.enabled?"Aviso ativo":"Sistema online";chip.classList.toggle("active",data.enabled)}}
 function applyMaintenanceNotice(){const data=state.settings?.maintenance||{};const enabled=data.enabled===true;const loginVisible=enabled&&data.showLogin!==false;const appVisible=enabled&&data.showApp!==false&&sessionStorage.getItem("77team-maintenance-dismissed")!==String(data.updatedAt||"");const login=byId("maintenanceLoginNotice");if(login){login.classList.toggle("hidden",!loginVisible);setText("maintenanceLoginTitle",`🚧 ${data.title||"Sistema em manutenção"}`);setText("maintenanceLoginMessage",data.message||"Estamos realizando melhorias.");const end=formatMaintenanceEnd(data.expectedEnd);setText("maintenanceLoginEnd",end);byId("maintenanceLoginEnd")?.classList.toggle("hidden",!end);setNoticeImage(byId("maintenanceLoginImage"),data.imageUrl)}const banner=byId("maintenanceAppBanner");if(banner){banner.classList.toggle("hidden",!appVisible);setText("maintenanceAppTitle",`🚧 ${data.title||"Sistema em manutenção"}`);setText("maintenanceAppMessage",data.message||"Estamos realizando melhorias.");const end=formatMaintenanceEnd(data.expectedEnd);setText("maintenanceAppEnd",end);byId("maintenanceAppEnd")?.classList.toggle("hidden",!end)}}
 ["maintenanceModeToggle","maintenanceTitle","maintenanceMessage","maintenanceImageUrl","maintenanceExpectedEnd","maintenanceShowLogin","maintenanceShowApp"].forEach(id=>{on(id,"input",()=>{maintenanceFormDirty=true;updateMaintenancePreview()});on(id,"change",()=>{maintenanceFormDirty=true;updateMaintenancePreview()})}); on("previewMaintenanceButton","click",()=>{updateMaintenancePreview();toast("Prévia atualizada.")}); on("closeMaintenanceBanner","click",()=>{sessionStorage.setItem("77team-maintenance-dismissed",String(state.settings?.maintenance?.updatedAt||""));byId("maintenanceAppBanner")?.classList.add("hidden")});
-on("saveMaintenanceButton","click",async()=>{if(!owner())return;const rawImage=byId("maintenanceImageUrl")?.value.trim()||"";if(rawImage&&!safeExternalUrl(rawImage))return toast("A imagem do aviso precisa usar uma URL HTTPS válida.");try{const maintenance={...maintenanceFormData(),updatedAt:new Date().toISOString(),updatedBy:state.user.uid,updatedByName:state.profile?.name||state.user.email||"DEV"};await setDoc(doc(db,"settings","app"),{maintenance},{merge:true});state.settings={...state.settings,maintenance};maintenanceFormDirty=false;applyMaintenanceNotice();await audit("aviso de manutenção atualizado",maintenance.enabled?"ativado":"desativado");toast(maintenance.enabled?"Aviso de manutenção publicado.":"Aviso de manutenção desativado.")}catch(e){toast(errMsg(e))}});
-on("refreshFirebaseStatus","click",runFirebaseDiagnostics);on("refreshServicesStatus","click",async()=>{await runFirebaseDiagnostics();if(state.settings?.advanced?.githubRepository)await checkGithub();toast("Diagnóstico dos serviços concluído.")});
+on("saveMaintenanceButton","click",async()=>{if(!owner())return;const rawImage=byId("maintenanceImageUrl")?.value.trim()||"";if(rawImage&&!safeExternalUrl(rawImage))return toast("A imagem do aviso precisa usar uma URL HTTPS válida.");try{const maintenance={...maintenanceFormData(),updatedAt:new Date().toISOString(),updatedBy:state.user.uid,updatedByName:state.profile?.name||state.user.email||"DEV"};if(SupabaseShadow.isConnected())await sbSaveSettingsPatch({maintenance});else await setDoc(doc(db,"settings","app"),{maintenance},{merge:true});state.settings={...state.settings,maintenance};maintenanceFormDirty=false;applyMaintenanceNotice();await audit("aviso de manutenção atualizado",maintenance.enabled?"ativado":"desativado");toast(maintenance.enabled?"Aviso de manutenção publicado.":"Aviso de manutenção desativado.")}catch(e){toast(errMsg(e))}});
+on("refreshSupabaseStatus","click",runFirebaseDiagnostics);on("refreshServicesStatus","click",async()=>{await runFirebaseDiagnostics();if(state.settings?.advanced?.githubRepository)await checkGithub();toast("Diagnóstico dos serviços concluído.")});
 on("checkGithubButton","click",checkGithub);on("refreshGithubStatus","click",checkGithub);
-on("clearInactiveSessions","click",async()=>{if(!owner())return;const cutoff=Date.now()-24*60*60*1000,stale=state.sessions.filter(item=>sessionTime(item.lastSeen)<cutoff);if(!stale.length)return toast("Nenhuma sessão inativa há mais de 24 horas.");if(!confirm(`Remover ${stale.length} sessão(ões) inativa(s)?`))return;try{for(let index=0;index<stale.length;index+=400){const batch=writeBatch(db);stale.slice(index,index+400).forEach(item=>batch.delete(doc(db,"sessions",item.id)));await batch.commit()}await audit("sessões inativas removidas",`${stale.length} registro(s)`);toast("Sessões inativas removidas.")}catch(error){toast(errMsg(error))}});
-on("saveGithubRepository","click",async()=>{if(!owner())return;const repository=String(byId("githubRepository")?.value||"").trim();if(repository&&!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository))return toast("Use o formato organizacao/repositorio.");try{const advanced={...(state.settings?.advanced||{}),githubRepository:repository};await setDoc(doc(db,"settings","app"),{advanced},{merge:true});state.settings={...state.settings,advanced};await audit("repositório GitHub atualizado",repository||"removido");toast(repository?"Repositório salvo.":"Repositório removido.");if(repository)await checkGithub()}catch(error){toast(errMsg(error))}});
+on("clearInactiveSessions","click",async()=>{if(!owner())return;const cutoff=Date.now()-24*60*60*1000,stale=state.sessions.filter(item=>sessionTime(item.lastSeen)<cutoff);if(!stale.length)return toast("Nenhuma sessão inativa há mais de 24 horas.");if(!confirm(`Remover ${stale.length} sessão(ões) inativa(s)?`))return;try{if(SupabaseShadow.isConnected()){for(const item of stale)await sbRecordDelete("session",item.id);await loadSupabaseLegacyRuntime()}else{for(let index=0;index<stale.length;index+=400){const batch=writeBatch(db);stale.slice(index,index+400).forEach(item=>batch.delete(doc(db,"sessions",item.id)));await batch.commit()}}await audit("sessões inativas removidas",`${stale.length} registro(s)`);toast("Sessões inativas removidas.")}catch(error){toast(error.message||errMsg(error))}});
+on("saveGithubRepository","click",async()=>{if(!owner())return;const repository=String(byId("githubRepository")?.value||"").trim();if(repository&&!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository))return toast("Use o formato organizacao/repositorio.");try{const advanced={...(state.settings?.advanced||{}),githubRepository:repository};if(SupabaseShadow.isConnected())await sbSaveSettingsPatch({advanced});else await setDoc(doc(db,"settings","app"),{advanced},{merge:true});state.settings={...state.settings,advanced};await audit("repositório GitHub atualizado",repository||"removido");toast(repository?"Repositório salvo.":"Repositório removido.");if(repository)await checkGithub()}catch(error){toast(errMsg(error))}});
 on("clearCacheButton","click",async()=>{if(!owner())return;try{if("serviceWorker" in navigator){const regs=await navigator.serviceWorker.getRegistrations();await Promise.all(regs.map(r=>r.unregister()))}if("caches" in window){const keys=await caches.keys();await Promise.all(keys.map(k=>caches.delete(k)))}toast("Cache limpo. Recarregando...");setTimeout(()=>location.reload(true),700)}catch(e){toast("Não foi possível limpar todo o cache.")}});
 
 document.addEventListener("input",e=>{if(e.target.matches("[data-unified-presence-search],[data-unified-presence-date]"))filterUnifiedPresence()});
@@ -2242,15 +2358,14 @@ document.addEventListener("click",async e=>{
   const restoreCenter=e.target.closest("[data-restore-center-backup]");if(restoreCenter){await restoreCenterBackup(restoreCenter.dataset.restoreCenterBackup);return}
   const deleteCenter=e.target.closest("[data-delete-center-backup]");if(deleteCenter){await deleteCenterBackup(deleteCenter.dataset.deleteCenterBackup);return}
   const statusChoice=e.target.closest("[data-presence-status-choice]");if(statusChoice){document.querySelectorAll("[data-presence-status-choice]").forEach(btn=>btn.classList.toggle("active",btn===statusChoice));return}
-  const deleteAttendance=e.target.closest("[data-delete-attendance]");if(deleteAttendance&&permissionEnabled("presence_delete")&&confirm("Excluir este registro de presença?")){await deleteDoc(doc(db,"attendance",deleteAttendance.dataset.deleteAttendance));await audit("presença excluída",deleteAttendance.dataset.deleteAttendance);toast("Registro excluído.");return}
+  const deleteAttendance=e.target.closest("[data-delete-attendance]");if(deleteAttendance&&permissionEnabled("presence_delete")&&confirm("Excluir este registro de presença?")){await deleteAttendanceRecord(deleteAttendance.dataset.deleteAttendance);await audit("presença excluída",deleteAttendance.dataset.deleteAttendance);toast("Registro excluído.");return}
 
   const p=e.target.closest("[data-presence]");
   if(p&&permissionEnabled("presence_edit")){
     const [kind,memberId,slot,date=todayIso()]=p.dataset.presence.split("|"),member=state.members.find(m=>m.id===memberId);if(!member)return;
     const id=(kind+"__"+date+"__"+memberId+"__"+slot).replace(/[^a-zA-Z0-9_-]/g,"_");
     const current=presenceRecord(kind,memberId,slot,date),sequence=[0,1,2,3,-1],next=sequence[(sequence.indexOf(Number(current?.status||0))+1)%sequence.length];
-    const ref=doc(db,"attendance",id);
-    if(next===0)await deleteDoc(ref);else await setDoc(ref,{memberId,userId:member.userId||member.id,memberName:member.name,clan:member.clan,role:member.role,kind,slot,status:next,date,note:current?.note||"",updatedBy:state.user.uid,updatedByName:state.profile?.name||state.user.email,updatedAt:serverTimestamp()},{merge:true});
+    if(next===0)await deleteAttendanceRecord(id);else await saveAttendanceRecord(id,{memberId,userId:member.userId||member.id,memberName:member.name,clan:member.clan,role:member.role,kind,slot,status:next,date,note:current?.note||"",updatedBy:state.user.uid,updatedByName:state.profile?.name||state.user.email,updatedAt:new Date().toISOString()});
     await audit("presença alterada",`${member.name} · ${kind} · ${slot} · ${presenceStatus(next).label}`);toast("Alteração salva automaticamente.");
   }
   const noteButton=e.target.closest("[data-presence-note]");
@@ -2258,14 +2373,17 @@ document.addEventListener("click",async e=>{
     const [kind,memberId,slot,date]=noteButton.dataset.presenceNote.split("|"),member=state.members.find(m=>m.id===memberId);if(!member)return;
     const current=presenceRecord(kind,memberId,slot,date),note=prompt(`Observação de ${member.name} · ${slot}:`,current?.note||"");if(note===null)return;
     const id=(kind+"__"+date+"__"+memberId+"__"+slot).replace(/[^a-zA-Z0-9_-]/g,"_");
-    await setDoc(doc(db,"attendance",id),{memberId,userId:member.userId||member.id,memberName:member.name,clan:member.clan,role:member.role,kind,slot,status:Number(current?.status||0),date,note:note.trim(),updatedBy:state.user.uid,updatedByName:state.profile?.name||state.user.email,updatedAt:serverTimestamp()},{merge:true});
+    await saveAttendanceRecord(id,{memberId,userId:member.userId||member.id,memberName:member.name,clan:member.clan,role:member.role,kind,slot,status:Number(current?.status||0),date,note:note.trim(),updatedBy:state.user.uid,updatedByName:state.profile?.name||state.user.email,updatedAt:new Date().toISOString()});
     await audit("observação de presença",`${member.name} · ${kind} · ${slot}`);toast("Observação salva.");
   }
   const bulk=e.target.closest("[data-presence-bulk]");
   if(bulk&&permissionEnabled("presence_edit")){
     const kind=bulk.dataset.kind,status=Number(bulk.dataset.presenceBulk),filter=presenceFilter(kind),slots=filter.slot==="all"?configuredPresenceSlots(kind):[filter.slot],members=state.members.filter(m=>(!filter.clan||m.clan===filter.clan)&&(!filter.search||String(m.name||"").toLowerCase().includes(filter.search.toLowerCase())));
     if(!confirm(`${status===1?"Marcar como presentes":status===-1?"Marcar como ausentes":"Limpar"} ${members.length*slots.length} registros?`))return;
-    const batch=writeBatch(db);for(const member of members)for(const slot of slots){const id=(kind+"__"+filter.date+"__"+member.id+"__"+slot).replace(/[^a-zA-Z0-9_-]/g,"_"),ref=doc(db,"attendance",id);if(status===0)batch.delete(ref);else batch.set(ref,{memberId:member.id,userId:member.userId||member.id,memberName:member.name,clan:member.clan,role:member.role,kind,slot,status,date:filter.date,note:"",updatedBy:state.user.uid,updatedByName:state.profile?.name||state.user.email,updatedAt:serverTimestamp()},{merge:true})}await batch.commit();await audit("presença em massa",`${kind} · ${filter.date} · ${members.length*slots.length} registros`);toast("Marcações atualizadas.");
+    if(SupabaseShadow.isConnected()){
+      for(const member of members)for(const slot of slots){const id=(kind+"__"+filter.date+"__"+member.id+"__"+slot).replace(/[^a-zA-Z0-9_-]/g,"_");if(status===0)await SupabaseShadow.delete("attendance",`legacy_id=eq.${encodeURIComponent(id)}`);else await shadowAttendance({id,memberId:member.id,userId:member.userId||member.id,memberName:member.name,clan:member.clan,role:member.role,kind,slot,status,date:filter.date,note:"",updatedBy:state.user.uid,updatedByName:state.profile?.name||state.user.email,updatedAt:new Date().toISOString()})}await loadSupabasePrimaryCore();
+    }else{const batch=writeBatch(db);for(const member of members)for(const slot of slots){const id=(kind+"__"+filter.date+"__"+member.id+"__"+slot).replace(/[^a-zA-Z0-9_-]/g,"_"),ref=doc(db,"attendance",id);if(status===0)batch.delete(ref);else batch.set(ref,{memberId:member.id,userId:member.userId||member.id,memberName:member.name,clan:member.clan,role:member.role,kind,slot,status,date:filter.date,note:"",updatedBy:state.user.uid,updatedByName:state.profile?.name||state.user.email,updatedAt:serverTimestamp()},{merge:true})}await batch.commit()}
+    await audit("presença em massa",`${kind} · ${filter.date} · ${members.length*slots.length} registros`);toast("Marcações atualizadas.");
   }
   const review=e.target.closest("[data-presence-review]");
   if(review&&permissionEnabled("presence_finalize")){
@@ -2285,7 +2403,8 @@ document.addEventListener("click",async e=>{
 Um registro será salvo em Gestão → RT Presença.`))return;
     try{
       const counts={present:records.filter(x=>x.status===1).length,late:records.filter(x=>x.status===2).length,justified:records.filter(x=>x.status===3).length,absent:records.filter(x=>x.status===-1).length,pending};
-      const rtRef=await addDoc(collection(db,"rtPresence"),{kind,typeLabel,date:filter.date,week:filter.week||isoWeek(filter.date),slot:filter.slot,slotLabel,clan:filter.clan||"Todos",records,counts,total:records.length,status:"finalized",finalizedBy:state.user.uid,finalizedByName:state.profile?.name||state.user.email,finalizedAt:serverTimestamp(),createdAt:serverTimestamp()});
+      const rtPayload={kind,typeLabel,date:filter.date,week:filter.week||isoWeek(filter.date),slot:filter.slot,slotLabel,clan:filter.clan||"Todos",records,counts,total:records.length,status:"finalized",finalizedBy:state.user.uid,finalizedByName:state.profile?.name||state.user.email,finalizedAt:new Date().toISOString(),createdAt:new Date().toISOString()};
+      const rtRef=SupabaseShadow.isConnected()?await sbRecordAdd("rt_presence",rtPayload):await addDoc(collection(db,"rtPresence"),{...rtPayload,finalizedAt:serverTimestamp(),createdAt:serverTimestamp()});
       await audit("RT Presença criado",`${rtRef.id} · ${typeLabel} · ${slotLabel} · ${filter.date}`);
       toast("Presença finalizada e salva em RT Presença.");
     }catch(error){toast(errMsg(error));}
@@ -2295,7 +2414,7 @@ Um registro será salvo em Gestão → RT Presença.`))return;
   const rtToggle=e.target.closest("[data-rt-toggle]");if(rtToggle){$("#rt-details-"+rtToggle.dataset.rtToggle)?.classList.toggle("hidden")}
   const rtCsv=e.target.closest("[data-rt-csv]");if(rtCsv){const rt=state.rtPresence.find(x=>x.id===rtCsv.dataset.rtCsv);if(rt)exportRtCsv(rt)}
   const rtPrint=e.target.closest("[data-rt-print]");if(rtPrint){const rt=state.rtPresence.find(x=>x.id===rtPrint.dataset.rtPrint);if(rt)printRt(rt)}
-  const rtDelete=e.target.closest("[data-rt-delete]");if(rtDelete&&owner()){const rt=state.rtPresence.find(x=>x.id===rtDelete.dataset.rtDelete);if(rt&&confirm("Excluir este RT definitivamente? O Histórico de presença não será removido.")){await deleteDoc(doc(db,"rtPresence",rt.id));await audit("RT Presença excluído",`${escapeHtml(rt.id)} · ${rt.typeLabel} · ${rt.date}`);toast("RT excluído.")}}
+  const rtDelete=e.target.closest("[data-rt-delete]");if(rtDelete&&owner()){const rt=state.rtPresence.find(x=>x.id===rtDelete.dataset.rtDelete);if(rt&&confirm("Excluir este RT definitivamente? O Histórico de presença não será removido.")){if(SupabaseShadow.isConnected()){await sbRecordDelete("rt_presence",rt.id);await loadSupabaseLegacyRuntime()}else await deleteDoc(doc(db,"rtPresence",rt.id));await audit("RT Presença excluído",`${escapeHtml(rt.id)} · ${rt.typeLabel} · ${rt.date}`);toast("RT excluído.")}}
 
   const changeClan=e.target.closest("[data-change-member-clan]");
   if(changeClan){
@@ -2306,18 +2425,21 @@ Um registro será salvo em Gestão → RT Presença.`))return;
     if((member.clan||"")===nextClan)return toast("O membro já está neste clã.");
     if(!confirm(`Alterar o clã de ${member.name} para ${nextClan||"Sem clã"}?`))return;
     try{
-      const user=linkedUserByUidForMember(member),payload={clan:nextClan,clanUpdatedAt:serverTimestamp(),clanUpdatedBy:state.user.uid,updatedAt:serverTimestamp()};
-      await updateDoc(doc(db,"members",member.id),payload);member.clan=nextClan;
-      let accountSynced=false;
-      if(user)try{await updateDoc(doc(db,"users",user.id),payload);user.clan=nextClan;accountSynced=true}catch(syncError){console.warn("Clã alterado no membro, mas a conta vinculada não foi sincronizada:",syncError)}
+      const user=linkedUserByUidForMember(member);let accountSynced=false;
+      if(SupabaseShadow.isConnected()){
+        await SupabaseShadow.update("characters",`legacy_id=eq.${encodeURIComponent(member.id)}`,{clan:nextClan,updated_at:new Date().toISOString()});
+        member.clan=nextClan;accountSynced=Boolean(user);if(user)user.clan=nextClan;await loadSupabasePrimaryCore();
+      }else{
+        const payload={clan:nextClan,clanUpdatedAt:serverTimestamp(),clanUpdatedBy:state.user.uid,updatedAt:serverTimestamp()};await updateDoc(doc(db,"members",member.id),payload);member.clan=nextClan;if(user)try{await updateDoc(doc(db,"users",user.id),payload);user.clan=nextClan;accountSynced=true}catch(syncError){console.warn("Clã alterado no membro, mas a conta vinculada não foi sincronizada:",syncError)}
+      }
       render();
       await audit("clã de membro alterado",`${member.name} → ${nextClan||"Sem clã"}${accountSynced?" · conta sincronizada por UID":user?" · sincronização da conta pendente":" · membro sem conta vinculada"}`);
       toast(accountSynced?"Clã atualizado no membro e na conta.":user?"Clã atualizado no membro. A sincronização da conta ficou pendente.":"Clã atualizado no membro.");
     }catch(error){
       if(error?.code==="permission-denied"){
         const allowed=permissionEnabled("members_clan_change");
-        console.error("Alteração de clã negada pelo Firestore",{role:currentAccessRole(),members_clan_change:allowed,member});
-        toast(`Alteração de clã negada pelo Firebase · cargo=${accessRoleLabel(currentAccessRole())} · alterar clã=${allowed?"SIM":"NÃO"}.`);
+        console.error("Alteração de clã negada",{role:currentAccessRole(),members_clan_change:allowed,member});
+        toast(`Alteração de clã negada · cargo=${accessRoleLabel(currentAccessRole())} · alterar clã=${allowed?"SIM":"NÃO"}.`);
       }else toast(errMsg(error));
     }
     return;
@@ -2350,19 +2472,9 @@ Um registro será salvo em Gestão → RT Presença.`))return;
         // Personagem/cargo de clã continua separado do cargo de acesso.
         if(member?.id)await SupabaseShadow.update(
           "characters",
-          `id=eq.${encodeURIComponent(member.id)}`,
+          `legacy_id=eq.${encodeURIComponent(member.id)}`,
           {role:nextMemberRole,updated_at:new Date().toISOString()}
         );
-        // Firebase é somente backup temporário e não bloqueia a alteração principal.
-        const batch=writeBatch(db);
-        batch.update(doc(db,"users",user.id),{
-          role:nextAccess,accessRole:nextAccess,memberRole:nextMemberRole,
-          roleUpdatedAt:serverTimestamp(),roleUpdatedBy:state.user.uid,updatedAt:serverTimestamp()
-        });
-        batch.set(doc(db,"members",member.id),{
-          role:nextMemberRole,accessRole:nextAccess,userId:user.id,updatedAt:serverTimestamp()
-        },{merge:true});
-        batch.commit().catch(error=>console.warn("Backup Firebase do cargo não gravado:",error));
       }else{
         const batch=writeBatch(db);
         batch.update(doc(db,"users",user.id),{
@@ -2413,7 +2525,7 @@ Um registro será salvo em Gestão → RT Presença.`))return;
   const del=e.target.closest("[data-delete-member]");if(del){
     const member=state.members.find(item=>item.id===del.dataset.deleteMember);
     if(!canDeleteMemberRecord(member))return toast("Seu cargo não pode excluir este membro.");
-    if(confirm(`Excluir o membro ${member.name||"selecionado"}?`))try{await deleteDoc(doc(db,"members",member.id));await audit("membro excluído",`${member.name||member.id} · por ${currentAccessRole()}`);toast("Membro excluído.")}catch(error){toast(errMsg(error))}
+    if(confirm(`Excluir o membro ${member.name||"selecionado"}?`))try{if(SupabaseShadow.isConnected()){await SupabaseShadow.update("characters",`legacy_id=eq.${encodeURIComponent(member.id)}`,{active:false,updated_at:new Date().toISOString()});await loadSupabasePrimaryCore()}else await deleteDoc(doc(db,"members",member.id));await audit("membro excluído",`${member.name||member.id} · por ${currentAccessRole()}`);toast("Membro excluído.")}catch(error){toast(errMsg(error))}
     return;
   }
   const approve=e.target.closest("[data-approve]");
@@ -2529,7 +2641,7 @@ document.addEventListener("click",async event=>{
   const mark=event.target.closest("[data-mark-notification]");
   if(mark){try{await markNotificationRead(mark.dataset.markNotification)}catch(error){toast(errMsg(error))}}
   const del=event.target.closest("[data-delete-notification]");
-  if(del&&owner()){try{await deleteDoc(doc(db,"notifications",del.dataset.deleteNotification));toast("Notificação excluída.")}catch(error){toast(errMsg(error))}}
+  if(del&&owner()){try{if(SupabaseShadow.isConnected()){await sbRecordDelete("notification",del.dataset.deleteNotification);await loadSupabaseLegacyRuntime()}else await deleteDoc(doc(db,"notifications",del.dataset.deleteNotification));toast("Notificação excluída.")}catch(error){toast(error.message||errMsg(error))}}
 });
 function closeCalendarEventModal(){editingCalendarEventId="";$("#eventForm")?.reset();$("#eventModal")?.classList.add("hidden")}
 function openCalendarEventModal(item=null){
@@ -2571,7 +2683,6 @@ $("#eventForm").onsubmit=async event=>{
       if(supabasePrimaryMode()){
         const saved=await shadowEvent({id:editingCalendarEventId,...payload,active:true});
         if(!saved)throw new Error("Supabase não confirmou a edição do evento.");
-        updateDoc(doc(db,"events",editingCalendarEventId),{...payload,updatedBy:state.user.uid,updatedAt:serverTimestamp()}).catch(error=>console.warn("Backup Firebase do evento não gravado:",error));
         await loadSupabasePrimaryCore();
       }else{
         await updateDoc(doc(db,"events",editingCalendarEventId),{...payload,updatedBy:state.user.uid,updatedAt:serverTimestamp()});
@@ -2584,7 +2695,6 @@ $("#eventForm").onsubmit=async event=>{
     if(supabasePrimaryMode()){
       const saved=await shadowEvent({id:eventLegacyId,...payload,active:true});
       if(!saved)throw new Error("Supabase não confirmou o evento.");
-      setDoc(doc(db,"events",eventLegacyId),{...payload,createdBy:state.user.uid,createdAt:serverTimestamp()}).catch(error=>console.warn("Backup Firebase do evento não gravado:",error));
       await loadSupabasePrimaryCore();
     }else{
       const batch=writeBatch(db),eventRef=doc(collection(db,"events"));
@@ -2603,7 +2713,7 @@ $("#eventForm").onsubmit=async event=>{
     if(submitButton)submitButton.disabled=false;
   }
 };
-on("deleteCalendarEvent","click",async()=>{const item=state.events.find(entry=>entry.id===editingCalendarEventId);if(!item||!permissionEnabled("events_manage"))return;if(!confirm(`Excluir o evento ${item.title}?`))return;try{await deleteDoc(doc(db,"events",item.id));await audit("evento excluído",`${item.title} · ${item.date}`);closeCalendarEventModal();toast("Evento excluído.")}catch(error){toast(errMsg(error))}});
+on("deleteCalendarEvent","click",async()=>{const item=state.events.find(entry=>entry.id===editingCalendarEventId);if(!item||!permissionEnabled("events_manage"))return;if(!confirm(`Excluir o evento ${item.title}?`))return;try{if(SupabaseShadow.isConnected()){await SupabaseShadow.delete("events",`legacy_id=eq.${encodeURIComponent(item.id)}`);await loadSupabasePrimaryCore()}else await deleteDoc(doc(db,"events",item.id));await audit("evento excluído",`${item.title} · ${item.date}`);closeCalendarEventModal();toast("Evento excluído.")}catch(error){toast(errMsg(error))}});
 
 
 
@@ -2723,6 +2833,7 @@ on("removeLoginBackground","click",()=>{pendingLoginBackground=null;loginCustomi
 on("removeLoginLogo","click",()=>{pendingLoginLogo=null;loginCustomizationDirty=true;removeLoginLogoRequested=true;revokePreview(loginLogoPreviewUrl);loginLogoPreviewUrl="";const el=byId("loginLogoPreview");if(el)el.src=LOGIN_DEFAULTS.logoUrl;refreshLoginCustomizationPreview();setText("loginCustomizationStatus","A logo padrão será restaurada ao salvar.")});
 async function uploadLoginAsset(processed,type){
   const path=`login-customization/${type}-${Date.now()}.${processed.extension}`;
+  if(SupabaseShadow.isConnected())return SupabaseShadow.uploadFile("team-assets",path,processed.blob,processed.mime);
   const ref=storageRef(storage,path);const snap=await uploadBytes(ref,processed.blob,{contentType:processed.mime,cacheControl:"public,max-age=3600"});
   return {url:await getDownloadURL(snap.ref),path};
 }
@@ -2737,11 +2848,11 @@ on("saveLoginCustomization","click",async()=>{
     else if(removeLoginBackgroundRequested){delete next.backgroundUrl;delete next.backgroundPath}
     if(pendingLoginLogo){const asset=await uploadLoginAsset(pendingLoginLogo,"logo");uploadedPaths.push(asset.path);next.logoUrl=asset.url;next.logoPath=asset.path}
     else if(removeLoginLogoRequested){delete next.logoUrl;delete next.logoPath}
-    await setDoc(doc(db,"settings","app"),{loginCustomization:next},{merge:true});
+    if(SupabaseShadow.isConnected())await sbSaveSettingsPatch({loginCustomization:next});else await setDoc(doc(db,"settings","app"),{loginCustomization:next},{merge:true});
     const oldPaths=[];if((pendingLoginBackground||removeLoginBackgroundRequested)&&previous.backgroundPath&&previous.backgroundPath!==next.backgroundPath)oldPaths.push(previous.backgroundPath);if((pendingLoginLogo||removeLoginLogoRequested)&&previous.logoPath&&previous.logoPath!==next.logoPath)oldPaths.push(previous.logoPath);
-    await Promise.all(oldPaths.map(async path=>{try{await deleteObject(storageRef(storage,path))}catch(error){console.warn("Imagem anterior não removida:",error)}}));
+    await Promise.all(oldPaths.map(async path=>{try{if(SupabaseShadow.isConnected())await SupabaseShadow.deleteFile("team-assets",path);else await deleteObject(storageRef(storage,path))}catch(error){console.warn("Imagem anterior não removida:",error)}}));
     state.settings={...state.settings,loginCustomization:next};cacheLoginCustomization(next);pendingLoginBackground=pendingLoginLogo=null;removeLoginBackgroundRequested=removeLoginLogoRequested=false;loginCustomizationDirty=false;revokePreview(loginBackgroundPreviewUrl);revokePreview(loginLogoPreviewUrl);loginBackgroundPreviewUrl=loginLogoPreviewUrl="";applyLoginCustomization();loadLoginCustomizationForm(true);await audit("personalização do login atualizada","Fundo e/ou imagem do topo modificados");toast("Tela de login atualizada com sucesso.");setText("loginCustomizationStatus","Alterações publicadas e aplicadas automaticamente.")
-  }catch(error){await Promise.all(uploadedPaths.map(async path=>{try{await deleteObject(storageRef(storage,path))}catch{}}));toast(errMsg(error));setText("loginCustomizationStatus",`Falha ao salvar: ${error.message||error}`)}finally{if(button)button.disabled=false}
+  }catch(error){await Promise.all(uploadedPaths.map(async path=>{try{if(SupabaseShadow.isConnected())await SupabaseShadow.deleteFile("team-assets",path);else await deleteObject(storageRef(storage,path))}catch{}}));toast(errMsg(error));setText("loginCustomizationStatus",`Falha ao salvar: ${error.message||error}`)}finally{if(button)button.disabled=false}
 });
 
 window.addEventListener("error",event=>{
@@ -3041,45 +3152,17 @@ function resizeAvatar(file){
   });
 }
 on("profileNicknameForm","submit",async event=>{
-  event.preventDefault();
-  if(!state.user)return;
-  if(state.settings?.team?.allowNickname===false)return toast("A alteração de perfil foi desativada pelo DEV.");
-  const name=(byId("profileNicknameInput")?.value||"").trim();
-  const displayName=(byId("profileDisplayNameInput")?.value||name).trim();
-  const discord=(byId("profileDiscordInput")?.value||"").trim();
-  const whatsapp=(byId("profileWhatsappInput")?.value||"").trim();
-  const birthDate=byId("profileBirthDateInput")?.value||"";
-  const bio=(byId("profileBioInput")?.value||"").trim();
-  const nicknameError=nicknameValidationError(name);if(nicknameError)return toast(nicknameError);
-  if(displayName.length<2)return toast("O nome de exibição precisa ter pelo menos 2 caracteres.");
-  const member=currentMemberRecord();
-  if(visibleMembers().some(item=>item.id!==member?.id&&String(item.name||"").toLowerCase()===name.toLowerCase()))return toast("Este nickname já está sendo usado por outro membro.");
+  event.preventDefault();if(!state.user)return;if(state.settings?.team?.allowNickname===false)return toast("A alteração de perfil foi desativada pelo DEV.");
+  const name=(byId("profileNicknameInput")?.value||"").trim(),displayName=(byId("profileDisplayNameInput")?.value||name).trim(),discord=(byId("profileDiscordInput")?.value||"").trim(),whatsapp=(byId("profileWhatsappInput")?.value||"").trim(),birthDate=byId("profileBirthDateInput")?.value||"",bio=(byId("profileBioInput")?.value||"").trim();
+  const nicknameError=nicknameValidationError(name);if(nicknameError)return toast(nicknameError);if(displayName.length<2)return toast("O nome de exibição precisa ter pelo menos 2 caracteres.");
+  if(visibleMembers().some(item=>String(item.name||"").toLowerCase()===name.toLowerCase()&&item.userId!==state.user.uid))return toast("Este nickname já está sendo usado por outro membro.");
   try{
-    const memberDocumentId=member?.id||String(state.profile?.memberDocumentId||"");
-    const payload={name,displayName,discord,whatsapp,birthDate,bio,nicknameClaimKey:nicknameClaimKey(name),memberDocumentId,updatedAt:serverTimestamp()};
-    const newClaimKey=nicknameClaimKey(name),oldClaimKey=nicknameClaimKey(state.profile?.name||"");
-    await runTransaction(db,async transaction=>{
-      const claimRef=doc(db,"nicknameClaims",newClaimKey);
-      const oldClaimRef=oldClaimKey&&oldClaimKey!==newClaimKey?doc(db,"nicknameClaims",oldClaimKey):null;
-      const oldClaimSnapshot=oldClaimRef?await transaction.get(oldClaimRef):null;
-      const claimSnapshot=await transaction.get(claimRef);
-      if(claimSnapshot.exists()&&claimSnapshot.data()?.active!==false&&claimSnapshot.data()?.uid!==state.user.uid)throw new Error("Este nickname já está sendo usado por outro membro.");
-      const claimAlreadyCurrent=claimSnapshot.exists()&&claimSnapshot.data()?.active!==false&&claimSnapshot.data()?.uid===state.user.uid&&nicknameClaimKey(claimSnapshot.data()?.name)===newClaimKey;
-      if(!claimAlreadyCurrent)transaction.set(claimRef,{uid:state.user.uid,memberId:memberDocumentId,name,normalizedKey:newClaimKey,active:true,updatedAt:serverTimestamp()});
-      if(oldClaimRef&&oldClaimSnapshot?.exists()&&oldClaimSnapshot.data()?.active!==false&&oldClaimSnapshot.data()?.uid===state.user.uid)transaction.update(oldClaimRef,{active:false,updatedAt:serverTimestamp()});
-      transaction.update(doc(db,"users",state.user.uid),payload);
-      if(member)transaction.update(doc(db,"members",member.id),{name,updatedAt:serverTimestamp()});
-    });
-    Object.assign(state.profile,{name,displayName,discord,whatsapp,birthDate,bio,nicknameClaimKey:newClaimKey,memberDocumentId});
-    if(member)member.name=name;
-    applyPermissions();updateFirstAccessUI();renderOwnProfile();renderCharacterProfile();renderCharactersTable();renderCharacterCenter();renderHistoryCenter();renderGoals();renderSystemHealth();renderStaffCommandCenter();applyRestrictedVisibility();
-    toast("Perfil completo atualizado.");
-  }catch(error){
-    console.error("Falha ao salvar o próprio perfil:",error);
-    toast(error?.code==="permission-denied"
-      ? "Permissão negada ao salvar o perfil. Confira Cargos e Permissões e a sessão atual do usuário."
-      : (error.message||"Não foi possível atualizar o perfil."));
-  }
+    if(SupabaseShadow.isConnected()){
+      await SupabaseShadow.rpc("update_my_profile",{new_name:name,new_display_name:displayName,new_discord:discord,new_whatsapp:whatsapp,new_birth_date:birthDate||null,new_bio:bio,new_avatar_data_url:state.profile.avatarDataUrl||null});
+      const member=currentMemberRecord();if(member){await SupabaseShadow.update("characters",`id=eq.${encodeURIComponent(member.supabaseId||member.id)}`,{nickname:name,updated_at:new Date().toISOString()});member.name=name}
+    }else await updateDoc(doc(db,"users",state.user.uid),{name,displayName,discord,whatsapp,birthDate,bio,updatedAt:serverTimestamp()});
+    Object.assign(state.profile,{name,displayName,discord,whatsapp,birthDate,bio});applyPermissions();renderOwnProfile();renderCharacterProfile();renderCharacterCenter();renderHistoryCenter();renderGoals();renderStaffCommandCenter();toast("Perfil atualizado.");
+  }catch(error){console.error("Falha ao salvar o próprio perfil:",error);toast(error.message||"Não foi possível atualizar o perfil.")}
 });
 on("profileAvatarForm","submit",async event=>{
   event.preventDefault();
@@ -3096,13 +3179,7 @@ on("profileAvatarForm","submit",async event=>{
 
     const avatarDataUrl=await resizeAvatar(file);
 
-    await updateDoc(
-      doc(db,"users",state.user.uid),
-      {
-        avatarDataUrl,
-        updatedAt:serverTimestamp()
-      }
-    );
+    if(SupabaseShadow.isConnected())await SupabaseShadow.rpc("update_my_profile",{new_name:state.profile.name||state.user.email,new_display_name:state.profile.displayName||state.profile.name||"",new_discord:state.profile.discord||"",new_whatsapp:state.profile.whatsapp||"",new_birth_date:state.profile.birthDate||null,new_bio:state.profile.bio||"",new_avatar_data_url:avatarDataUrl});else await updateDoc(doc(db,"users",state.user.uid),{avatarDataUrl,updatedAt:serverTimestamp()});
 
     state.profile.avatarDataUrl=avatarDataUrl;
 
@@ -3118,44 +3195,23 @@ on("profileAvatarForm","submit",async event=>{
 on("removeProfileAvatar","click",async()=>{
   if(state.settings?.team?.allowAvatar===false)return toast("A troca de avatar foi desativada pelo DEV.");
   try{
-    await updateDoc(doc(db,"users",state.user.uid),{avatarDataUrl:"",updatedAt:serverTimestamp()});
+    if(SupabaseShadow.isConnected())await SupabaseShadow.rpc("update_my_profile",{new_name:state.profile.name||state.user.email,new_display_name:state.profile.displayName||state.profile.name||"",new_discord:state.profile.discord||"",new_whatsapp:state.profile.whatsapp||"",new_birth_date:state.profile.birthDate||null,new_bio:state.profile.bio||"",new_avatar_data_url:null});else await updateDoc(doc(db,"users",state.user.uid),{avatarDataUrl:"",updatedAt:serverTimestamp()});
     state.profile.avatarDataUrl="";renderOwnProfile();renderCharacterProfile();renderCharactersTable();renderCharacterCenter();renderHistoryCenter();renderGoals();renderSystemHealth();renderStaffCommandCenter();applyRestrictedVisibility();toast("Avatar removido.");
   }catch(error){toast(error.message||"Não foi possível remover o avatar.")}
 });
 on("profilePasswordForm","submit",async event=>{
-  event.preventDefault();
-  if(state.settings?.team?.allowPassword===false)return toast("A alteração de e-mail e senha foi desativada pelo DEV.");
-  if(!auth.currentUser)return toast("Entre novamente para alterar a segurança.");
-  const newEmail=(byId("profileEmailInput")?.value||"").trim().toLowerCase();
-  const currentPassword=byId("profileCurrentPassword")?.value||"";
-  const password=byId("profileNewPassword")?.value||"";
-  const confirm=byId("profileConfirmPassword")?.value||"";
-  const emailChanged=newEmail&&newEmail!==String(auth.currentUser.email||"").toLowerCase();
-  const previousEmail=String(auth.currentUser.email||"").toLowerCase();
-  if(!emailChanged&&!password)return toast("Nenhuma alteração informada.");
-  if((emailChanged||password)&&currentPassword.length<6)return toast("Informe sua senha atual.");
-  if(password&&password.length<8)return toast("A nova senha precisa ter pelo menos 8 caracteres.");
-  if(password!==confirm)return toast("As senhas não conferem.");
-  let emailCommitted=false;
+  event.preventDefault();if(state.settings?.team?.allowPassword===false)return toast("A alteração de e-mail e senha foi desativada pelo DEV.");
+  const session=SupabaseShadow.getSession(),currentEmail=String(session?.user?.email||state.user?.email||"").toLowerCase();
+  const newEmail=(byId("profileEmailInput")?.value||"").trim().toLowerCase(),currentPassword=byId("profileCurrentPassword")?.value||"",password=byId("profileNewPassword")?.value||"",confirm=byId("profileConfirmPassword")?.value||"";
+  const emailChanged=newEmail&&newEmail!==currentEmail;if(!emailChanged&&!password)return toast("Nenhuma alteração informada.");if(currentPassword.length<6)return toast("Informe sua senha atual.");if(password&&password.length<8)return toast("A nova senha precisa ter pelo menos 8 caracteres.");if(password!==confirm)return toast("As senhas não conferem.");
   try{
-    const credential=EmailAuthProvider.credential(auth.currentUser.email,currentPassword);
-    await reauthenticateWithCredential(auth.currentUser,credential);
-    if(emailChanged){
-      await updateEmail(auth.currentUser,newEmail);
-      try{await updateDoc(doc(db,"users",state.user.uid),{email:newEmail,updatedAt:serverTimestamp()})}
-      catch(error){try{await updateEmail(auth.currentUser,previousEmail)}catch{}throw error}
-      state.profile.email=newEmail;
-      emailCommitted=true;
-    }
-    if(password)await updatePassword(auth.currentUser,password);
-    event.target.reset();
-    setValue("profileEmailInput",auth.currentUser.email||state.profile.email||"");
-    renderOwnProfile();
-    toast(emailChanged&&password?"E-mail e senha atualizados.":emailChanged?"E-mail atualizado.":"Senha atualizada.");
-  }catch(error){
-    const messages={"auth/wrong-password":"Senha atual incorreta.","auth/invalid-credential":"Senha atual incorreta.","auth/email-already-in-use":"Este e-mail já está em uso.","auth/invalid-email":"Informe um e-mail válido."};
-    toast(emailCommitted?`O e-mail foi atualizado, mas a senha não pôde ser alterada: ${messages[error?.code]||errMsg(error)}`:messages[error?.code]||errMsg(error));
-  }
+    if(SupabaseShadow.isConnected()){
+      await SupabaseShadow.login(currentEmail,currentPassword);
+      const body={};if(emailChanged)body.email=newEmail;if(password)body.password=password;const updatedUser=await SupabaseShadow.updateUser(body);
+      if(emailChanged){const effectiveEmail=String(updatedUser?.email||newEmail).toLowerCase();await SupabaseShadow.rpc("sync_my_email",{new_email:effectiveEmail});state.profile.email=effectiveEmail;state.user.email=effectiveEmail}
+    }else throw new Error("Esta versão utiliza Supabase Auth. Atualize a página e tente novamente.");
+    event.target.reset();setValue("profileEmailInput",newEmail||currentEmail);renderOwnProfile();toast(emailChanged&&password?"E-mail e senha atualizados.":emailChanged?"E-mail atualizado.":"Senha atualizada.");
+  }catch(error){toast(error.message||"Não foi possível atualizar a segurança.")}
 });
 
 
@@ -3366,11 +3422,7 @@ on("newCharacterForm","submit",async event=>{
     if(supabasePrimaryMode()){
       const created=await shadowCharacter({id:legacyId,name,role,memberRole:role,clan,active:true,character});
       if(!created)throw new Error("Supabase não confirmou o cadastro.");
-      // Firebase permanece somente como backup; falha nele não bloqueia a operação principal.
-      setDoc(doc(db,"members",legacyId),{
-        name,role,clan,userId:legacyId,accessRole,memberRole:role,active:true,
-        character,characterUpdatedBy:state.user.uid,createdAt:serverTimestamp(),updatedAt:serverTimestamp()
-      }).catch(error=>console.warn("Backup Firebase do personagem não gravado:",error));
+      // Supabase é a fonte oficial deste cadastro.
       await loadSupabasePrimaryCore();
     }else{
       const ref=doc(collection(db,"members"));
@@ -3385,7 +3437,7 @@ on("newCharacterForm","submit",async event=>{
   }catch(error){
     console.error("Falha ao cadastrar personagem:",error);
     if(error?.code==="permission-denied"){
-      toast("Firebase negou o cadastro. Confirme character_edit para Staff e publique o firestore.rules desta versão.");
+      toast("Supabase negou o cadastro. Confira a permissão character_edit e as políticas RLS.");
     }else{
       toast(error.message||"Não foi possível cadastrar o personagem.");
     }
@@ -3650,12 +3702,9 @@ async function deleteCharacter(item){
   }
   if(!confirm(`Remover ${item.nickname} da lista ativa de personagens? O histórico de presença será preservado.`))return;
   try{
-    await updateDoc(doc(db,"members",item.id),{
-      active:false,
-      characterDeletedAt:serverTimestamp(),
-      characterDeletedBy:state.user.uid,
-      updatedAt:serverTimestamp()
-    });
+    if(SupabaseShadow.isConnected()){
+      await SupabaseShadow.update("characters",`legacy_id=eq.${encodeURIComponent(item.id)}`,{active:false,updated_at:new Date().toISOString()});await loadSupabasePrimaryCore();
+    }else await updateDoc(doc(db,"members",item.id),{active:false,characterDeletedAt:serverTimestamp(),characterDeletedBy:state.user.uid,updatedAt:serverTimestamp()});
     const member=state.members.find(row=>row.id===item.id);
     if(member)member.active=false;
     renderCharacterCenter();
@@ -3902,7 +3951,6 @@ on("responsibleCharacterForm","submit",async event=>{
           role:nextAccess,accessRole:nextAccess,resolvedAccessRole:nextAccess,memberRole:role
         });
       }
-      updateDoc(doc(db,"members",target.id),payload).catch(error=>console.warn("Backup Firebase da edição não gravado:",error));
       await loadSupabasePrimaryCore();
     }else{
       await updateDoc(doc(db,"members",target.id),payload);
@@ -4461,31 +4509,14 @@ function settingsPayload(section){
 
 async function saveSettingsSection(section){
   if(!permissionEnabled("settings_edit"))return toast("Sem permissão para alterar configurações.");
-
   try{
     const payload=settingsPayload(section);
-    if(section==="notifications"){
-      if(owner()){
-        const batch=writeBatch(db),notificationsPrivate={discordWebhook:String(cfgValue("cfgDiscordWebhook")||"").trim()};
-        batch.set(doc(db,"settings","app"),{notifications:payload,updatedAt:serverTimestamp(),updatedBy:state.user.uid},{merge:true});
-        batch.set(doc(db,"settings","private"),{notificationsPrivate,updatedAt:serverTimestamp(),updatedBy:state.user.uid},{merge:true});
-        await batch.commit();state.settings={...state.settings,notifications:{...payload,...notificationsPrivate}};
-      }else{
-        await setDoc(doc(db,"settings","app"),{notifications:payload,updatedAt:serverTimestamp(),updatedBy:state.user.uid},{merge:true});
-        state.settings={...state.settings,notifications:{...(state.settings?.notifications||{}),...payload}};
-      }
-    }else{
-      await setDoc(doc(db,"settings","app"),{[section]:payload,updatedAt:serverTimestamp(),updatedBy:state.user.uid},{merge:true});
-      state.settings={...state.settings,[section]:payload};
-    }
-    if(section==="appearance")applyEnterpriseAppearance();
-    if(section==="general")renderSettingsPreview();
-    settingsFormDirty=false;
-    await audit("configurações atualizadas",section);
-    toast("Configurações salvas.");
-  }catch(error){
-    toast(errMsg(error));
-  }
+    if(SupabaseShadow.isConnected())await sbSaveSettingsPatch({[section]:{...(state.settings?.[section]||{}),...payload}});
+    else await setDoc(doc(db,"settings","app"),{[section]:payload,updatedAt:serverTimestamp(),updatedBy:state.user.uid},{merge:true});
+    state.settings={...state.settings,[section]:{...(state.settings?.[section]||{}),...payload}};
+    if(section==="appearance")applyEnterpriseAppearance();if(section==="general")renderSettingsPreview();
+    settingsFormDirty=false;await audit("configurações atualizadas",section);toast("Configurações salvas no Supabase.");
+  }catch(error){toast(error.message||errMsg(error))}
 }
 
 /* Matriz legada removida; Cargos e Permissões usa rolePermissions.
@@ -4614,7 +4645,7 @@ function applyEnterpriseAppearance(){
 }
 
 function renderSystemHealth(){
-  setText("systemProjectId",firebaseConfig.projectId||"—");
+  setText("systemProjectId","oxcvdrnvdtnojyyskkrm");
   setText("systemUsersCount",state.users.length);
   setText("systemMembersCount",state.members.length);
   setText("systemAttendanceCount",state.attendance.length);
@@ -4661,6 +4692,40 @@ function privateSettingsForBackup(){
   // Segredos nunca são exportados para arquivos baixáveis.
   return {};
 }
+
+async function supabaseV7BackupPayload(){
+  if(!owner())throw new Error("Somente o DEV pode gerar o backup completo.");
+  const backups=[];for(const item of state.presenceBackups){const data=await loadPresenceBackupData(item);backups.push({...cleanPayloadForSupabase(item),records:cleanPayloadForSupabase(data.records),rtRecords:cleanPayloadForSupabase(data.rtRecords)})}
+  return {
+    format:"77-team-manager-supabase-backup",backupSchema:7,version:"22.10.0",generatedAt:new Date().toISOString(),
+    collections:{users:cleanPayloadForSupabase(state.users),members:cleanPayloadForSupabase(state.members),attendance:cleanPayloadForSupabase(state.attendance),events:cleanPayloadForSupabase(state.events),notifications:cleanPayloadForSupabase(state.sentNotifications||state.notifications),notificationReads:cleanPayloadForSupabase(state.notificationReads),rtPresence:cleanPayloadForSupabase(state.rtPresence),presenceBackups:backups,xpLogs:cleanPayloadForSupabase(state.xpLogs),payments:cleanPayloadForSupabase(state.payments),audit:cleanPayloadForSupabase(state.audit),supportMessages:cleanPayloadForSupabase(state.supportMessages),chatMessages:cleanPayloadForSupabase(state.chatMessages)},
+    settings:cleanPayloadForSupabase(state.settings||{})
+  };
+}
+async function sbClearKind(kind){const rows=await sbLoadRecords(kind);for(const item of rows)await sbRecordDelete(kind,item.id)}
+async function restoreSupabaseV7Backup(payload){
+  if(!owner())throw new Error("Somente DEV pode restaurar backup.");
+  if(!payload||payload.format!=="77-team-manager-supabase-backup"||Number(payload.backupSchema)!==7)throw new Error("Backup Supabase V7 inválido.");
+  const c=payload.collections||{};
+  // Core: upsert preserva IDs e evita duplicações.
+  for(const item of c.members||[])await shadowCharacter({id:item.id,name:item.name,role:item.role||item.memberRole||"Membros",clan:item.clan||"",active:item.active!==false,character:item.character||{}});
+  for(const item of c.attendance||[])await shadowAttendance(item);
+  for(const item of c.events||[])await shadowEvent(item);
+  for(const item of c.payments||[])await shadowPayment(item);
+  const maps=[["notification",c.notifications],["notification_read",c.notificationReads],["rt_presence",c.rtPresence],["xp_log",c.xpLogs],["support_message",c.supportMessages],["chat_message",c.chatMessages]];
+  for(const [kind,rows] of maps){await sbClearKind(kind);for(const item of rows||[])await sbRecordPut(kind,item.id||crypto.randomUUID(),item,{ownerUid:item.ownerUid||item.userId||null})}
+  await sbClearKind("presence_backup");for(const item of c.presenceBackups||[])await sbRecordPut("presence_backup",item.id||crypto.randomUUID(),item);
+  if(payload.settings)await sbSaveSettingsPatch(payload.settings);
+  // Atualiza perfis que já existem no Supabase Auth; não cria contas Auth novas.
+  for(const user of c.users||[]){
+    const existing=state.users.find(row=>row.id===user.id);if(!existing)continue;
+    if(user.accessRole||user.role){const role=normalizeAccessRole(user.accessRole||user.role);if(["dev","leadership","staff","member"].includes(role))await devSetAccountRole(user.id,role)}
+    if(user.progression)await SupabaseShadow.update("profiles",`id=eq.${encodeURIComponent(user.id)}`,{progression:user.progression,updated_at:new Date().toISOString()});
+  }
+  await loadSupabaseSecurityRuntime();await loadSupabasePrimaryCore();await loadSupabaseLegacyRuntime();
+  await audit("backup Supabase restaurado",`schema 7 · ${new Date().toISOString()}`);
+}
+
 function backupPayload(){
   return serializeBackupValue({
     format:"77-team-manager-backup",
@@ -4689,7 +4754,7 @@ function backupPayload(){
 }
 
 async function completeBackupPayload(){
-  if(!owner())throw new Error("Somente o DEV pode gerar o backup completo do Firestore.");
+  if(!owner())throw new Error("Somente o DEV pode gerar o backup completo do sistema.");
   const payload=backupPayload();
   const reads=await getDocs(collection(db,"notificationReads"));
   const resetJobs=await getDocs(collection(db,"resetJobs"));
@@ -4767,7 +4832,7 @@ function validateBackupPayload(payload){
   validateBackupValue(payload);
   if(!payload||payload.format!=="77-team-manager-backup")throw new Error("Formato de backup incompatível.");
   if(payload.projectId!==firebaseConfig.projectId)throw new Error("Este backup pertence a outro projeto Firebase.");
-  if(Number(payload.backupSchema||0)!==3)throw new Error("Schema de backup incompatível. Use um backup completo do Firestore V22.8.5 a V22.9.32 com schema 3.");
+  if(Number(payload.backupSchema||0)!==3)throw new Error("Schema de backup incompatível. Use um backup completo do sistema V22.8.5 a V22.9.32 com schema 3.");
   if(!["22.8.5","22.8.6","22.8.7","22.8.8","22.8.9","22.9.0","22.9.1","22.9.2","22.9.3","22.9.4","22.9.5","22.9.6","22.9.7","22.9.8","22.9.9","22.9.10","22.9.11","22.9.12","22.9.13","22.9.14","22.9.15","22.9.16","22.9.17","22.9.18","22.9.19","22.9.20","22.9.21","22.9.22","22.9.23","22.9.24","22.9.25","22.9.26","22.9.27","22.9.28","22.9.29","22.9.30","22.9.31","22.9.32"].includes(String(payload.version||"")))throw new Error("Versão de backup incompatível.");
   if(!payload.collections||typeof payload.collections!=="object"||Array.isArray(payload.collections))throw new Error("Coleções do backup ausentes.");
   const allowed=["users","members","nicknameClaims","attendance","events","notifications","notificationReads","rtPresence","presenceBackups","resetJobs","xpLogs","payments","audit","supportMessages","chatMessages"];
@@ -4950,7 +5015,7 @@ async function restoreBackupPayload(payload){
     clearTimeout(nicknameClaimMigrationTimer);
     nicknameClaimMigrationTimer=setTimeout(scheduleNicknameClaimMigration,1200);
     cleanupPersistentRollback(jobId).catch(error=>console.warn("Snapshots de rollback mantidos para limpeza posterior:",error));
-    await audit("backup completo do Firestore restaurado",`${jobId} · schema ${payload.backupSchema}`);
+    await audit("backup completo do sistema restaurado",`${jobId} · schema ${payload.backupSchema}`);
     return jobId;
   }catch(error){
     try{await executePersistentRollback(jobRef,error)}catch(rollbackError){
@@ -4999,24 +5064,12 @@ function renderGoals(){
 on("settingsSearch","input",event=>filterSettingsTabs(event.target.value));
 on("refreshSystemHealth","click",renderSystemHealth);
 on("exportCompleteBackup","click",async()=>{
-  if(!owner())return toast("Somente o DEV pode gerar o backup completo do Firestore.");
-  try{
-    const now=localIsoDate();downloadJsonFile(`backup-77-team-${now}.json`,await completeBackupPayload());
-    const stamp=new Date().toLocaleString("pt-BR");localStorage.setItem("77team-last-backup",stamp);setText("systemLastBackup",stamp);toast("Backup completo do Firestore gerado.");
-  }catch(error){toast(error.message||errMsg(error))}
+  if(!owner())return toast("Somente o DEV pode gerar o backup completo.");
+  try{const now=localIsoDate(),payload=SupabaseShadow.isConnected()?await supabaseV7BackupPayload():await completeBackupPayload();downloadJsonFile(`backup-77-team-${now}.json`,payload);const stamp=new Date().toLocaleString("pt-BR");localStorage.setItem("77team-last-backup",stamp);setText("systemLastBackup",stamp);toast("Backup completo gerado.")}catch(error){toast(error.message||errMsg(error))}
 });
 on("restoreCompleteBackup","click",async()=>{
-  const file=byId("importBackupFile")?.files?.[0];
-  if(!file)return toast("Selecione um arquivo JSON.");
-  if(file.size>200*1024*1024)return toast("O backup excede o limite seguro de 200 MB.");
-  if(!confirm("Restaurar este backup validado? Um restoreJob persistente fará rollback automático em caso de falha."))return;
-  try{
-    const payload=JSON.parse(await file.text());
-    await restoreBackupPayload(payload);
-    toast("Backup restaurado com rollback protegido. Atualize a página.");
-  }catch(error){
-    toast(error.message||"Falha ao restaurar backup.");
-  }
+  const file=byId("importBackupFile")?.files?.[0];if(!file)return toast("Selecione um arquivo JSON.");if(file.size>200*1024*1024)return toast("O backup excede 200 MB.");if(!confirm("Restaurar este backup? Os IDs existentes serão atualizados e os dados auxiliares substituídos."))return;
+  try{const payload=JSON.parse(await file.text());if(SupabaseShadow.isConnected())await restoreSupabaseV7Backup(payload);else await restoreBackupPayload(payload);toast("Backup restaurado. Atualize a página.")}catch(error){console.error(error);toast(error.message||"Falha ao restaurar backup.")}
 });
 
 on("goalForm","submit",async event=>{
@@ -5032,7 +5085,7 @@ on("goalForm","submit",async event=>{
     createdAt:new Date().toISOString()
   });
   try{
-    await setDoc(doc(db,"settings","app"),{goals,updatedAt:serverTimestamp()},{merge:true});
+    if(SupabaseShadow.isConnected())await sbSaveSettingsPatch({goals});else await setDoc(doc(db,"settings","app"),{goals,updatedAt:serverTimestamp()},{merge:true});
     state.settings={...state.settings,goals};
     event.target.reset();
     renderGoals();
@@ -5060,7 +5113,7 @@ document.addEventListener("click",async event=>{
   const deleteGoal=event.target.closest("[data-delete-goal]");
   if(deleteGoal&&permissionEnabled("goals_manage")){
     const goals=(activeSettings().goals||[]).filter(goal=>goal.id!==deleteGoal.dataset.deleteGoal);
-    await setDoc(doc(db,"settings","app"),{goals,updatedAt:serverTimestamp()},{merge:true});
+    if(SupabaseShadow.isConnected())await sbSaveSettingsPatch({goals});else await setDoc(doc(db,"settings","app"),{goals,updatedAt:serverTimestamp()},{merge:true});
     state.settings={...state.settings,goals};
     renderGoals();
   }
@@ -5391,7 +5444,7 @@ on("staffJournalForm","submit",async event=>{
   }].slice(-300);
 
   try{
-    await setDoc(doc(db,"settings","app"),{staffJournal:journal,updatedAt:serverTimestamp()},{merge:true});
+    if(SupabaseShadow.isConnected())await sbSaveSettingsPatch({staffJournal:journal});else await setDoc(doc(db,"settings","app"),{staffJournal:journal,updatedAt:serverTimestamp()},{merge:true});
     state.settings={...state.settings,staffJournal:journal};
     event.target.reset();
     renderStaffJournal();
@@ -5431,18 +5484,8 @@ on("notificationAdminForm","submit",async event=>{
   const message=String(byId("notificationMessage")?.value||"").trim();
   if(!title||!message)return toast("Preencha o título e a mensagem.");
   try{
-    await addDoc(collection(db,"notifications"),{
-      title,
-      message,
-      type:byId("notificationType")?.value||"info",
-      targetType,
-      targetUserId:targetType==="user"?targetUserId:"",
-      targetUserName:targetType==="user"?(targetUser?.name||targetUser?.email||"Usuário"):"",
-      expiresAt:byId("notificationExpiresAt")?.value||"",
-      createdBy:state.user.uid,
-      createdByName:state.profile?.name||state.profile?.email||"Staff",
-      createdAt:serverTimestamp()
-    });
+    const notificationPayload={title,message,type:byId("notificationType")?.value||"info",targetType,targetUserId:targetType==="user"?targetUserId:"",targetUserName:targetType==="user"?(targetUser?.name||targetUser?.email||"Usuário"):"",expiresAt:byId("notificationExpiresAt")?.value||"",createdBy:state.user.uid,createdByName:state.profile?.name||state.profile?.email||"Staff",createdAt:new Date().toISOString()};
+    if(SupabaseShadow.isConnected()){await sbRecordAdd("notification",notificationPayload);await loadSupabaseLegacyRuntime()}else await addDoc(collection(db,"notifications"),{...notificationPayload,createdAt:serverTimestamp()});
     event.target.reset();byId("notificationTargetUserWrap")?.classList.add("hidden");toast("Notificação enviada em tempo real.");
   }catch(error){toast(errMsg(error))}
 });
@@ -5454,14 +5497,8 @@ on("staffNoticeForm","submit",async event=>{
   if(!title||!message)return;
 
   try{
-    await addDoc(collection(db,"notifications"),{
-      title,
-      message,
-      targetType:byId("staffNoticeAudience")?.value||"all",
-      createdBy:state.user.uid,
-      createdByName:state.profile?.name||state.profile?.email||"Staff",
-      createdAt:serverTimestamp(),
-    });
+    const noticePayload={title,message,targetType:byId("staffNoticeAudience")?.value||"all",createdBy:state.user.uid,createdByName:state.profile?.name||state.profile?.email||"Staff",createdAt:new Date().toISOString()};
+    if(SupabaseShadow.isConnected()){await sbRecordAdd("notification",noticePayload);await loadSupabaseLegacyRuntime()}else await addDoc(collection(db,"notifications"),{...noticePayload,createdAt:serverTimestamp()});
     event.target.reset();
     toast("Aviso publicado.");
   }catch(error){toast(errMsg(error))}
@@ -5471,7 +5508,7 @@ on("downloadStaffPdf","click",printStaffReport);
 on("downloadStaffCsv","click",downloadStaffCsvFile);
 on("closeStaffDrawer","click",()=>byId("staffDetailsDrawer")?.classList.add("hidden"));
 on("staffQuickBackup","click",()=>{
-  if(!owner())return toast("O backup completo do Firestore é exclusivo do DEV. Use Backup de Presença para o fechamento semanal.");
+  if(!owner())return toast("O backup completo do sistema é exclusivo do DEV. Use Backup de Presença para o fechamento semanal.");
   byId("exportCompleteBackup")?.click();
 });
 
@@ -5496,6 +5533,7 @@ function scheduleAccountRoleSync(){
 }
 
 async function syncLinkedAccountRoles(){
+  if(SupabaseShadow.isConnected())return;
   if(!owner()||accountRoleSyncRunning)return;
   accountRoleSyncRunning=true;
 
@@ -5556,6 +5594,14 @@ async function migrateAttendanceUserIds(){
 
   const pending=state.attendance.filter(item=>!item.userId&&item.memberId);
   if(!pending.length)return;
+  if(SupabaseShadow.isConnected()){
+    attendanceMigrationRunning=true;
+    try{
+      for(const item of pending){const member=state.members.find(member=>member.id===item.memberId||member.name===item.memberName);const userId=member?.userId||state.users.find(user=>user.name===item.memberName)?.id;if(userId)await SupabaseShadow.update("attendance",`legacy_id=eq.${encodeURIComponent(item.id)}`,{legacy_member_id:userId,updated_at:new Date().toISOString()})}
+      await loadSupabasePrimaryCore();
+    }finally{attendanceMigrationRunning=false}
+    return;
+  }
 
   attendanceMigrationRunning=true;
 
@@ -5736,11 +5782,12 @@ async function syncMemberProgressions(){
           progress:calculated.progress,
           recalculatedAt:new Date().toISOString()
       };
-      const batch=writeBatch(db);
-      batch.update(doc(db,"users",user.id),{progression,progressionUpdatedAt:serverTimestamp()});
-      batch.set(doc(db,"members",member.id),{progression,progressionUpdatedAt:serverTimestamp()},{merge:true});
-      await batch.commit();
-      member.progression=progression;
+      if(SupabaseShadow.isConnected()){
+        await SupabaseShadow.update("profiles",`id=eq.${encodeURIComponent(user.id)}`,{progression,updated_at:new Date().toISOString()});
+        user.progression=progression;member.progression=progression;
+      }else{
+        const batch=writeBatch(db);batch.update(doc(db,"users",user.id),{progression,progressionUpdatedAt:serverTimestamp()});batch.set(doc(db,"members",member.id),{progression,progressionUpdatedAt:serverTimestamp()},{merge:true});await batch.commit();member.progression=progression;
+      }
     }
   }catch(error){
     console.error("Falha ao recalcular XP:",error);
@@ -5833,50 +5880,17 @@ on("xpAdjustmentForm","submit",async event=>{
   const title=levelTitle(calculated.level);
 
   try{
-    const batch=writeBatch(db);
-
-    const progression={
-        automaticXp,
-        manualXp:newManual,
-        totalXp:calculated.totalXp,
-        level:calculated.level,
-        title,
-        currentXp:calculated.currentXp,
-        requiredXp:calculated.requiredXp,
-        progress:calculated.progress,
-        recalculatedAt:new Date().toISOString()
-      };
-    batch.update(doc(db,"users",user.id),{
-      progression,
-      progressionUpdatedAt:serverTimestamp()
-    });
-    batch.update(doc(db,"members",member.id),{
-      progression,
-      progressionUpdatedAt:serverTimestamp()
-    });
-
-    const logRef=doc(collection(db,"xpLogs"));
-    batch.set(logRef,{
-      memberId:member.id,
-      userId:user.id,
-      memberName:member.name,
-      amount,
-      reason,
-      beforeManualXp:currentManual,
-      afterManualXp:newManual,
-      totalXpAfter:calculated.totalXp,
-      levelAfter:calculated.level,
-      staffId:state.user.uid,
-      staffName:state.profile?.name||state.profile?.email||"Staff",
-      createdAt:serverTimestamp()
-    });
-
-    await batch.commit();
-    event.target.reset();
-    toast(`Ajuste de ${amount>0?"+":""}${amount} XP aplicado.`);
-  }catch(error){
-    toast(errMsg(error));
-  }
+    const progression={automaticXp,manualXp:newManual,totalXp:calculated.totalXp,level:calculated.level,title,currentXp:calculated.currentXp,requiredXp:calculated.requiredXp,updatedAt:new Date().toISOString(),updatedBy:state.user.uid};
+    const log={memberId:member.id,memberName:member.name,userId:user.id,amount,reason,automaticXp,manualXp:newManual,totalXp:calculated.totalXp,level:calculated.level,title,staffId:state.user.uid,staffName:state.profile?.name||state.user.email,createdAt:new Date().toISOString()};
+    if(SupabaseShadow.isConnected()){
+      await SupabaseShadow.update("profiles",`id=eq.${encodeURIComponent(user.id)}`,{progression,updated_at:new Date().toISOString()});
+      await sbRecordAdd("xp_log",log,{ownerUid:user.id});
+      user.progression=progression;await loadSupabaseLegacyRuntime();renderLevelSystem();render();
+    }else{
+      const batch=writeBatch(db),logRef=doc(collection(db,"xpLogs"));batch.update(doc(db,"users",user.id),{progression,updatedAt:serverTimestamp()});batch.set(logRef,{...log,createdAt:serverTimestamp()});await batch.commit();
+    }
+    await audit("ajuste manual de XP",`${member.name} · ${amount>=0?"+":""}${amount} XP · ${reason}`);event.target.reset();toast("XP atualizado.");
+  }catch(error){toast(error.message||errMsg(error))}
 });
 
 
@@ -5913,34 +5927,21 @@ function renderPublicHomeLoading(){
 }
 
 function subscribePublicHome(){
-  state.unsubs.push(onSnapshot(doc(db,"public","home"),snapshot=>{
-    if(state.user)return;
-    if(!snapshot.exists()){
-      state.publicHome=null;
-      setText("homeNextEvent","Nenhum dado publicado");
-      setText("homeLastSync","Aguardando publicação");
-      setText("homeLiveSubtitle","A HOME pública ainda não recebeu o primeiro resumo. Entre como administrador uma vez após esta atualização para publicar os dados atuais.");
-      setText("kMembers","0");setText("kPresence","0");setText("kMonthEvents","0");setText("kBest","—");setText("kBestPoints","0 pontos");
-      setHtml("recentPresenceRows",'<tr><td colspan="5">Nenhuma informação pública publicada ainda.</td></tr>');
-      setHtml("topFiveRows",'<tr><td colspan="4">Nenhum ranking publicado ainda.</td></tr>');
-      setHtml("dashboardTodayEvents",'<p class="empty-state">Nenhum evento público publicado ainda.</p>');
-      setHtml("dashboardWeeklyChart",'<p class="empty-state">Sem dados públicos de presença.</p>');
-      setHtml("dashboardClanPoints",'<p class="empty-state">Sem dados públicos de clãs.</p>');
-      setHtml("dashboardRecentActivity",'<p class="empty-state">Sem atividade pública publicada.</p>');
-      setHtml("dashboardMemberRows",'<tr><td colspan="9">Nenhum membro publicado ainda.</td></tr>');
-      renderHistoryCenter();
-      applyPublicHistoryMode();
-      return;
-    }
-    state.publicHome={id:snapshot.id,...snapshot.data()};
-    renderPublicHomeSnapshot(state.publicHome);
-    renderHistoryCenter();
-    applyPublicHistoryMode();
-  },error=>{
-    console.error("Falha ao carregar HOME pública:",error);
-    setText("homeLastSync","Indisponível");
-    setText("homeLiveSubtitle","Não foi possível carregar as informações públicas. Verifique a publicação das regras do Firestore.");
-  }));
+  let active=true;
+  const load=async()=>{
+    if(state.user||!active)return;
+    try{
+      await loadSupabasePublicSettings();
+      const data=await loadSupabasePublicHome();
+      if(!data){
+        state.publicHome=null;setText("homeNextEvent","Nenhum dado publicado");setText("homeLastSync","Aguardando publicação");setText("homeLiveSubtitle","A HOME pública ainda não recebeu o primeiro resumo.");
+        setText("kMembers","0");setText("kPresence","0");setText("kMonthEvents","0");setText("kBest","—");setText("kBestPoints","0 pontos");
+        renderHistoryCenter();applyPublicHistoryMode();return;
+      }
+      state.publicHome=data;renderPublicHomeSnapshot(data);renderHistoryCenter();applyPublicHistoryMode();
+    }catch(error){console.error("Falha ao carregar HOME pública do Supabase:",error);setText("homeLastSync","Indisponível");setText("homeLiveSubtitle","Não foi possível carregar as informações públicas do Supabase.")}
+  };
+  load();const timer=setInterval(load,30000);state.unsubs.push(()=>{active=false;clearInterval(timer)});
 }
 
 function renderPublicHomeWeekly(days=[]){
@@ -6029,9 +6030,9 @@ function schedulePublicHomePublish(){
     try{
       const payload=buildPublicHomePayload();
       const signature=JSON.stringify(payload);if(signature===lastPublicHomeSignature)return;
-      await setDoc(doc(db,"public","home"),{...payload,generatedAt:serverTimestamp(),updatedBy:state.user.uid},{merge:false});
+      await publishSupabasePublicHome({...payload,generatedAt:new Date().toISOString(),updatedBy:state.user.uid});
       lastPublicHomeSignature=signature;
-    }catch(error){console.error("Falha ao publicar resumo da HOME pública:",error)}
+    }catch(error){console.error("Falha ao publicar resumo da HOME pública no Supabase:",error)}
   },700);
 }
 
@@ -6343,19 +6344,12 @@ function supportTime(item){
 function supportStatusLabel(status){return ({open:"Aberta",in_progress:"Em atendimento",waiting_user:"Aguardando usuário",resolved:"Resolvida"})[status]||"Aberta"}
 function previousField(item,key){return Object.prototype.hasOwnProperty.call(item,key)?item[key]:deleteField()}
 async function updateConversationMessages(messages,collectionName,nextData,rollbackData){
-  const committed=[];
-  try{
-    for(let start=0;start<messages.length;start+=400){
-      const group=messages.slice(start,start+400),batch=writeBatch(db);
-      group.forEach(message=>batch.update(doc(db,collectionName,message.id),nextData(message)));
-      await batch.commit();committed.push(group);
-    }
-  }catch(error){
-    for(const group of committed.reverse()){
-      const batch=writeBatch(db);group.forEach(message=>batch.update(doc(db,collectionName,message.id),rollbackData(message)));await batch.commit();
-    }
-    throw error;
+  if(SupabaseShadow.isConnected()){
+    const kind=collectionName==="supportMessages"?"support_message":"chat_message";
+    for(const message of messages){const patch=cleanPayloadForSupabase(nextData(message));for(const [k,v] of Object.entries(patch))if(v&&typeof v==="object"&&typeof v.toDate==="function")patch[k]=v.toDate().toISOString();await sbRecordPatch(kind,message.id,patch)}
+    await loadSupabaseLegacyRuntime();return;
   }
+  const committed=[];try{for(let start=0;start<messages.length;start+=400){const group=messages.slice(start,start+400),batch=writeBatch(db);group.forEach(message=>batch.update(doc(db,collectionName,message.id),nextData(message)));await batch.commit();committed.push(group)}}catch(error){for(const group of committed.reverse()){const batch=writeBatch(db);group.forEach(message=>batch.update(doc(db,collectionName,message.id),rollbackData(message)));await batch.commit()}throw error}
 }
 function supportTicketId(m){return m.ticketId||`legacy-${m.ownerUid}`}
 function supportTicketMessages(ticketId){return state.supportMessages.filter(m=>supportTicketId(m)===ticketId).sort((a,b)=>(a.createdAt?.toMillis?.()||0)-(b.createdAt?.toMillis?.()||0))}
@@ -6400,14 +6394,10 @@ function renderSupport(){
   scrollSupportChats();
 }
 async function uploadSupportImage(file,ownerUid,ticketId){
-  if(!file)return {url:"",path:""};
-  if(!["image/png","image/jpeg","image/webp"].includes(file.type))throw new Error("Use uma imagem PNG, JPG ou WEBP.");
-  if(file.size>5*1024*1024)throw new Error("A imagem deve ter no máximo 5 MB.");
-  const safe=file.name.replace(/[^a-zA-Z0-9._-]/g,"_");
-  const path=`support/${ownerUid}/${ticketId}/${Date.now()}-${safe}`;
-  const ref=storageRef(storage,path);
-  const snap=await uploadBytes(ref,file,{contentType:file.type});
-  return {url:await getDownloadURL(snap.ref),path};
+  if(!file)return {url:"",path:""};if(!["image/png","image/jpeg","image/webp"].includes(file.type))throw new Error("Use uma imagem PNG, JPG ou WEBP.");if(file.size>5*1024*1024)throw new Error("A imagem deve ter no máximo 5 MB.");
+  const safe=file.name.replace(/[^a-zA-Z0-9._-]/g,"_"),path=`support/${ownerUid}/${ticketId}/${Date.now()}-${safe}`;
+  if(SupabaseShadow.isConnected())return SupabaseShadow.uploadFile("team-assets",path,file,file.type);
+  const ref=storageRef(storage,path),snap=await uploadBytes(ref,file,{contentType:file.type});return {url:await getDownloadURL(snap.ref),path};
 }
 async function sendSupportMessage({ownerUid,ownerName,text,link,file,ticketId}){
   const cleanText=(text||"").trim(); if(!cleanText&&!file)throw new Error("Digite uma mensagem ou selecione uma imagem.");
@@ -6416,13 +6406,14 @@ async function sendSupportMessage({ownerUid,ownerName,text,link,file,ticketId}){
   let currentTicket=ticketId;
   if(!currentTicket){const active=activeSupportTicketFor(ownerUid);currentTicket=active?.ticketId||newSupportTicketId(ownerUid)}
   const image=await uploadSupportImage(file,ownerUid,currentTicket);
-  try{await addDoc(collection(db,"supportMessages"),{ticketId:currentTicket,ownerUid,ownerName,senderUid:state.user.uid,senderName:state.profile?.name||state.user.email,senderRole:currentAccessRole(),text:cleanText,link:normalizedLink,imageUrl:image.url,imagePath:image.path,status:permissionEnabled("support_manage")?"waiting_user":"open",createdAt:serverTimestamp()})}catch(error){if(image.path)try{await deleteObject(storageRef(storage,image.path))}catch{}throw error}
+  const msg={ticketId:currentTicket,ownerUid,ownerName,senderUid:state.user.uid,senderName:state.profile?.name||state.user.email,senderRole:currentAccessRole(),text:cleanText,link:normalizedLink,imageUrl:image.url,imagePath:image.path,status:permissionEnabled("support_manage")?"waiting_user":"open",createdAt:new Date().toISOString()};
+  try{if(SupabaseShadow.isConnected()){await sbRecordAdd("support_message",msg,{ownerUid});await loadSupabaseLegacyRuntime()}else await addDoc(collection(db,"supportMessages"),{...msg,createdAt:serverTimestamp()})}catch(error){if(image.path)try{if(SupabaseShadow.isConnected())await SupabaseShadow.deleteFile("team-assets",image.path);else await deleteObject(storageRef(storage,image.path))}catch{}throw error}
 }
 on("profileSupportForm","submit",async e=>{e.preventDefault();try{await sendSupportMessage({ownerUid:state.user.uid,ownerName:state.profile?.name||state.user.email,text:byId("profileSupportText").value,link:byId("profileSupportLink").value,file:byId("profileSupportImage").files?.[0]});e.target.reset();byId("profileSupportText")?.focus();toast("Mensagem enviada aos responsáveis.");}catch(error){toast(error.message||errMsg(error))}});
 on("supportAdminForm","submit",async e=>{e.preventDefault();if(!permissionEnabled("support_manage")||!state.selectedSupportTicketId)return;const selected=supportTickets().find(t=>t.ticketId===state.selectedSupportTicketId);if(!selected||selected.status==="resolved")return;try{await sendSupportMessage({ownerUid:selected.ownerUid,ownerName:selected.ownerName,text:byId("supportAdminText").value,link:byId("supportAdminLink").value,file:byId("supportAdminImage").files?.[0],ticketId:selected.ticketId});e.target.reset();byId("supportAdminText")?.focus();await audit("Resposta de atendimento",`Resposta enviada em ${selected.ticketId} para ${selected.ownerName}`);toast("Resposta enviada.");}catch(error){toast(error.message||errMsg(error))}});
 on("supportStatusSelect","change",async e=>{if(!permissionEnabled("support_manage")||!state.selectedSupportTicketId)return;const selected=supportTickets().find(t=>t.ticketId===state.selectedSupportTicketId);if(!selected)return;try{await updateConversationMessages(selected.msgs,"supportMessages",()=>({status:e.target.value,statusUpdatedAt:serverTimestamp(),statusUpdatedBy:state.user.uid}),m=>({status:m.status,statusUpdatedAt:previousField(m,"statusUpdatedAt"),statusUpdatedBy:previousField(m,"statusUpdatedBy")}));await audit("Status de atendimento",`${selected.ticketId}: ${supportStatusLabel(e.target.value)}`);if(e.target.value==="resolved"){state.supportView="finished";toast("Atendimento finalizado e movido para Finalizados.")}else toast("Status atualizado.");renderSupport();}catch(error){toast(errMsg(error))}});
 on("supportSearch","input",renderSupport);
-on("supportDeleteBtn","click",async()=>{if(!owner()||!state.selectedSupportTicketId)return;const selected=supportTickets().find(t=>t.ticketId===state.selectedSupportTicketId);if(!selected||selected.status!=="resolved")return;if(!confirm(`Excluir definitivamente ${selected.ticketId}? Esta ação não pode ser desfeita.`))return;try{for(const m of selected.msgs){if(m.imagePath){try{await deleteObject(storageRef(storage,m.imagePath))}catch(err){console.warn("Anexo não removido:",err)}}await deleteDoc(doc(db,"supportMessages",m.id))}await audit("Atendimento excluído",`${selected.ticketId} de ${selected.ownerName}`);state.selectedSupportTicketId="";state.selectedSupportOwnerUid="";toast("Atendimento excluído definitivamente.");}catch(error){toast(errMsg(error))}});
+on("supportDeleteBtn","click",async()=>{if(!owner()||!state.selectedSupportTicketId)return;const selected=supportTickets().find(t=>t.ticketId===state.selectedSupportTicketId);if(!selected||selected.status!=="resolved")return;if(!confirm(`Excluir definitivamente ${selected.ticketId}? Esta ação não pode ser desfeita.`))return;try{for(const m of selected.msgs){if(m.imagePath){try{if(SupabaseShadow.isConnected())await SupabaseShadow.deleteFile("team-assets",m.imagePath);else await deleteObject(storageRef(storage,m.imagePath))}catch(err){console.warn("Anexo não removido:",err)}}if(SupabaseShadow.isConnected())await sbRecordDelete("support_message",m.id);else await deleteDoc(doc(db,"supportMessages",m.id))}await audit("Atendimento excluído",`${selected.ticketId} de ${selected.ownerName}`);state.selectedSupportTicketId="";state.selectedSupportOwnerUid="";toast("Atendimento excluído definitivamente.");}catch(error){toast(errMsg(error))}});
 document.addEventListener("click",e=>{
   const view=e.target.closest("[data-support-view]");if(view){state.supportView=view.dataset.supportView;state.selectedSupportTicketId="";state.selectedSupportOwnerUid="";renderSupport();return}
   const b=e.target.closest("[data-support-ticket]");if(!b)return;state.selectedSupportTicketId=b.dataset.supportTicket;state.selectedSupportOwnerUid=b.dataset.supportOwner;renderSupport();
@@ -6512,13 +6503,14 @@ async function sendPrivateChat({ownerUid,ownerName,text,link,file,chatId}){
   if(current?.status==="finalized")throw new Error("Este chat foi finalizado. Inicie uma nova conversa.");
   const currentChatId=current?.chatId||newPrivateChatId(ownerUid);
   const image=await uploadChatImage(file,ownerUid,currentChatId);
-  try{await addDoc(collection(db,"chatMessages"),{chatId:currentChatId,chatStatus:"active",ownerUid,ownerName,senderUid:state.user.uid,senderName:state.profile?.name||state.user.email,senderRole:currentAccessRole(),text:cleanText,link:normalizedLink,imageUrl:image.url,imagePath:image.path,createdAt:serverTimestamp()})}catch(error){if(image.path)try{await deleteObject(storageRef(storage,image.path))}catch{}throw error}
+  const msg={chatId:currentChatId,chatStatus:"active",ownerUid,ownerName,senderUid:state.user.uid,senderName:state.profile?.name||state.user.email,senderRole:currentAccessRole(),text:cleanText,link:normalizedLink,imageUrl:image.url,imagePath:image.path,createdAt:new Date().toISOString()};
+  try{if(SupabaseShadow.isConnected()){await sbRecordAdd("chat_message",msg,{ownerUid});await loadSupabaseLegacyRuntime()}else await addDoc(collection(db,"chatMessages"),{...msg,createdAt:serverTimestamp()})}catch(error){if(image.path)try{if(SupabaseShadow.isConnected())await SupabaseShadow.deleteFile("team-assets",image.path);else await deleteObject(storageRef(storage,image.path))}catch{}throw error}
   state.selectedChatId=currentChatId;
 }
 on("profileChatForm","submit",async e=>{e.preventDefault();try{await sendPrivateChat({ownerUid:state.user.uid,ownerName:state.profile?.name||state.user.email,text:byId("profileChatText").value,link:byId("profileChatLink").value,file:byId("profileChatImage").files?.[0]});e.target.reset();byId("profileChatText")?.focus();toast("Mensagem enviada no chat privado.");}catch(error){toast(error.message||errMsg(error))}});
 on("chatAdminForm","submit",async e=>{e.preventDefault();if(!permissionEnabled("support_manage")||!state.selectedChatOwnerUid)return;const user=state.users.find(u=>u.id===state.selectedChatOwnerUid);try{await sendPrivateChat({ownerUid:state.selectedChatOwnerUid,ownerName:user?.name||user?.email||"Usuário",text:byId("chatAdminText").value,link:byId("chatAdminLink").value,file:byId("chatAdminImage").files?.[0],chatId:state.selectedChatId});e.target.reset();byId("chatAdminText")?.focus();await audit("Chat privado",`Mensagem enviada para ${user?.name||user?.email||state.selectedChatOwnerUid}`);toast("Mensagem enviada.");}catch(error){toast(error.message||errMsg(error))}});
 on("chatFinishBtn","click",async()=>{if(!permissionEnabled("support_manage"))return;const session=selectedChatSession()||activeChatFor(state.selectedChatOwnerUid);if(!session||session.status==="finalized")return;if(!confirm(`Finalizar o chat ${session.chatId} com ${session.ownerName}? A conversa ficará somente para consulta dos responsáveis.`))return;try{await updateConversationMessages(session.msgs,"chatMessages",()=>({chatStatus:"finalized",finalizedAt:serverTimestamp(),finalizedBy:state.user.uid}),m=>({chatStatus:m.chatStatus||"active",finalizedAt:previousField(m,"finalizedAt"),finalizedBy:previousField(m,"finalizedBy")}));await audit("Chat privado finalizado",`${session.chatId} com ${session.ownerName}`);state.chatView="finished";toast("Chat finalizado e movido para Finalizados.");renderPrivateChat()}catch(error){toast(errMsg(error))}});
-on("chatDeleteBtn","click",async()=>{if(!owner())return;const session=selectedChatSession();if(!session||session.status!=="finalized")return;if(!confirm(`Excluir definitivamente o chat ${session.chatId}?`))return;try{for(const message of session.msgs){if(message.imagePath)try{await deleteObject(storageRef(storage,message.imagePath))}catch{}await deleteDoc(doc(db,"chatMessages",message.id))}await audit("Chat privado excluído",`${session.chatId} com ${session.ownerName}`);state.selectedChatId="";state.selectedChatOwnerUid="";toast("Chat excluído definitivamente.")}catch(error){toast(errMsg(error))}});
+on("chatDeleteBtn","click",async()=>{if(!owner())return;const session=selectedChatSession();if(!session||session.status!=="finalized")return;if(!confirm(`Excluir definitivamente o chat ${session.chatId}?`))return;try{for(const message of session.msgs){if(message.imagePath)try{if(SupabaseShadow.isConnected())await SupabaseShadow.deleteFile("team-assets",message.imagePath);else await deleteObject(storageRef(storage,message.imagePath))}catch{}if(SupabaseShadow.isConnected())await sbRecordDelete("chat_message",message.id);else await deleteDoc(doc(db,"chatMessages",message.id))}await audit("Chat privado excluído",`${session.chatId} com ${session.ownerName}`);state.selectedChatId="";state.selectedChatOwnerUid="";toast("Chat excluído definitivamente.")}catch(error){toast(errMsg(error))}});
 on("chatSearch","input",renderPrivateChat);
 document.addEventListener("click",e=>{
   const view=e.target.closest("[data-chat-view]");if(view){state.chatView=view.dataset.chatView;state.selectedChatOwnerUid="";state.selectedChatId="";renderPrivateChat();return}
@@ -6552,9 +6544,7 @@ function updateFirstAccessUI(){
   setHtml("firstAccessChecklist",requirements.map(item=>`<li class="${item.ok?"done":""}"><span>${item.ok?"✓":"○"}</span>${item.label}</li>`).join(""));
   const finish=byId("finishFirstAccessButton");if(finish)finish.disabled=done!==requirements.length;
 }
-async function auditFirstAccess(){
-  try{await addDoc(collection(db,"audit"),{userId:state.user.uid,userName:state.profile?.name||state.profile?.email||"Usuário",action:"Primeiro acesso concluído",details:"Perfil e personagem configurados pelo usuário.",createdAt:serverTimestamp()})}catch(error){console.warn("Auditoria do primeiro acesso não registrada:",error)}
-}
+async function auditFirstAccess(){try{await audit("Primeiro acesso concluído","Perfil e personagem configurados pelo usuário.")}catch(error){console.warn("Auditoria do primeiro acesso não registrada:",error)}}
 async function completeFirstAccess(){
   const missing=firstAccessRequirements().filter(item=>!item.ok).map(item=>item.label);
   if(missing.length){
@@ -6562,7 +6552,7 @@ async function completeFirstAccess(){
     return toast(`Complete: ${missing.join(", ")}.`);
   }
   try{
-    await updateDoc(doc(db,"users",state.user.uid),{firstLogin:false,profileCompleted:true,profileCompletedAt:serverTimestamp(),updatedAt:serverTimestamp()});
+    if(!SupabaseShadow.isConnected())await updateDoc(doc(db,"users",state.user.uid),{firstLogin:false,profileCompleted:true,profileCompletedAt:serverTimestamp(),updatedAt:serverTimestamp()});
     state.profile.firstLogin=false;state.profile.profileCompleted=true;state.onboardingRequired=false;
     await auditFirstAccess();
     applyPermissions();updateFirstAccessUI();
@@ -6670,26 +6660,9 @@ function updateSupabaseMigrationUI(){
   const primary=supabasePrimaryMode();
   setText("supabaseStatus",connected?(primary?"Conectado · PRINCIPAL":"Conectado"):"Não conectado");
   byId("supabaseStatus")?.classList.toggle("connected",connected);
-  setText("supabasePrimaryState",primary?"Banco principal: Supabase · Firebase = backup":"Banco principal: Firebase");
+  setText("supabasePrimaryState","Backend oficial: Supabase");
   byId("supabasePrimaryState")?.classList.toggle("active",primary);
 }
-on("supabaseConnect","click",async()=>{
-  const email=String(byId("supabaseEmail")?.value||"").trim();
-  const password=String(byId("supabasePassword")?.value||"");
-  if(!email||!password)return toast("Informe e-mail e senha da conta Supabase.");
-  try{
-    await SupabaseShadow.login(email,password);
-    const profile=await SupabaseShadow.profile();
-    if(!profile||profile.active!==true||!["dev","leadership","staff"].includes(profile.access_role)){
-      await SupabaseShadow.logout();
-      return toast("O usuário Supabase não possui perfil administrativo ativo.");
-    }
-    updateSupabaseMigrationUI();
-    toast(`Supabase conectado como ${profile.access_role}.`);
-    if(byId("supabasePassword"))byId("supabasePassword").value="";
-  }catch(error){toast(`Falha Supabase: ${error.message}`)}
-});
-on("supabaseDisconnect","click",async()=>{await SupabaseShadow.logout();updateSupabaseMigrationUI();toast("Supabase desconectado.");});
 on("supabaseTest","click",async()=>{
   try{
     await SupabaseShadow.health();
@@ -6697,9 +6670,8 @@ on("supabaseTest","click",async()=>{
     toast(`Supabase OK${profile?` · ${profile.access_role}`:""}.`);
   }catch(error){toast(`Teste Supabase falhou: ${error.message}`)}
 });
-on("supabaseMigrateNow","click",migrateCurrentFirebaseDataToSupabase);
 on("supabaseVerifyCounts","click",async()=>{
-  if(!supabaseShadowEnabled())return toast("Conecte o Supabase primeiro.");
+  if(!SupabaseShadow.isConnected())return toast("Faça login no Supabase primeiro.");
   try{
     const [characters,attendance,payments,events]=await Promise.all([
       SupabaseShadow.query("characters","select=id"),
@@ -6713,34 +6685,6 @@ on("supabaseVerifyCounts","click",async()=>{
   }catch(error){
     toast(`Falha ao conferir Supabase: ${error.message}`);
   }
-});
-
-on("supabaseRepairPaymentLinks","click",async()=>{
-  try{
-    const result=await repairSupabasePaymentLinks();
-    toast(`Pagamentos vinculados: ${result.linked} · sem personagem correspondente: ${result.unmatched}`);
-    await loadSupabasePrimaryCore();
-  }catch(error){toast(`Falha ao vincular pagamentos: ${error.message}`)}
-});
-on("supabaseActivatePrimary","click",async()=>{
-  if(!SupabaseShadow.isConnected())return toast("Conecte o Supabase primeiro.");
-  try{
-    const profile=await SupabaseShadow.profile();
-    if(!profile||profile.active!==true)return toast("Perfil Supabase administrativo não está ativo.");
-    setSupabasePrimaryMode(true);
-    await repairSupabasePaymentLinks();
-    await loadSupabasePrimaryCore();
-    startSupabasePrimaryRefresh();
-    updateSupabaseMigrationUI();
-    toast("Supabase ativado como banco principal. Firebase permanece como backup.");
-  }catch(error){setSupabasePrimaryMode(false);toast(`Não foi possível ativar Supabase: ${error.message}`)}
-});
-on("supabaseDeactivatePrimary","click",()=>{
-  setSupabasePrimaryMode(false);
-  clearInterval(supabasePrimaryRefreshTimer);
-  subscribeAll();
-  updateSupabaseMigrationUI();
-  toast("Firebase voltou a ser a fonte principal.");
 });
 
 document.addEventListener("DOMContentLoaded",updateSupabaseMigrationUI,{once:true});

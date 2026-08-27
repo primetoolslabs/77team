@@ -11,7 +11,7 @@
 <title>77 TEAM SA21</title>
 <link href="manifest.json" rel="manifest"/>
 <link href="icons/icon-192.png" rel="icon"/>
-<link href="css/style.css?v=22.9.41-role-audit-highlight" rel="stylesheet"/>
+<link href="css/style.css?v=22.10.0-v7-total-audit" rel="stylesheet"/>
 
 <script>
 (async()=>{
@@ -856,26 +856,20 @@
   <div class="panel-head">
     <div>
       <h3>🟩 Supabase · Produção Auditada</h3>
-      <p>Supabase é o backend principal. Firebase permanece apenas como backup temporário desta versão.</p>
+      <p>Supabase é o backend principal e oficial desta versão. O Firebase legado não é usado no fluxo normal.</p>
     </div>
     <span class="supabase-status" id="supabaseStatus">Não conectado</span>
   </div>
   <div class="panel-body supabase-migration-grid">
-    <label>E-mail Supabase
-      <input autocomplete="username" id="supabaseEmail" type="email" placeholder="E-mail do usuário DEV criado no Supabase"/>
-    </label>
-    <label>Senha Supabase
-      <input autocomplete="current-password" id="supabasePassword" type="password" placeholder="Senha do Supabase"/>
-    </label>
+    
+    
     <div class="supabase-actions">
-      <button class="btn primary" id="supabaseConnect" type="button">Conectar Supabase</button>
-      <button class="btn" id="supabaseDisconnect" type="button">Desconectar</button>
       <button class="btn" id="supabaseTest" type="button">Testar conexão</button>
       <button class="btn" id="supabaseVerifyCounts" type="button">Conferir dados no Supabase</button>
     </div>
-    <div class="supabase-migration-result" id="supabaseMigrationResult">Supabase pronto para produção.</div>
+    <div class="supabase-migration-result" id="supabaseMigrationResult">Backend Supabase ativo. Use os botões abaixo apenas para diagnóstico.</div>
     <div class="supabase-primary-state" id="supabasePrimaryState">Banco principal: Supabase</div>
-    <small>Primeiro execute o arquivo <b>SUPABASE-MIGRACAO-V2.sql</b> no Editor SQL do Supabase.</small>
+    <small>Execute <b>SUPABASE-V7-COMPLETO.sql</b> no Editor SQL antes de publicar esta versão.</small>
   </div>
 </section>
 
@@ -948,7 +942,7 @@
 </section>
 <section class="settings-tab" data-settings-panel="permissions">
 <div class="settings-page-head"><div><span>CONFIGURAÇÕES</span><h2>Permissões</h2><p>Existe uma única matriz oficial de permissões.</p></div></div>
-<article class="settings-card"><h3>Matriz unificada</h3><p>As permissões da interface e do Firestore são administradas em AVANÇADO → Cargos e Permissões.</p><button class="btn primary owner-only" data-page-jump="permissoes-cargos" type="button">Abrir Cargos e Permissões</button><p class="settings-note">Somente o DEV pode alterar a matriz oficial.</p></article>
+<article class="settings-card"><h3>Matriz unificada</h3><p>As permissões da interface e do Supabase são administradas em AVANÇADO → Cargos e Permissões.</p><button class="btn primary owner-only" data-page-jump="permissoes-cargos" type="button">Abrir Cargos e Permissões</button><p class="settings-note">Somente o DEV pode alterar a matriz oficial.</p></article>
 </section>
 <section class="settings-tab" data-settings-panel="attendance">
 <div class="settings-page-head"><div><span>CONFIGURAÇÕES</span><h2>Presenças</h2><p>Horários, pontuação e regras de registro.</p></div><button class="btn primary" data-save-settings="attendance" type="button">Salvar</button></div>
@@ -1022,7 +1016,7 @@
 <article class="settings-card">
 <h3>Exportar</h3>
 <p>Gera um arquivo JSON com os dados carregados no painel.</p>
-<button class="btn primary full" id="exportCompleteBackup" type="button">Baixar backup completo do Firestore</button>
+<button class="btn primary full" id="exportCompleteBackup" type="button">Baixar backup completo do Supabase</button>
 </article>
 <article class="settings-card">
 <h3>Restaurar</h3>
@@ -1030,7 +1024,7 @@
 <input accept="application/json" id="importBackupFile" type="file"/>
 <button class="btn full" id="restoreCompleteBackup" type="button">Restaurar backup</button>
 </article>
-<article class="settings-card span-2 backup-warning"><h3>Importante</h3><p>Faça um backup antes de qualquer restauração. Contas do Firebase Authentication não fazem parte deste arquivo JSON.</p></article>
+<article class="settings-card span-2 backup-warning"><h3>Importante</h3><p>Faça um backup antes de qualquer restauração. Contas do Supabase Authentication não fazem parte deste arquivo JSON.</p></article>
 </div>
 </section>
 <section class="settings-tab" data-settings-panel="security">
@@ -1044,7 +1038,7 @@
 <div class="settings-page-head"><div><span>CONFIGURAÇÕES</span><h2>Sistema</h2><p>Saúde e estatísticas técnicas da aplicação.</p></div><button class="btn" id="refreshSystemHealth" type="button">Atualizar</button></div>
 <div class="system-health-grid">
 <article><span>Versão</span><strong>22.9.32</strong><small>Hotfix atual</small></article>
-<article><span>Projeto Firebase</span><strong id="systemProjectId">—</strong><small>Conectado</small></article>
+<article><span>Projeto Supabase</span><strong id="systemProjectId">—</strong><small>Conectado</small></article>
 <article><span>Usuários</span><strong id="systemUsersCount">0</strong><small>Perfis</small></article>
 <article><span>Membros</span><strong id="systemMembersCount">0</strong><small>Ativos</small></article>
 <article><span>Presenças</span><strong id="systemAttendanceCount">0</strong><small>Registros</small></article>
@@ -1070,9 +1064,9 @@
 <div class="page-head"><div><h2>🚀 Atualizações</h2><p>Central de implantação do 77 TEAM Manager.</p></div></div>
 <div class="advanced-grid"><article class="panel"><div class="panel-head"><h3>Versão do sistema</h3></div><div class="panel-body advanced-card"><strong>22.9.32 Hotfix</strong><p id="updateStatusText">Aguardando verificação do manifesto.</p><div class="version-details"><span>Base oficial: 22.9.31</span><span>Compilação: 15/08/2026</span></div><button class="btn primary" id="checkUpdatesButton" type="button">Verificar atualização</button></div></article><article class="panel"><div class="panel-head"><h3>Novidades da V22.9.32</h3></div><div class="panel-body"><ul class="release-notes"><li>A HOME aparece antes do login.</li><li>Visitantes acessam somente a Visão Geral e Sobre.</li><li>Alterações exigem cadastro, aprovação e login.</li><li>STAFF, Administração e Avançado permanecem protegidos.</li></ul></div></article><article class="panel"><div class="panel-head"><h3>Repositório GitHub</h3></div><div class="panel-body stack"><p>Consulte repositórios públicos sem armazenar tokens no navegador.</p><label>Repositório<input id="githubRepository" placeholder="organizacao/repositorio" maxlength="180"/></label><div class="button-row"><button class="btn" id="saveGithubRepository" type="button">Salvar</button><button class="btn primary" id="checkGithubButton" type="button">Consultar GitHub</button></div><p class="muted" id="githubUpdateStatus">Nenhum repositório configurado.</p></div></article></div>
 </section>
-<section class="page page-animate owner-only advanced-page" id="backup"><div class="page-head"><div><h2>💾 Backup e restauração</h2><p>Exporte, valide e restaure dados com rollback persistente.</p></div></div><div class="advanced-grid"><article class="panel"><div class="panel-head"><h3>Novo backup</h3></div><div class="panel-body"><p>Gera um backup completo do Firestore com projeto, versão, coleções e subcoleções semanais.</p><button class="btn primary" id="createBackupButton" type="button">Gerar backup JSON</button></div></article><article class="panel"><div class="panel-head"><h3>Restauração controlada</h3></div><div class="panel-body stack"><p>O arquivo é validado antes de qualquer gravação. Em caso de falha, o restoreJob executa rollback.</p><input accept="application/json" id="restoreBackupFile" type="file"/><button class="btn primary" disabled id="restoreAdvancedBackup" type="button">Restaurar backup validado</button><p class="muted" id="restoreBackupInfo">Selecione um backup completo do Firestore.</p></div></article></div></section>
+<section class="page page-animate owner-only advanced-page" id="backup"><div class="page-head"><div><h2>💾 Backup e restauração</h2><p>Exporte, valide e restaure dados com rollback persistente.</p></div></div><div class="advanced-grid"><article class="panel"><div class="panel-head"><h3>Novo backup</h3></div><div class="panel-body"><p>Gera um backup completo do Supabase com projeto, versão, coleções e subcoleções semanais.</p><button class="btn primary" id="createBackupButton" type="button">Gerar backup JSON</button></div></article><article class="panel"><div class="panel-head"><h3>Restauração controlada</h3></div><div class="panel-body stack"><p>O arquivo é validado antes de qualquer gravação. Na V7, os dados são restaurados diretamente no Supabase usando upsert e IDs preservados.</p><input accept="application/json" id="restoreBackupFile" type="file"/><button class="btn primary" disabled id="restoreAdvancedBackup" type="button">Restaurar backup validado</button><p class="muted" id="restoreBackupInfo">Selecione um backup completo do Supabase.</p></div></article></div></section>
 <section class="page page-animate owner-only advanced-page" id="logs-sistema"><div class="page-head"><div><h2>📋 Logs do sistema</h2><p>Registros de auditoria e eventos operacionais.</p></div></div><article class="panel"><div class="table-wrap"><table><thead><tr><th>Data</th><th>Usuário</th><th>Ação</th><th>Detalhes</th></tr></thead><tbody id="advancedLogsRows"></tbody></table></div></article></section>
-<section class="page page-animate owner-only advanced-page" id="status-firebase"><div class="page-head"><div><h2>📊 Status do Firebase</h2><p>Teste real de autenticação, leitura do Firestore e listeners.</p></div><button class="btn primary" id="refreshFirebaseStatus" type="button">Executar diagnóstico</button></div><div class="advanced-grid" id="firebaseStatusCards"></div></section>
+<section class="page page-animate owner-only advanced-page" id="status-firebase"><div class="page-head"><div><h2>📊 Status do Supabase</h2><p>Teste real de autenticação, leitura do Supabase e listeners.</p></div><button class="btn primary" id="refreshSupabaseStatus" type="button">Executar diagnóstico</button></div><div class="advanced-grid" id="firebaseStatusCards"></div></section>
 <section class="page page-animate owner-only advanced-page" id="status-github"><div class="page-head"><div><h2>🌐 Status do GitHub</h2><p>Consulta segura de repositório público e workflows, sem token.</p></div><button class="btn primary" id="refreshGithubStatus" type="button">Atualizar status</button></div><div class="advanced-grid" id="githubStatusCards"></div></section>
 <section class="page page-animate owner-only advanced-page" id="sessoes"><div class="page-head"><div><h2>👥 Sessões de usuários conectados</h2><p>Sessões registradas por navegador com último sinal de atividade.</p></div><button class="btn danger" id="clearInactiveSessions" type="button">Limpar inativas</button></div><article class="panel"><div class="panel-body" id="activeSessionsList"></div></article></section>
 <section class="page page-animate owner-only advanced-page" id="manutencao"><div class="page-head"><div><h2>🚧 Modo manutenção</h2><p>Publique um aviso informativo sem bloquear o acesso dos usuários.</p></div></div><div class="maintenance-settings-grid"><article class="panel"><div class="panel-head"><h3>Configuração do aviso</h3><span class="maintenance-status-chip" id="maintenanceStatusChip">Sistema online</span></div><div class="panel-body stack"><label class="toggle-row"><span><strong>Ativar aviso de manutenção</strong><small>Todos continuam podendo entrar e usar o sistema.</small></span><input id="maintenanceModeToggle" type="checkbox"/></label><label>Título<input id="maintenanceTitle" maxlength="80" placeholder="Sistema em manutenção"/></label><label>Mensagem<textarea id="maintenanceMessage" maxlength="500" placeholder="Estamos realizando melhorias. Algumas funções podem apresentar instabilidade." rows="5"></textarea></label><label>URL da imagem (opcional)<input id="maintenanceImageUrl" placeholder="https://.../banner.jpg" type="url"/></label><label>Previsão de término (opcional)<input id="maintenanceExpectedEnd" type="datetime-local"/></label><div class="maintenance-display-options"><label><input checked="" id="maintenanceShowLogin" type="checkbox"/> Mostrar na tela de login</label><label><input checked="" id="maintenanceShowApp" type="checkbox"/> Mostrar dentro do sistema</label></div><div class="button-row"><button class="btn" id="previewMaintenanceButton" type="button">👁️ Visualizar</button><button class="btn primary" id="saveMaintenanceButton" type="button">💾 Salvar alterações</button></div></div></article><article class="panel"><div class="panel-head"><h3>Prévia</h3></div><div class="panel-body"><div class="maintenance-preview" id="maintenancePreview"><img alt="Prévia do aviso" class="hidden" id="maintenancePreviewImage"/><strong id="maintenancePreviewTitle">🚧 Sistema em manutenção</strong><p id="maintenancePreviewMessage">Estamos realizando melhorias. Algumas funções podem apresentar instabilidade.</p><small class="hidden" id="maintenancePreviewEnd"></small><span>O acesso permanece liberado para todos.</span></div></div></article></div></section>
@@ -1120,7 +1114,7 @@
 <section class="page page-animate owner-only advanced-page" id="permissoes-cargos">
 <div class="page-head"><div><h2>🔐 Matriz configurável de permissões</h2><p>O DEV pode ativar ou desativar permissões individualmente para cada cargo.</p></div></div>
 <div class="panel permission-config-panel">
-<div class="panel-head"><div><h3>Cargos e permissões</h3><p>As alterações são salvas no Firebase e entram em vigor em tempo real na interface e nas regras de acesso.</p></div><div class="button-row"><button class="btn" id="resetRolePermissions" type="button">↺ Restaurar padrão</button><button class="btn primary" disabled id="saveRolePermissions" type="button">💾 Salvar permissões</button></div></div>
+<div class="panel-head"><div><h3>Cargos e permissões</h3><p>As alterações são salvas no Supabase e entram em vigor em tempo real na interface e nas regras de acesso.</p></div><div class="button-row"><button class="btn" id="resetRolePermissions" type="button">↺ Restaurar padrão</button><button class="btn primary" disabled id="saveRolePermissions" type="button">💾 Salvar permissões</button></div></div>
 <div class="panel-body">
 <div class="role-color-legend"><span class="role-badge role-dev">DEV</span><span class="role-badge role-leadership">Liderança</span><span class="role-badge role-staff">Staff</span><span class="role-badge role-member">Membro</span></div>
 <div class="permission-bulk-actions"><strong>Ações rápidas</strong><button class="btn mini" data-permission-role-all="leadership" type="button">Marcar Liderança</button><button class="btn mini" data-permission-role-all="staff" type="button">Marcar Staff</button><button class="btn mini" data-permission-role-all="member" type="button">Marcar Membro</button><button class="btn mini" data-permission-role-none="leadership" type="button">Limpar Liderança</button><button class="btn mini" data-permission-role-none="staff" type="button">Limpar Staff</button><button class="btn mini" data-permission-role-none="member" type="button">Limpar Membro</button></div>
@@ -1144,7 +1138,7 @@
 </div>
 <div class="about-v152-meta">
 <div><span>Versão</span><strong>22.9.32 Hotfix</strong></div>
-<div><span>Tecnologias</span><strong>HTML5, CSS3, JavaScript e Firebase</strong></div>
+<div><span>Tecnologias</span><strong>HTML5, CSS3, JavaScript e Supabase</strong></div>
 <div><span>Licença</span><strong>Uso exclusivo da 77 TEAM</strong></div>
 </div>
 <footer>© 2026 PrimeTools Labs. Todos os direitos reservados.</footer>
@@ -1275,6 +1269,6 @@
 <div class="global-search-results hidden" id="globalSearchResults"></div>
 <div class="toast" id="toast"></div>
 <script src="js/ui.js?v=22.9.34-supabase-shadow4-cachefix"></script>
-<script src="js/main.js?v=22.9.41-role-audit-highlight" type="module"></script>
+<script src="js/main.js?v=22.10.0-v7-total-audit" type="module"></script>
 </body>
 </html>

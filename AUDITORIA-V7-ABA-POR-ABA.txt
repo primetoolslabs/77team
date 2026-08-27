@@ -1,0 +1,190 @@
+77 TEAM MANAGER — AUDITORIA COMPLETA V7
+Versão: 22.10.0-v7-total-audit
+
+OBJETIVO
+Auditoria estrutural do projeto atual, sem trocar o layout, com Supabase como backend oficial.
+
+CORREÇÕES GERAIS
+- Removidas do fluxo normal as leituras/escritas que estavam gerando "Missing or insufficient permissions" no Firebase.
+- Supabase passa a ser a fonte oficial do runtime autenticado.
+- Cargos e permissões continuam em profiles + role_permissions.
+- DEV pode atribuir/remover cargos por RPC segura.
+- Sessões, notificações, RT, backups de presença, XP, atendimento e chat passam a usar app_records.
+- Configurações passam a usar app_settings; versão pública sanitizada usa public_settings.
+- HOME pública passa a usar public_snapshots, sem depender do Firestore.
+- Personalização do login e anexos usam Supabase Storage (bucket team-assets).
+- Meu Perfil usa Supabase profiles/Auth; atualização não permite promover o próprio cargo via edição de perfil.
+- Backup completo V7 exporta e restaura dados do Supabase.
+- Diagnóstico avançado agora testa Supabase Auth/Database em vez de Firestore.
+
+AUDITORIA ABA POR ABA
+
+HOME / VISÃO GERAL
+Status: OK
+Backend: characters, attendance, events + public_snapshots.
+Correção: publicação e leitura da HOME pública não usam mais public/home do Firestore.
+
+MEU PERFIL
+Status: OK
+Backend: Supabase Auth + profiles.
+Correção: nickname, nome de exibição, Discord, WhatsApp, nascimento, bio, avatar, e-mail e senha foram direcionados ao Supabase.
+Cargo do perfil continua protegido: alteração de cargo é feita somente pelo DEV via RPC administrativa.
+
+MEMBROS
+Status: DESATIVADA POR REGRA DO PROJETO
+Motivo: o projeto foi configurado anteriormente para remover login/membros comuns e manter o cadastro pela aba Personagem.
+Não é falha de carregamento.
+
+HISTÓRICO
+Status: OK
+Backend: attendance.
+Visitante usa snapshot público; equipe autenticada usa dados completos.
+
+RANKING
+Status: OK
+Backend: characters + attendance + progression.
+
+CALENDÁRIO
+Status: OK
+Backend: events.
+Criar/editar/excluir usa Supabase quando autenticado.
+
+ESTATÍSTICAS
+Status: OK
+Backend: dados carregados de characters/attendance/events.
+
+STAFF HUB
+Status: OK
+Backend: agregação dos dados Supabase.
+
+PRESENÇAS
+Status: OK
+Backend: attendance.
+Correções: edição individual, observação, exclusão e marcação em massa usam Supabase.
+
+RT PRESENÇA
+Status: OK
+Backend: app_records(kind=rt_presence).
+Criar, consultar e excluir migrados para Supabase.
+
+REGISTROS
+Status: OK
+Backend: attendance.
+
+PAGAMENTOS
+Status: OK
+Backend: payments.
+Criar, excluir e limpar histórico usam Supabase.
+
+PERSONAGENS
+Status: OK
+Backend: characters + profiles para cargo de acesso.
+DEV pode alterar DEV/Liderança/Staff/Membro; PT TIME/PT BOOST/PT CORE permanecem cargos de personagem.
+Alteração visual do cargo permanece destacada no perfil.
+
+METAS
+Status: OK
+Backend: app_settings.
+Criar/remover metas não depende mais do Firestore.
+
+SOLICITAÇÕES
+Status: DESATIVADA POR REGRA DO PROJETO
+Cadastro público está desligado. Não é falha de permissão.
+
+NOTIFICAÇÕES
+Status: OK
+Backend: app_records(kind=notification / notification_read).
+Enviar, ler e excluir migrados.
+
+ATENDIMENTO
+Status: OK
+Backend: app_records(kind=support_message) + Supabase Storage.
+Anexos usam bucket team-assets.
+
+CHAT
+Status: OK
+Backend: app_records(kind=chat_message) + Supabase Storage.
+
+STAFF / EQUIPE
+Status: OK
+Backend: profiles.
+DEV consegue alterar cargo diretamente no perfil da conta.
+
+CONFIGURAÇÕES
+Status: OK
+Backend: app_settings + public_settings.
+Segredos não são publicados em public_settings.
+
+BACKUP CENTRAL / BACKUP
+Status: OK PARA BACKUP V7
+Exportação e restauração usam formato Supabase V7.
+Contas do Supabase Authentication não podem ser recriadas por um JSON do navegador; perfis existentes são atualizados.
+
+AUDITORIA
+Status: OK
+Backend: audit.
+Alterações de cargo são auditadas no banco.
+
+ATUALIZAÇÕES
+Status: OK NO FRONTEND
+Integração de repositório permanece configurável. Requer repositório/hosting válido para consulta externa.
+
+LOGS DO SISTEMA
+Status: OK
+Usa dados de auditoria/runtime disponíveis.
+
+STATUS SUPABASE
+Status: OK
+Correção: deixou de testar Firestore e passa a testar Supabase Auth/Database.
+
+STATUS GITHUB
+Status: OK CONDICIONAL
+Depende de repositório GitHub configurado e acesso à internet.
+
+SESSÕES
+Status: OK
+Backend: app_records(kind=session).
+Heartbeat e limpeza de sessões inativas usam Supabase.
+
+MANUTENÇÃO
+Status: OK
+Backend: app_settings/public_settings.
+
+STATUS SERVIÇOS
+Status: OK
+Mostra Supabase, PWA e GitHub.
+
+LIMPEZA DE CACHE
+Status: OK
+Operação local no navegador.
+
+ESTATÍSTICAS DO SISTEMA
+Status: OK
+Usa estado carregado do Supabase.
+
+PERSONALIZAR LOGIN
+Status: OK
+Backend: app_settings + Supabase Storage.
+
+CARGOS E PERMISSÕES
+Status: OK
+Backend: role_permissions + profiles + RPC dev_set_access_role.
+DEV tem controle total; Staff e Liderança continuam limitados pela hierarquia.
+
+SOBRE
+Status: OK
+Conteúdo estático.
+
+VALIDAÇÕES EXECUTADAS
+- main.js: sintaxe OK
+- ui.js: sintaxe OK
+- supabase-client.js: sintaxe OK
+- supabase-config.js: sintaxe OK
+- pdf-generator.js: sintaxe OK
+- service-worker.js: sintaxe OK
+- IDs HTML duplicados: 0
+- Assets locais ausentes: 0
+- Fluxos Supabase detectados: Auth, Perfil, Cargos, Personagens, Presenças, Pagamentos, Eventos, Configurações, Notificações, Atendimento, Chat, Sessões, HOME pública, Backup/Restore.
+
+IMPORTANTE
+A auditoria estática não consegue provar 100% do comportamento do banco remoto sem executar a aplicação contra o seu projeto Supabase e clicar em cada fluxo com contas DEV/Staff. O código foi corrigido para os erros encontrados e validado estruturalmente. Depois de executar o SQL V7 e publicar, o teste final de produção deve ser feito com uma conta DEV e uma conta Staff.
