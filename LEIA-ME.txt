@@ -1,16 +1,24 @@
-77 TEAM MANAGER - V6.2 DEV CARGOS
+77 TEAM MANAGER - V6.4 AUDITORIA DE CARGOS
 
 ANTES DE PUBLICAR:
-1. Supabase > SQL Editor
-2. Execute: SUPABASE-V6.2-DEV-CARGOS.sql
-3. Publique esta versão
-4. CTRL+F5
+1. Supabase > SQL Editor.
+2. Execute SUPABASE-V6.4-AUDITORIA-CARGOS.sql.
+3. Publique esta versão.
+4. CTRL+F5.
 
-CORREÇÃO:
-- DEV altera cargo diretamente em public.profiles.
-- Não depende de Personagem estar vinculado à conta.
-- DEV pode alterar inclusive o próprio cargo.
-- Cargos de acesso: DEV, Liderança/Administrador, Staff, Membro sem acesso administrativo.
-- Os cargos de personagem/clã (Membros, PT TIME, PT BOOST, PT CORE) continuam em characters.role.
+DEV:
+- pode atribuir DEV;
+- pode atribuir Liderança / Administrador;
+- pode atribuir Staff;
+- pode remover cargo administrativo e deixar Membro;
+- pode definir PT TIME, PT BOOST e PT CORE na edição do Personagem;
+- pode alterar inclusive o próprio cargo.
 
-Na aba Staff, o DEV verá seletor "Salvar cargo" em cada conta ativa.
+VISUAL:
+DEV = vermelho forte
+Liderança/Administrador = vermelho
+Staff = amarelo
+Membro = azul
+PT TIME / BOOST / CORE mantêm as cores próprias de personagem.
+
+As mudanças de cargo de acesso ficam registradas em public.audit.

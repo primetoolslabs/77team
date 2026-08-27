@@ -7234,3 +7234,27 @@ body[data-public-view="true"] #historico.public-history-view .history-center-hea
 
 .supabase-primary-state{grid-column:1/-1;padding:9px 11px;border-radius:8px;background:rgba(255,255,255,.035);font-weight:700}
 .supabase-primary-state.active{color:#55e6a6;border:1px solid rgba(61,207,142,.28);background:rgba(61,207,142,.07)}
+
+
+/* V6.4 — destaque visual de cargo no Perfil e Staff */
+#profileRoleBadge .role-badge,.profile-role-highlight .role-badge,
+.staff-role-line .role-badge{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-width:92px;padding:5px 11px;border:1px solid;border-radius:999px;
+  font-weight:900;letter-spacing:.045em;text-transform:uppercase;
+  box-shadow:0 0 14px currentColor;
+}
+.staff-role-line{display:flex!important;align-items:center;gap:7px;flex-wrap:wrap}
+.staff-role-line span{color:var(--muted)}
+
+#profileHero.profile-role-dev{border-color:rgba(255,51,79,.82)!important;box-shadow:0 0 0 1px rgba(255,51,79,.22),0 0 28px rgba(255,51,79,.18)!important}
+#profileHero.profile-role-leadership{border-color:rgba(239,68,68,.72)!important;box-shadow:0 0 0 1px rgba(239,68,68,.18),0 0 25px rgba(239,68,68,.14)!important}
+#profileHero.profile-role-staff{border-color:rgba(250,204,21,.72)!important;box-shadow:0 0 0 1px rgba(250,204,21,.16),0 0 25px rgba(250,204,21,.12)!important}
+#profileHero.profile-role-member{border-color:rgba(56,189,248,.62)!important;box-shadow:0 0 0 1px rgba(56,189,248,.14),0 0 22px rgba(56,189,248,.10)!important}
+
+/* Cargo atual também fica destacado no topo */
+#userBadge.role-dev,#userBadge.role-leadership,#userBadge.role-staff,#userBadge.role-member{
+  border:1px solid currentColor!important;border-radius:999px!important;
+  padding:4px 10px!important;font-weight:900!important;
+  box-shadow:0 0 12px currentColor;
+}

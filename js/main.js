@@ -21,7 +21,7 @@ function finalizePrintWindow(printWindow,autoPrint=true){
 }
 
 import {firebaseConfig,FIREBASE_VERSION} from "./firebase-config.js";
-import {SupabaseShadow} from "./supabase-client.js?v=22.9.40-character-role-fix";
+import {SupabaseShadow} from "./supabase-client.js?v=22.9.41-role-audit-highlight";
 import {asciiPdfText,createTextPdf} from "./pdf-generator.js";
 const SDK=`https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}`;
 const {initializeApp,deleteApp}=await import(`${SDK}/firebase-app.js`);
@@ -455,7 +455,7 @@ const DEV_ACCOUNT_ROLE_OPTIONS=Object.freeze([
   {value:"dev",label:"DEV"},
   {value:"leadership",label:"Liderança / Administrador"},
   {value:"staff",label:"Staff"},
-  {value:"member",label:"Membro sem acesso administrativo"}
+  {value:"member",label:"Sem cargo administrativo / Membro"}
 ]);
 
 async function devSetAccountRole(userId,nextAccess){
@@ -477,6 +477,7 @@ async function devSetAccountRole(userId,nextAccess){
     state.profile.resolvedAccessRole=nextAccess;
     applyPermissions();
     render();
+    renderProfile();
   }
 }
 
@@ -520,8 +521,11 @@ function characterEditorCargoOptions(item){
   const member=state.members.find(row=>row.userId===item.id||row.id===item.id||row.name===item.nickname)||{};
   // Na edição de Personagem o DEV pode alterar qualquer cargo, inclusive o próprio.
   if(currentAccessRole()==="dev")return [
-    {value:"dev",label:"DEV"},{value:"leadership",label:"Liderança"},{value:"staff",label:"Staff"},
-    ...MEMBER_ROLES.map(value=>({value:`member:${value}`,label:value}))
+    {value:"dev",label:"DEV"},
+    {value:"leadership",label:"Liderança / Administrador"},
+    {value:"staff",label:"Staff"},
+    {value:"member:Membros",label:"Remover cargo administrativo → Membros"},
+    ...MEMBER_ROLES.filter(value=>value!=="Membros").map(value=>({value:`member:${value}`,label:value}))
   ];
   if(!permissionEnabled("roles_change")||!user)return [];
   return allowedCargoOptions(member,user);
@@ -1075,6 +1079,12 @@ function applyPermissions(){
     element.classList.remove("role-dev","role-leadership","role-staff","role-member");
     element.classList.add(ROLE_CONFIG[currentAccessRole()]?.badgeClass||"role-member");
   });
+  document.body.dataset.accessRole=currentAccessRole();
+  const profileHero=byId("profileHero");
+  if(profileHero){
+    profileHero.classList.remove("profile-role-dev","profile-role-leadership","profile-role-staff","profile-role-member");
+    profileHero.classList.add(`profile-role-${currentAccessRole()}`);
+  }
   const currentActivePage=document.querySelector(".page.active")?.id;
   if(currentActivePage&&!canOpenPage(currentActivePage)){
     window.TeamManagerUI?.activatePage("dashboard");
@@ -3771,7 +3781,7 @@ function openResponsibleCharacterEditor(item){
   const roleSelect=byId("responsibleCharacterRole");
   if(roleSelect){
     const options=owner()
-      ?[{value:"dev",label:"DEV"},{value:"leadership",label:"Liderança"},{value:"staff",label:"Staff"},...MEMBER_ROLES.map(role=>({value:`member:${role}`,label:role}))]
+      ?characterEditorCargoOptions(item)
       :MEMBER_ROLES.map(role=>({value:`member:${role}`,label:role}));
     roleSelect.innerHTML=options.map(option=>`<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`).join("");
     const linked=linkedProfileForCharacter(item);
@@ -5127,7 +5137,7 @@ function renderStaffCards(){
       <div class="staff-card-avatar">${staffAvatarHtml(item)}</div>
       <div class="staff-card-copy">
         <h3>${escapeHtml(item.name)}</h3>
-        <p>${escapeHtml(accessRoleLabel(item.role))} · ${escapeHtml(item.clan)}</p>
+        <p class="staff-role-line">${roleBadge(item.role)} <span>· ${escapeHtml(item.clan)}</span></p>
         <small>${escapeHtml(item.email)}</small>
       </div>
       <div class="staff-card-stats">
@@ -5290,7 +5300,7 @@ document.addEventListener("click",async event=>{
   try{
     await devSetAccountRole(userId,nextAccess);
     Object.assign(user,{role:nextAccess,accessRole:nextAccess,resolvedAccessRole:nextAccess});
-    await audit("cargo de acesso alterado",`${user.email||user.name} → ${label}`);
+    // A alteração de cargo já é auditada no próprio Supabase pela RPC.
     renderStaffCommandCenter();
     toast(`Cargo alterado para ${label}.`);
   }catch(error){
